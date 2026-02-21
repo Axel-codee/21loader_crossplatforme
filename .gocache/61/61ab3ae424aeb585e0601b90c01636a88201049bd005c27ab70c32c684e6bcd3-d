@@ -1,0 +1,5 @@
+./artwork.go
+./diagnostics.go
+./qobuz.go
+./rss.go
+./youtube.go
