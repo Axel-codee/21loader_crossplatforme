@@ -9,6 +9,7 @@ Ce projet fournit une application locale complete pour telecharger et organiser 
 - Vue d'ensemble
 - Stack et architecture
 - Prerequis
+- Installation detaillee (toutes plateformes)
 - Lancement rapide
 - Guide d'utilisation de l'UI
 - Fonctionnalites detaillees (liste exhaustive)
@@ -73,6 +74,156 @@ L'application expose:
 - Qobuz: `qobuz-dl` (et config qobuz-dl valide).
 - Transcription: `whisper-cli` + modele GGML.
 - Traduction: Python + `argostranslate`.
+
+## Installation detaillee (toutes plateformes)
+
+Cette section decrit un setup complet "pret a produire des jobs" sur chaque OS.
+
+### 1) Recuperer le projet
+
+```bash
+git clone <url-du-repo>
+cd 21loader_crossplatforme
+```
+
+### 2) Installer les prerequis de base
+
+#### macOS (Homebrew)
+
+1. Installer Homebrew si absent.
+2. Installer les outils:
+
+```bash
+brew install go yt-dlp ffmpeg qobuz-dl whisper-cpp python
+```
+
+3. Installer Argos dans le venv PersoDL:
+
+```bash
+python3.13 -m venv "$HOME/Library/Application Support/PersoDL/argostranslate-venv" \
+  || python3.12 -m venv "$HOME/Library/Application Support/PersoDL/argostranslate-venv" \
+  || python3 -m venv "$HOME/Library/Application Support/PersoDL/argostranslate-venv"
+"$HOME/Library/Application Support/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+#### Windows (winget recommande)
+
+1. Ouvrir PowerShell (normal ou admin selon politique machine).
+2. Installer les outils:
+
+```powershell
+winget install --id GoLang.Go -e
+winget install --id yt-dlp.yt-dlp -e
+winget install --id Gyan.FFmpeg -e
+winget install --id Python.Python.3.12 -e
+winget install --id ggml-org.whisper.cpp -e
+```
+
+3. Installer `qobuz-dl` via pipx:
+
+```powershell
+py -m pip install --user pipx
+py -m pipx install qobuz-dl
+```
+
+4. Installer Argos dans le venv PersoDL:
+
+```powershell
+py -3.13 -m venv "$env:APPDATA\PersoDL\argostranslate-venv" `
+  || py -3.12 -m venv "$env:APPDATA\PersoDL\argostranslate-venv" `
+  || py -3 -m venv "$env:APPDATA\PersoDL\argostranslate-venv"
+"$env:APPDATA\PersoDL\argostranslate-venv\Scripts\python.exe" -m pip install --upgrade pip argostranslate
+```
+
+Si `whisper-cli` n'est pas disponible apres installation, utiliser la page `Systeme > Diagnostics` pour l'installation assistee.
+
+#### Linux (APT, DNF, Pacman)
+
+Choisir le bloc correspondant a votre distribution.
+
+##### Debian/Ubuntu (APT)
+
+```bash
+sudo apt-get update
+sudo apt-get install -y golang-go yt-dlp ffmpeg python3 python3-venv pipx
+pipx install qobuz-dl
+# Selon distribution:
+sudo apt-get install -y whisper-cpp || true
+python3.12 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
+  || python3.11 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
+  || python3 -m venv "$HOME/.config/PersoDL/argostranslate-venv"
+"$HOME/.config/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+##### Fedora/RHEL (DNF)
+
+```bash
+sudo dnf install -y golang yt-dlp ffmpeg python3 pipx
+pipx install qobuz-dl
+# Selon distribution:
+sudo dnf install -y whisper-cpp || true
+python3.12 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
+  || python3.11 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
+  || python3 -m venv "$HOME/.config/PersoDL/argostranslate-venv"
+"$HOME/.config/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+##### Arch/Manjaro (Pacman)
+
+```bash
+sudo pacman -Sy --noconfirm go yt-dlp ffmpeg python python-pipx
+pipx install qobuz-dl
+# Selon distribution:
+sudo pacman -Sy --noconfirm whisper-cpp || true
+python3.12 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
+  || python3.11 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
+  || python3 -m venv "$HOME/.config/PersoDL/argostranslate-venv"
+"$HOME/.config/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+### 3) Verification des installations
+
+Verifier que les binaires repondent:
+
+```bash
+go version
+yt-dlp --version
+ffmpeg -version
+qobuz-dl --help
+whisper-cli --version || whisper-cpp --version
+```
+
+Verification Argos:
+
+```bash
+python3 -c "import argostranslate; print('argostranslate OK')"
+```
+
+Sur Windows, utiliser:
+
+```powershell
+py -c "import argostranslate; print('argostranslate OK')"
+```
+
+### 4) Premier lancement
+
+```bash
+cd 21loader_crossplatforme
+go run ./cmd/server --host 0.0.0.0 --port 8080
+```
+
+Puis ouvrir `http://localhost:8080`.
+
+### 5) Finalisation recommandee dans l'UI
+
+1. Aller sur `Systeme`.
+2. Cliquer `Rafraichir` dans `Diagnostics et dependances`.
+3. Installer/mettre a jour les outils proposes si besoin.
+4. Aller sur `Gestionnaire de modeles Whisper` et installer au moins un modele.
+5. Aller sur `Reglages`:
+   - definir le dossier de sortie par defaut
+   - saisir email/mot de passe Qobuz si utilise
+   - activer cookies Firefox si necessaire pour YouTube
 
 ## Lancement rapide
 
