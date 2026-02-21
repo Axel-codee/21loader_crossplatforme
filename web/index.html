@@ -198,6 +198,21 @@
       gap: 8px;
     }
 
+    .path-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .path-picker input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .path-picker button {
+      white-space: nowrap;
+    }
+
     .translation-target-picker {
       display: flex;
       align-items: center;
@@ -1242,7 +1257,10 @@
             </div>
             <div class="field">
               <label for="outputRootPath">Dossier de sortie</label>
-              <input id="outputRootPath" placeholder="/Users/..." />
+              <div class="path-picker">
+                <input id="outputRootPath" placeholder="/Users/..." />
+                <button id="pickOutputRootPath" class="btn-ghost" type="button">Parcourir...</button>
+              </div>
             </div>
 
             <div class="field">
@@ -1294,7 +1312,10 @@
           </div>
           <div class="field">
             <label for="defaultOutputRoot">Dossier de sortie par défaut</label>
-            <input id="defaultOutputRoot" />
+            <div class="path-picker">
+              <input id="defaultOutputRoot" />
+              <button id="pickDefaultOutputRoot" class="btn-ghost" type="button">Parcourir...</button>
+            </div>
           </div>
           <div class="row2">
             <div class="field">
@@ -1378,6 +1399,7 @@
               <th>URL</th>
               <th>Statut</th>
               <th>Progression</th>
+              <th>Synthèse</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -3736,6 +3758,34 @@
       return date.toLocaleString();
     }
 
+    function formatElapsedDuration(value) {
+      const safe = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
+      const days = Math.floor(safe / 86400);
+      const hours = Math.floor((safe % 86400) / 3600);
+      const minutes = Math.floor((safe % 3600) / 60);
+      const seconds = safe % 60;
+      if (days > 0) {
+        return `${days}j ${hours}h ${minutes}m ${seconds}s`;
+      }
+      if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+      }
+      if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+      }
+      return `${seconds}s`;
+    }
+
+    function totalElapsedLabel(job) {
+      if (!job?.startedAt) return "-";
+      return formatElapsedDuration(job.totalElapsedSeconds || 0);
+    }
+
+    function activeStepElapsedLabel(job) {
+      if (!job?.currentStep) return "-";
+      return formatElapsedDuration(job.activeStepElapsedSeconds || 0);
+    }
+
     function setFlash(message, isError = false) {
       const el = $("flash");
       el.textContent = message || "";
@@ -3977,6 +4027,40 @@
       return payload;
     }
 
+    async function pickDirectoryForInput(inputID, buttonID) {
+      const trigger = $(buttonID);
+      if (!trigger) return;
+
+      const previousLabel = trigger.textContent;
+      trigger.disabled = true;
+      trigger.textContent = "Ouverture...";
+
+      try {
+        const response = await api("/api/system/select-directory", {
+          method: "POST",
+          body: JSON.stringify({
+            currentPath: inputValue(inputID) || "",
+          }),
+        });
+        if (response?.cancelled) {
+          return;
+        }
+        const selectedPath = String(response?.path || "").trim();
+        if (!selectedPath) {
+          throw new Error("Aucun dossier n'a ete selectionne.");
+        }
+        setInput(inputID, selectedPath);
+        if (inputID === "defaultOutputRoot" && !inputValue("outputRootPath")) {
+          setInput("outputRootPath", selectedPath);
+        }
+      } catch (error) {
+        setFlash(`Impossible d'ouvrir le selecteur natif: ${error.message}`, true);
+      } finally {
+        trigger.disabled = false;
+        trigger.textContent = previousLabel;
+      }
+    }
+
     async function refreshStatus() {
       const status = await api("/api/status");
       const previousJobs = state.lastJobs || [];
@@ -4018,6 +4102,8 @@
       return `status ${String(status || "").toLowerCase()}`;
     }
 
+    const JOB_STEP_ORDER = ["download", "lyrics", "transcription", "muxing", "organization"];
+
     function makeProgress(job) {
       const sourceKind = String(job.sourceKind || "").toLowerCase();
       const step = job.currentStep ? ` (${job.currentStep})` : "";
@@ -4044,18 +4130,110 @@
       return `${pct}%${step}`;
     }
 
-    function makeLyricsSummary(job) {
-      const total = Number(job.lyricsFoundTotal || 0);
-      const found = Number(job.lyricsFound || 0);
-      if (total <= 0) return "";
-      const safeFound = Math.max(0, Math.min(total, found));
-      return `Lyrics trouves: ${safeFound}/${total}`;
+    function hasCompletedStep(job, step) {
+      return (job.completedSteps || []).includes(step);
+    }
+
+    function firstIncompleteStep(job) {
+      for (const step of JOB_STEP_ORDER) {
+        if (!hasCompletedStep(job, step)) {
+          return step;
+        }
+      }
+      return "";
+    }
+
+    function stepStatusLabel(job, step) {
+      const status = String(job.status || "").toLowerCase();
+      const currentStep = String(job.currentStep || "").toLowerCase();
+      if (hasCompletedStep(job, step)) return "ok";
+      if (currentStep === step && (status === "running" || status === "paused")) {
+        return status === "paused" ? "pause" : "en cours";
+      }
+      if (status === "failed") {
+        const failedStep = firstIncompleteStep(job);
+        if (failedStep === step) return "echec";
+      }
+      if (status === "cancelled") {
+        const cancelledStep = firstIncompleteStep(job);
+        if (cancelledStep === step) return "annule";
+      }
+      return "-";
+    }
+
+    function stepTimeLabel(statusLabel, elapsedSeconds) {
+      if (statusLabel === "-") return "-";
+      return formatElapsedDuration(elapsedSeconds || 0);
+    }
+
+    function translationStatusLabel(job) {
+      const translation = String(job.translationStatus || "").toLowerCase();
+      const jobStatus = String(job.status || "").toLowerCase();
+      if (translation === "completed") return "ok";
+      if (translation === "failed") return "echec";
+      if (translation === "cancelled") return "annule";
+      if (translation === "skipped") return "ignore";
+      if (translation === "running") return jobStatus === "paused" ? "pause" : "en cours";
+      if (translation === "pending") return "en cours";
+      return "-";
+    }
+
+    function makeCollectionSummaryLines(job) {
+      const lines = [];
+      const downloadTotal = Number(job.qobuzTracksTotal || 0);
+      const downloadDone = Number(job.qobuzTracksDone || 0);
+      if (downloadTotal > 0) {
+        const safeDone = Math.max(0, Math.min(downloadTotal, downloadDone));
+        const status = stepStatusLabel(job, "download");
+        lines.push(`${safeDone}/${downloadTotal} telecharges • ${status} • temps ${stepTimeLabel(status, Number(job.downloadElapsedSeconds || 0))}`);
+      }
+
+      const lyricsTotal = Math.max(Number(job.lyricsFoundTotal || 0), Number(job.lyricsTracksTotal || 0));
+      if (lyricsTotal > 0) {
+        const lyricsFound = Number(job.lyricsFound || 0);
+        const safeFound = Math.max(0, Math.min(lyricsTotal, lyricsFound));
+        const lyricsFailed = Math.max(0, Number(job.lyricsFailed || 0));
+        const status = stepStatusLabel(job, "lyrics");
+        const failureLabel = lyricsFailed > 0 ? ` • echecs ${lyricsFailed}` : "";
+        lines.push(`${safeFound}/${lyricsTotal} lyrics trouves${failureLabel} • ${status} • temps ${stepTimeLabel(status, Number(job.lyricsElapsedSeconds || 0))}`);
+      }
+      return lines;
+    }
+
+    function makeSingleSummaryLines(job) {
+      const lines = [];
+      const downloadStatus = stepStatusLabel(job, "download");
+      const transcriptionStatus = stepStatusLabel(job, "transcription");
+      const translationStatus = translationStatusLabel(job);
+
+      lines.push(`Telechargement: ${downloadStatus} | ${stepTimeLabel(downloadStatus, Number(job.downloadElapsedSeconds || 0))}`);
+      lines.push(`Transcription: ${transcriptionStatus} | ${stepTimeLabel(transcriptionStatus, Number(job.transcriptionElapsedSeconds || 0))}`);
+      lines.push(`Traduction: ${translationStatus} | ${stepTimeLabel(translationStatus, Number(job.translationElapsedSeconds || 0))}`);
+      return lines;
+    }
+
+    function makeSummaryLines(job) {
+      const sourceKind = String(job.sourceKind || "").toLowerCase();
+      if (sourceKind === "youtube" || sourceKind === "rss") {
+        return makeSingleSummaryLines(job);
+      }
+      return makeCollectionSummaryLines(job);
+    }
+
+    function makeSummaryHTML(job) {
+      const lines = makeSummaryLines(job);
+      if (!lines.length) {
+        return `<span class="hint">-</span>`;
+      }
+      return lines
+        .map((line) => `<span class="hint">${escapeHtml(line)}</span>`)
+        .join("<br />");
     }
 
     function renderJobs(jobs, activeJobID) {
       const body = $("jobsBody");
       if (!jobs.length) {
-        body.innerHTML = `<tr><td colspan="5" class="hint">Aucun job.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6" class="hint">Aucun job.</td></tr>`;
         return;
       }
 
@@ -4069,7 +4247,6 @@
         const pauseLabel = job.status === "paused" ? "Reprendre" : "Pause";
         const canPause = job.id === activeJobID && (job.status === "running" || job.status === "paused");
         const canCancel = job.status === "queued" || job.status === "running" || job.status === "paused";
-        const lyricsSummary = makeLyricsSummary(job);
         return `
           <tr class="${isSelected}" data-job-row="${job.id}">
             <td>
@@ -4082,9 +4259,12 @@
             </td>
             <td>
               <span class="${statusClass(job.status)}">${escapeHtml(job.status)}</span><br />
-              <span class="hint">${formatDate(job.startedAt)} → ${formatDate(job.endedAt)}</span>
+              <span class="hint">${formatDate(job.startedAt)} → ${formatDate(job.endedAt)}</span><br />
+              <span class="hint">Total: ${escapeHtml(totalElapsedLabel(job))}</span><br />
+              <span class="hint">Étape active: ${escapeHtml(activeStepElapsedLabel(job))}</span>
             </td>
-            <td>${escapeHtml(makeProgress(job))}${lyricsSummary ? `<br /><span class="hint">${escapeHtml(lyricsSummary)}</span>` : ""}</td>
+            <td>${escapeHtml(makeProgress(job))}</td>
+            <td>${makeSummaryHTML(job)}</td>
             <td>
               <div class="mini-actions">
                 <button class="btn-ghost" type="button" data-select="${job.id}">Logs</button>
@@ -4144,7 +4324,9 @@
       const selectedJobId = state.selectedJobId;
       const selected = state.lastJobs.find((job) => job.id === selectedJobId);
       title.textContent = `Logs ${selectedJobId.slice(0, 8)}`;
-      meta.textContent = selected ? `${selected.status} • ${selected.logsSize || 0} caractères` : "";
+      meta.textContent = selected
+        ? `${selected.status} • ${selected.logsSize || 0} caractères • total ${totalElapsedLabel(selected)} • étape active ${activeStepElapsedLabel(selected)}`
+        : "";
 
       const jobHasChanged = state.lastRenderedLogsJobId !== selectedJobId;
       const previousScrollTop = content.scrollTop;
@@ -5296,6 +5478,12 @@
 
     $("jobForm").addEventListener("submit", createJob);
     $("settingsForm").addEventListener("submit", saveSettings);
+    $("pickOutputRootPath").addEventListener("click", () => {
+      pickDirectoryForInput("outputRootPath", "pickOutputRootPath");
+    });
+    $("pickDefaultOutputRoot").addEventListener("click", () => {
+      pickDirectoryForInput("defaultOutputRoot", "pickDefaultOutputRoot");
+    });
     $("sourceKind").addEventListener("change", () => {
       const selectedSource = inputValue("sourceKind");
       if (selectedSource && selectedSource !== "auto") {

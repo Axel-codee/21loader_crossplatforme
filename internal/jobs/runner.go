@@ -37,6 +37,7 @@ type RunCallbacks struct {
 	OnStepProgress func(float64)
 	OnStepCount    func(int, int)
 	OnLog          func(string)
+	OnDisplayName  func(string)
 }
 
 type RunOptions struct {
@@ -172,6 +173,9 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 	if err != nil {
 		return core.JobResult{}, err
 	}
+	if cb.OnDisplayName != nil {
+		cb.OnDisplayName(strings.TrimSpace(artifact.Title))
+	}
 	if cb.OnStepProgress != nil {
 		cb.OnStepProgress(1)
 	}
@@ -186,7 +190,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 		cb.OnStepCount(0, 0)
 	}
 	if shouldFetchLyrics(job, artifact) {
-		r.fetchLyricsFromLRCLIB(ctx, artifact.MediaPath, cb)
+		r.fetchLyricsFromLRCLIBWithHints(ctx, artifact.MediaPath, artifact.Title, artifact.SourceName, cb)
 		if cb.OnStepProgress != nil {
 			cb.OnStepProgress(1)
 		}
@@ -1539,7 +1543,7 @@ func shouldTranslate(job core.JobRequest, subtitleFile, transcriptFile string) b
 }
 
 func shouldFetchLyrics(job core.JobRequest, artifact downloadArtifact) bool {
-	return job.ContentType == core.ContentMusic && job.SourceKind == core.SourceQobuz && artifact.IsDirectory && job.EnableLyrics
+	return job.ContentType == core.ContentMusic && job.EnableLyrics && strings.TrimSpace(artifact.MediaPath) != ""
 }
 
 func discoverDownloadedMedia(workspace string) string {
@@ -2317,6 +2321,10 @@ func copyFileReplacing(src, dst string) error {
 }
 
 func (r *Runner) fetchLyricsFromLRCLIB(ctx context.Context, albumDir string, cb RunCallbacks) {
+	r.fetchLyricsFromLRCLIBWithHints(ctx, albumDir, "", "", cb)
+}
+
+func (r *Runner) fetchLyricsFromLRCLIBWithHints(ctx context.Context, albumDir, titleHint, artistHint string, cb RunCallbacks) {
 	audioFiles := discoverAudioFiles(albumDir)
 	if len(audioFiles) == 0 {
 		if cb.OnLog != nil {
@@ -2353,7 +2361,18 @@ func (r *Runner) fetchLyricsFromLRCLIB(ctx context.Context, albumDir string, cb 
 			}
 			continue
 		}
-		payload, err := fetchLRCLIB(ctx, r.httpClient, track)
+		searchTrack := track
+		searchArtist := strings.TrimSpace(artistHint)
+		searchAlbum := ""
+		if len(audioFiles) == 1 {
+			if t := strings.TrimSpace(titleHint); t != "" {
+				searchTrack = t
+			}
+		} else if a := strings.TrimSpace(titleHint); a != "" {
+			// For multi-track jobs, the title hint is usually the album title.
+			searchAlbum = a
+		}
+		payload, err := fetchLRCLIB(ctx, r.httpClient, searchTrack, searchArtist, searchAlbum)
 		if err != nil {
 			failed++
 			if cb.OnLog != nil {
@@ -2381,7 +2400,17 @@ func (r *Runner) fetchLyricsFromLRCLIB(ctx context.Context, albumDir string, cb 
 			}
 		} else {
 			if cb.OnLog != nil {
-				cb.OnLog("[lyrics] Aucun resultat LRCLIB pour cette piste.\n")
+				detail := ""
+				if searchArtist != "" {
+					if searchAlbum != "" {
+						detail = fmt.Sprintf(" (track=%q, artist=%q, album=%q)", searchTrack, searchArtist, searchAlbum)
+					} else {
+						detail = fmt.Sprintf(" (track=%q, artist=%q)", searchTrack, searchArtist)
+					}
+				} else if searchTrack != track {
+					detail = fmt.Sprintf(" (track=%q)", searchTrack)
+				}
+				cb.OnLog("[lyrics] Aucun resultat LRCLIB pour cette piste." + detail + "\n")
 			}
 		}
 		if cb.OnStepProgress != nil {
@@ -2409,12 +2438,19 @@ func (e lrclibHTTPError) Error() string {
 	return fmt.Sprintf("HTTP %d", e.statusCode)
 }
 
-func fetchLRCLIB(ctx context.Context, client *http.Client, track string) (lrclibPayload, error) {
+type lrclibSearchQuery struct {
+	trackName  string
+	artistName string
+	albumName  string
+	query      string
+}
+
+func fetchLRCLIB(ctx context.Context, client *http.Client, track, artistHint, albumHint string) (lrclibPayload, error) {
 	const maxAttempts = 3
 	retryDelay := 350 * time.Millisecond
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		payload, err := fetchLRCLIBOnce(ctx, client, track)
+		payload, err := fetchLRCLIBOnce(ctx, client, track, artistHint, albumHint)
 		if err == nil {
 			return payload, nil
 		}
@@ -2439,39 +2475,408 @@ func fetchLRCLIB(ctx context.Context, client *http.Client, track string) (lrclib
 	return lrclibPayload{}, lastErr
 }
 
-func fetchLRCLIBOnce(ctx context.Context, client *http.Client, track string) (lrclibPayload, error) {
+func fetchLRCLIBOnce(ctx context.Context, client *http.Client, track, artistHint, albumHint string) (lrclibPayload, error) {
+	queries := buildLRCLIBSearchQueries(track, artistHint, albumHint)
+	if len(queries) == 0 {
+		return lrclibPayload{}, nil
+	}
+	targetTrack := strings.TrimSpace(track)
+	targetArtist := strings.TrimSpace(artistHint)
+	targetAlbum := strings.TrimSpace(albumHint)
+	bestScore := -1
+	bestPayload := lrclibPayload{}
+	for _, search := range queries {
+		scoreSearch := search
+		if targetTrack != "" && strings.TrimSpace(scoreSearch.trackName) == "" {
+			scoreSearch.trackName = targetTrack
+		}
+		if targetArtist != "" {
+			scoreSearch.artistName = targetArtist
+		}
+		if targetAlbum != "" && strings.TrimSpace(scoreSearch.albumName) == "" {
+			scoreSearch.albumName = targetAlbum
+		}
+		payload, score, err := fetchLRCLIBSearch(ctx, client, search, scoreSearch)
+		if err != nil {
+			return lrclibPayload{}, err
+		}
+		if score > bestScore {
+			bestScore = score
+			bestPayload = payload
+		}
+	}
+	if bestScore < 0 {
+		return lrclibPayload{}, nil
+	}
+	return bestPayload, nil
+}
+
+func fetchLRCLIBSearch(ctx context.Context, client *http.Client, request lrclibSearchQuery, scoreSearch lrclibSearchQuery) (lrclibPayload, int, error) {
 	q := url.Values{}
-	q.Set("track_name", track)
+	trackName := strings.TrimSpace(request.trackName)
+	artistName := strings.TrimSpace(request.artistName)
+	albumName := strings.TrimSpace(request.albumName)
+	query := strings.TrimSpace(request.query)
+	if trackName != "" {
+		q.Set("track_name", trackName)
+	}
+	if artistName != "" {
+		q.Set("artist_name", artistName)
+	}
+	if albumName != "" {
+		q.Set("album_name", albumName)
+	}
+	if query != "" {
+		q.Set("q", query)
+	}
+	if len(q) == 0 {
+		return lrclibPayload{}, -1, nil
+	}
+
 	u := "https://lrclib.net/api/search?" + q.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return lrclibPayload{}, err
+		return lrclibPayload{}, -1, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return lrclibPayload{}, err
+		return lrclibPayload{}, -1, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return lrclibPayload{}, lrclibHTTPError{statusCode: resp.StatusCode}
+		return lrclibPayload{}, -1, lrclibHTTPError{statusCode: resp.StatusCode}
 	}
 	var items []map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
-		return lrclibPayload{}, err
+		return lrclibPayload{}, -1, err
 	}
-	if len(items) == 0 {
-		return lrclibPayload{}, nil
+	payload, score := pickBestLRCLIBPayload(items, scoreSearch)
+	return payload, score, nil
+}
+
+func pickBestLRCLIBPayload(items []map[string]any, search lrclibSearchQuery) (lrclibPayload, int) {
+	bestScore := -1
+	bestPayload := lrclibPayload{}
+	bestArtistScore := -1
+	bestArtistPayload := lrclibPayload{}
+	searchTrack := normalizeLRCLIBText(search.trackName)
+	searchArtist := normalizeLRCLIBText(search.artistName)
+	searchAlbum := normalizeLRCLIBText(search.albumName)
+	searchQuery := normalizeLRCLIBText(search.query)
+
+	for _, item := range items {
+		payload := lrclibPayload{
+			plainLyrics:  strings.TrimSpace(anyToString(item["plainLyrics"])),
+			syncedLyrics: strings.TrimSpace(anyToString(item["syncedLyrics"])),
+		}
+		if payload.plainLyrics == "" {
+			payload.plainLyrics = strings.TrimSpace(anyToString(item["plain_lyrics"]))
+		}
+		if payload.syncedLyrics == "" {
+			payload.syncedLyrics = strings.TrimSpace(anyToString(item["synced_lyrics"]))
+		}
+		if payload.plainLyrics == "" && payload.syncedLyrics == "" {
+			continue
+		}
+
+		score := 0
+		if payload.syncedLyrics != "" {
+			score += 50
+		} else {
+			score += 10
+		}
+
+		itemTrack := normalizeLRCLIBText(firstNonEmptyValue(item["trackName"], item["track_name"], item["name"]))
+		itemArtist := normalizeLRCLIBText(firstNonEmptyValue(item["artistName"], item["artist_name"], item["artist"]))
+		itemAlbum := normalizeLRCLIBText(firstNonEmptyValue(item["albumName"], item["album_name"], item["album"]))
+		trackScore := partialMatchScore(searchTrack, itemTrack, 40, 20)
+		artistScore := partialMatchScore(searchArtist, itemArtist, 25, 12)
+		albumScore := partialMatchScore(searchAlbum, itemAlbum, 12, 6)
+		score += trackScore + artistScore
+		score += albumScore
+
+		// Avoid selecting unrelated songs when a source artist is known.
+		if searchArtist != "" && itemArtist != "" && artistScore == 0 {
+			score -= 25
+		}
+		if searchArtist != "" && itemArtist == "" {
+			score -= 20
+		}
+		if searchTrack != "" && itemTrack != "" && trackScore == 0 {
+			score -= 15
+		}
+		if searchAlbum != "" && itemAlbum != "" && albumScore == 0 {
+			score -= 6
+		}
+		if searchQuery != "" && (searchTrack == "" || searchArtist == "") {
+			haystack := strings.TrimSpace(itemArtist + " " + itemTrack)
+			if haystack == searchQuery {
+				score += 8
+			} else if strings.Contains(haystack, searchQuery) || strings.Contains(searchQuery, haystack) {
+				score += 4
+			}
+		}
+
+		if score > bestScore {
+			bestScore = score
+			bestPayload = payload
+		}
+		if searchArtist != "" && artistScore > 0 {
+			if searchTrack != "" && trackScore == 0 {
+				// Artist match without track overlap is too risky for plain-text lyrics.
+				continue
+			}
+			if score > bestArtistScore {
+				bestArtistScore = score
+				bestArtistPayload = payload
+			}
+		}
 	}
-	best := items[0]
-	plain := strings.TrimSpace(anyToString(best["plainLyrics"]))
-	if plain == "" {
-		plain = strings.TrimSpace(anyToString(best["plain_lyrics"]))
+	if searchArtist != "" {
+		if bestArtistScore >= 0 {
+			return bestArtistPayload, bestArtistScore
+		}
+		return lrclibPayload{}, -1
 	}
-	synced := strings.TrimSpace(anyToString(best["syncedLyrics"]))
-	if synced == "" {
-		synced = strings.TrimSpace(anyToString(best["synced_lyrics"]))
+	return bestPayload, bestScore
+}
+
+func partialMatchScore(expected, actual string, exactScore, partialScore int) int {
+	expected = strings.TrimSpace(expected)
+	actual = strings.TrimSpace(actual)
+	if expected == "" || actual == "" {
+		return 0
 	}
-	return lrclibPayload{plainLyrics: plain, syncedLyrics: synced}, nil
+	if expected == actual {
+		return exactScore
+	}
+	if strings.Contains(actual, expected) || strings.Contains(expected, actual) {
+		return partialScore
+	}
+	return 0
+}
+
+func firstNonEmptyValue(values ...any) string {
+	for _, value := range values {
+		text := strings.TrimSpace(anyToString(value))
+		if text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func buildLRCLIBSearchQueries(track, artistHint, albumHint string) []lrclibSearchQuery {
+	raw := strings.TrimSpace(track)
+	if raw == "" {
+		return nil
+	}
+	artistHint = strings.TrimSpace(artistHint)
+	albumHint = strings.TrimSpace(albumHint)
+	candidates := normalizeLRCLIBTrackCandidates(raw)
+	queries := make([]lrclibSearchQuery, 0, 10)
+	seen := map[string]bool{}
+	addQuery := func(trackName, artistName, albumName, query string) {
+		trackName = strings.TrimSpace(trackName)
+		artistName = strings.TrimSpace(artistName)
+		albumName = strings.TrimSpace(albumName)
+		query = strings.TrimSpace(query)
+		if trackName == "" && query == "" {
+			return
+		}
+		key := strings.ToLower(trackName + "\x00" + artistName + "\x00" + albumName + "\x00" + query)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		queries = append(queries, lrclibSearchQuery{
+			trackName:  trackName,
+			artistName: artistName,
+			albumName:  albumName,
+			query:      query,
+		})
+	}
+	if artistHint != "" {
+		addQuery(raw, artistHint, albumHint, "")
+		addQuery("", "", "", artistHint+" "+raw)
+	}
+
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		addQuery(candidate, "", albumHint, "")
+		if artistHint != "" {
+			addQuery(candidate, artistHint, albumHint, "")
+		}
+		if artist, title, ok := splitArtistAndTitle(candidate); ok {
+			addQuery(title, artist, albumHint, "")
+			addQuery("", "", "", artist+" "+title)
+			addQuery(title, "", albumHint, "")
+		}
+		addQuery("", "", "", candidate)
+	}
+
+	if len(queries) > 24 {
+		return queries[:24]
+	}
+	return queries
+}
+
+var youtubeIDSuffixRe = regexp.MustCompile(`\s*\[[A-Za-z0-9_-]{6,}\]\s*$`)
+var lrclibLeadingTrackNumberRe = regexp.MustCompile(`^\s*\d{1,3}\s*[\.\-:]\s+`)
+var lrclibBracketChunkRe = regexp.MustCompile(`\s*[\(\[][^\)\]]*[\)\]]`)
+var lrclibTitleNoiseRe = regexp.MustCompile(`(?i)\s*[\(\[][^)\]]*(clip officiel|clip|official|video|audio|lyrics?|paroles?|visualizer|remix|remaster|version|hd|4k)[^)\]]*[\)\]]`)
+var lrclibTextTokenRe = regexp.MustCompile(`[^\p{L}\p{N}]+`)
+
+func normalizeLRCLIBTrackCandidates(track string) []string {
+	raw := strings.TrimSpace(track)
+	if raw == "" {
+		return nil
+	}
+	values := []string{}
+	addValue := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		values = append(values, value)
+		stripped := stripLeadingTrackNumber(value)
+		if stripped != "" && !strings.EqualFold(stripped, value) {
+			values = append(values, stripped)
+		}
+	}
+
+	addValue(raw)
+
+	withoutID := strings.TrimSpace(youtubeIDSuffixRe.ReplaceAllString(raw, ""))
+	if withoutID != "" {
+		addValue(withoutID)
+	}
+	withoutBracketed := strings.TrimSpace(lrclibBracketChunkRe.ReplaceAllString(withoutID, " "))
+	withoutBracketed = strings.Join(strings.Fields(withoutBracketed), " ")
+	if withoutBracketed != "" {
+		addValue(withoutBracketed)
+	}
+	withoutNoise := strings.TrimSpace(lrclibTitleNoiseRe.ReplaceAllString(withoutBracketed, " "))
+	withoutNoise = strings.Join(strings.Fields(withoutNoise), " ")
+	if withoutNoise != "" {
+		addValue(withoutNoise)
+	}
+	artist, title, ok := splitArtistAndTitle(withoutNoise)
+	if !ok {
+		artist, title, ok = splitArtistAndTitle(withoutBracketed)
+	}
+	if ok {
+		addValue(title)
+		addValue(artist + " - " + title)
+	}
+
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		v := strings.TrimSpace(value)
+		if v == "" {
+			continue
+		}
+		key := strings.ToLower(v)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, v)
+	}
+	return out
+}
+
+func stripLeadingTrackNumber(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	out := strings.TrimSpace(lrclibLeadingTrackNumberRe.ReplaceAllString(value, ""))
+	if out == value {
+		return value
+	}
+	return out
+}
+
+func splitArtistAndTitle(value string) (string, string, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", "", false
+	}
+	for _, separator := range []string{" - ", " – ", " — ", " | ", " : "} {
+		parts := strings.SplitN(value, separator, 2)
+		if len(parts) != 2 {
+			continue
+		}
+		artist := strings.TrimSpace(parts[0])
+		title := strings.TrimSpace(parts[1])
+		if artist == "" || title == "" {
+			continue
+		}
+		return artist, title, true
+	}
+	return "", "", false
+}
+
+func normalizeLRCLIBText(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+	value = foldLRCLIBAccents(value)
+	value = lrclibTextTokenRe.ReplaceAllString(value, " ")
+	value = strings.Join(strings.Fields(value), " ")
+	return strings.TrimSpace(value)
+}
+
+func foldLRCLIBAccents(value string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case 'à', 'á', 'â', 'ä', 'ã', 'å', 'ā', 'ă', 'ą':
+			return 'a'
+		case 'ç', 'ć', 'ĉ', 'ċ', 'č':
+			return 'c'
+		case 'ď', 'đ':
+			return 'd'
+		case 'è', 'é', 'ê', 'ë', 'ē', 'ĕ', 'ė', 'ę', 'ě':
+			return 'e'
+		case 'ĝ', 'ğ', 'ġ', 'ģ':
+			return 'g'
+		case 'ĥ', 'ħ':
+			return 'h'
+		case 'ì', 'í', 'î', 'ï', 'ĩ', 'ī', 'ĭ', 'į', 'ı':
+			return 'i'
+		case 'ĵ':
+			return 'j'
+		case 'ķ':
+			return 'k'
+		case 'ĺ', 'ļ', 'ľ', 'ŀ', 'ł':
+			return 'l'
+		case 'ñ', 'ń', 'ņ', 'ň', 'ŉ':
+			return 'n'
+		case 'ò', 'ó', 'ô', 'ö', 'õ', 'ø', 'ō', 'ŏ', 'ő':
+			return 'o'
+		case 'ŕ', 'ŗ', 'ř':
+			return 'r'
+		case 'ś', 'ŝ', 'ş', 'š':
+			return 's'
+		case 'ţ', 'ť', 'ŧ':
+			return 't'
+		case 'ù', 'ú', 'û', 'ü', 'ũ', 'ū', 'ŭ', 'ů', 'ű', 'ų':
+			return 'u'
+		case 'ŵ':
+			return 'w'
+		case 'ý', 'ÿ', 'ŷ':
+			return 'y'
+		case 'ź', 'ż', 'ž':
+			return 'z'
+		default:
+			return r
+		}
+	}, value)
 }
 
 func isRetryableLRCLIBError(err error) bool {
@@ -2497,7 +2902,7 @@ func isRetryableLRCLIBError(err error) bool {
 
 func discoverAudioFiles(dir string) []string {
 	list := []string{}
-	extSet := map[string]bool{".mp3": true, ".flac": true, ".m4a": true, ".aac": true, ".ogg": true, ".opus": true, ".wav": true}
+	extSet := map[string]bool{".mp3": true, ".flac": true, ".m4a": true, ".aac": true, ".ogg": true, ".opus": true, ".wav": true, ".webm": true}
 	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d == nil || d.IsDir() {
 			return nil

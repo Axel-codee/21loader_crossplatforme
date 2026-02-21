@@ -126,6 +126,15 @@ type YouTubeDatesAPIResponse struct {
 	DurationsByVideoID map[string]int       `json:"durationsByVideoID"`
 }
 
+type SelectDirectoryRequest struct {
+	CurrentPath string `json:"currentPath"`
+}
+
+type SelectDirectoryResponse struct {
+	Path      string `json:"path,omitempty"`
+	Cancelled bool   `json:"cancelled"`
+}
+
 type CreateJobAPIRequest struct {
 	InputURL                  string              `json:"inputURL"`
 	SourceKind                string              `json:"sourceKind"`
@@ -237,32 +246,41 @@ type JobResultDTO struct {
 }
 
 type JobSummaryDTO struct {
-	ID                  string        `json:"id"`
-	CreatedAt           time.Time     `json:"createdAt"`
-	SourceKind          string        `json:"sourceKind"`
-	ContentType         string        `json:"contentType"`
-	InputURL            string        `json:"inputURL"`
-	OutputRootPath      string        `json:"outputRootPath"`
-	CustomName          string        `json:"customName"`
-	DisplayName         string        `json:"displayName"`
-	Status              string        `json:"status"`
-	CurrentStep         string        `json:"currentStep,omitempty"`
-	CurrentStepProgress float64       `json:"currentStepProgress"`
-	ProgressFraction    float64       `json:"progressFraction"`
-	ProgressPercent     int           `json:"progressPercent"`
-	CompletedSteps      []string      `json:"completedSteps"`
-	StartedAt           *time.Time    `json:"startedAt"`
-	EndedAt             *time.Time    `json:"endedAt"`
-	ErrorMessage        string        `json:"errorMessage,omitempty"`
-	IsPauseRequested    bool          `json:"isPauseRequested"`
-	Result              *JobResultDTO `json:"result,omitempty"`
-	LogsSize            int           `json:"logsSize"`
-	QobuzTracksDone     int           `json:"qobuzTracksDone,omitempty"`
-	QobuzTracksTotal    int           `json:"qobuzTracksTotal,omitempty"`
-	LyricsTracksDone    int           `json:"lyricsTracksDone,omitempty"`
-	LyricsTracksTotal   int           `json:"lyricsTracksTotal,omitempty"`
-	LyricsFound         int           `json:"lyricsFound,omitempty"`
-	LyricsFoundTotal    int           `json:"lyricsFoundTotal,omitempty"`
+	ID                          string        `json:"id"`
+	CreatedAt                   time.Time     `json:"createdAt"`
+	SourceKind                  string        `json:"sourceKind"`
+	ContentType                 string        `json:"contentType"`
+	InputURL                    string        `json:"inputURL"`
+	OutputRootPath              string        `json:"outputRootPath"`
+	CustomName                  string        `json:"customName"`
+	DisplayName                 string        `json:"displayName"`
+	Status                      string        `json:"status"`
+	CurrentStep                 string        `json:"currentStep,omitempty"`
+	CurrentStepProgress         float64       `json:"currentStepProgress"`
+	ProgressFraction            float64       `json:"progressFraction"`
+	ProgressPercent             int           `json:"progressPercent"`
+	CompletedSteps              []string      `json:"completedSteps"`
+	StartedAt                   *time.Time    `json:"startedAt"`
+	EndedAt                     *time.Time    `json:"endedAt"`
+	CurrentStepStartedAt        *time.Time    `json:"currentStepStartedAt,omitempty"`
+	TotalElapsedSeconds         int64         `json:"totalElapsedSeconds,omitempty"`
+	ActiveStepElapsedSeconds    int64         `json:"activeStepElapsedSeconds,omitempty"`
+	DownloadElapsedSeconds      int64         `json:"downloadElapsedSeconds,omitempty"`
+	LyricsElapsedSeconds        int64         `json:"lyricsElapsedSeconds,omitempty"`
+	TranscriptionElapsedSeconds int64         `json:"transcriptionElapsedSeconds,omitempty"`
+	TranslationStatus           string        `json:"translationStatus,omitempty"`
+	TranslationElapsedSeconds   int64         `json:"translationElapsedSeconds,omitempty"`
+	ErrorMessage                string        `json:"errorMessage,omitempty"`
+	IsPauseRequested            bool          `json:"isPauseRequested"`
+	Result                      *JobResultDTO `json:"result,omitempty"`
+	LogsSize                    int           `json:"logsSize"`
+	QobuzTracksDone             int           `json:"qobuzTracksDone,omitempty"`
+	QobuzTracksTotal            int           `json:"qobuzTracksTotal,omitempty"`
+	LyricsTracksDone            int           `json:"lyricsTracksDone,omitempty"`
+	LyricsTracksTotal           int           `json:"lyricsTracksTotal,omitempty"`
+	LyricsFound                 int           `json:"lyricsFound,omitempty"`
+	LyricsFoundTotal            int           `json:"lyricsFoundTotal,omitempty"`
+	LyricsFailed                int           `json:"lyricsFailed,omitempty"`
 }
 
 type DashboardResponseDTO struct {
@@ -462,24 +480,30 @@ type JobResult struct {
 }
 
 type JobRecord struct {
-	ID                  xuuid.UUID
-	Request             JobRequest
-	Status              JobStatus
-	CurrentStep         *JobStep
-	CurrentStepProgress float64
-	CompletedSteps      map[JobStep]bool
-	StartedAt           *time.Time
-	EndedAt             *time.Time
-	ErrorMessage        string
-	Result              *JobResult
-	Logs                string
-	IsPauseRequested    bool
-	QobuzTracksDone     int
-	QobuzTracksTotal    int
-	LyricsTracksDone    int
-	LyricsTracksTotal   int
-	LyricsFound         int
-	LyricsFoundTotal    int
+	ID                   xuuid.UUID
+	Request              JobRequest
+	Status               JobStatus
+	CurrentStep          *JobStep
+	CurrentStepStartedAt *time.Time
+	StepElapsed          map[JobStep]time.Duration
+	TranslationStatus    string
+	TranslationStartedAt *time.Time
+	TranslationEndedAt   *time.Time
+	CurrentStepProgress  float64
+	CompletedSteps       map[JobStep]bool
+	StartedAt            *time.Time
+	EndedAt              *time.Time
+	ErrorMessage         string
+	Result               *JobResult
+	Logs                 string
+	IsPauseRequested     bool
+	QobuzTracksDone      int
+	QobuzTracksTotal     int
+	LyricsTracksDone     int
+	LyricsTracksTotal    int
+	LyricsFound          int
+	LyricsFoundTotal     int
+	LyricsFailed         int
 }
 
 func NewJobRecord(req JobRequest) JobRecord {
@@ -488,6 +512,7 @@ func NewJobRecord(req JobRequest) JobRecord {
 		Request:        req,
 		Status:         StatusQueued,
 		CompletedSteps: map[JobStep]bool{},
+		StepElapsed:    map[JobStep]time.Duration{},
 	}
 }
 
@@ -535,4 +560,69 @@ func (r *JobRecord) ProgressPercent() int {
 		return pct
 	}
 	return int(r.ProgressFraction()*100 + 0.5)
+}
+
+func (r *JobRecord) TotalElapsed(now time.Time) time.Duration {
+	if r.StartedAt == nil {
+		return 0
+	}
+	end := now
+	if r.EndedAt != nil {
+		end = *r.EndedAt
+	}
+	if end.Before(*r.StartedAt) {
+		return 0
+	}
+	return end.Sub(*r.StartedAt)
+}
+
+func (r *JobRecord) ActiveStepElapsed(now time.Time) time.Duration {
+	if r.CurrentStep == nil || r.CurrentStepStartedAt == nil {
+		return 0
+	}
+	end := now
+	if r.EndedAt != nil {
+		end = *r.EndedAt
+	}
+	if end.Before(*r.CurrentStepStartedAt) {
+		return 0
+	}
+	return end.Sub(*r.CurrentStepStartedAt)
+}
+
+func (r *JobRecord) ElapsedForStep(step JobStep, now time.Time) time.Duration {
+	total := time.Duration(0)
+	if r.StepElapsed != nil {
+		total = r.StepElapsed[step]
+	}
+	if r.CurrentStep != nil && *r.CurrentStep == step && r.CurrentStepStartedAt != nil {
+		end := now
+		if r.EndedAt != nil {
+			end = *r.EndedAt
+		}
+		if !end.Before(*r.CurrentStepStartedAt) {
+			total += end.Sub(*r.CurrentStepStartedAt)
+		}
+	}
+	if total < 0 {
+		return 0
+	}
+	return total
+}
+
+func (r *JobRecord) TranslationElapsed(now time.Time) time.Duration {
+	if r.TranslationStartedAt == nil {
+		return 0
+	}
+	end := now
+	if r.TranslationEndedAt != nil {
+		end = *r.TranslationEndedAt
+	}
+	if r.EndedAt != nil && r.EndedAt.Before(end) {
+		end = *r.EndedAt
+	}
+	if end.Before(*r.TranslationStartedAt) {
+		return 0
+	}
+	return end.Sub(*r.TranslationStartedAt)
 }

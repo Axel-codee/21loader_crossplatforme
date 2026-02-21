@@ -3,6 +3,7 @@ package jobs
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -44,6 +45,8 @@ type OrganizationPayload struct {
 }
 
 type Organizer struct{}
+
+var renamePath = os.Rename
 
 func NewOrganizer() *Organizer {
 	return &Organizer{}
@@ -321,7 +324,110 @@ func moveReplacing(src, dst string) error {
 			return err
 		}
 	}
-	return os.Rename(src, dst)
+	if err := renamePath(src, dst); err != nil {
+		if !isCrossDeviceLinkError(err) {
+			return err
+		}
+		return copyAcrossDevices(src, dst)
+	}
+	return nil
+}
+
+func copyAcrossDevices(src, dst string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		if err := copyDirectory(src, dst); err != nil {
+			_ = os.RemoveAll(dst)
+			return err
+		}
+		return os.RemoveAll(src)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("type de fichier non supporte pour un deplacement inter-volume: %s", src)
+	}
+	if err := copyRegularFile(src, dst, info.Mode().Perm()); err != nil {
+		_ = os.RemoveAll(dst)
+		return err
+	}
+	return os.Remove(src)
+}
+
+func copyDirectory(srcDir, dstDir string) error {
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		dstPath := filepath.Join(dstDir, entry.Name())
+		info, err := os.Lstat(srcPath)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if err := copyDirectory(srcPath, dstPath); err != nil {
+				return err
+			}
+			continue
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("type de fichier non supporte pour un deplacement inter-volume: %s", srcPath)
+		}
+		if err := copyRegularFile(srcPath, dstPath, info.Mode().Perm()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyRegularFile(srcFile, dstFile string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dstFile), 0o755); err != nil {
+		return err
+	}
+	in, err := os.Open(srcFile)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	if mode == 0 {
+		mode = 0o644
+	}
+	tmpFile := dstFile + ".tmp-copy"
+	out, err := os.OpenFile(tmpFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if copyErr != nil {
+		_ = os.Remove(tmpFile)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmpFile)
+		return closeErr
+	}
+	if err := os.Rename(tmpFile, dstFile); err != nil {
+		_ = os.Remove(tmpFile)
+		return err
+	}
+	return nil
+}
+
+func isCrossDeviceLinkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "cross-device link") ||
+		strings.Contains(msg, "different disk drive") ||
+		strings.Contains(msg, "not same device")
 }
 
 func mergeDirectoryMissing(sourceDir, targetDir string) error {

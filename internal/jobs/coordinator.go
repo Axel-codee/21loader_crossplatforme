@@ -59,6 +59,9 @@ type Coordinator struct {
 
 var qobuzTmpTrackIndexRe = regexp.MustCompile(`\.(\d+)\.tmp\b`)
 var lyricsSummaryRe = regexp.MustCompile(`\[lyrics\]\s+Termine:\s+(\d+)\s+genere\(s\),\s+(\d+)\s+deja present\(s\),\s+(\d+)\s+erreur\(s\)\.`)
+var lyricsGeneratedLineRe = regexp.MustCompile(`(?m)^\[lyrics\]\s+(Sous-titres synchronises generes\.|Lyrics texte generes\.)\s*$`)
+var lyricsAlreadyPresentLineRe = regexp.MustCompile(`(?m)^\[lyrics\]\s+Deja present, piste ignoree\.\s*$`)
+var lyricsFailureLineRe = regexp.MustCompile(`(?m)^\[lyrics\]\s+Echec\s+.*$`)
 
 func NewCoordinator(paths util.AppPaths, runner *Runner, diagnostics *services.DiagnosticsService, translation *services.TranslationLanguageService, whisper *services.WhisperModelService, qobuz *services.QobuzService, rss *services.RSSService, youtube *services.YouTubeService) (*Coordinator, error) {
 	if err := paths.Ensure(); err != nil {
@@ -333,11 +336,12 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) core
 	return c.settings
 }
 
-func (c *Coordinator) Enqueue(payload core.CreateJobAPIRequest) (core.JobSummaryDTO, error) {
+func (c *Coordinator) Enqueue(ctx context.Context, payload core.CreateJobAPIRequest) (core.JobSummaryDTO, error) {
 	built, err := c.buildJob(payload)
 	if err != nil {
 		return core.JobSummaryDTO{}, err
 	}
+	built.DisplayName = c.resolveEnqueueDisplayName(ctx, built)
 
 	c.mu.Lock()
 	c.optionsByJobID[built.Request.ID] = built.Options
@@ -352,6 +356,32 @@ func (c *Coordinator) Enqueue(payload core.CreateJobAPIRequest) (core.JobSummary
 
 	c.startNextJobIfNeeded()
 	return summary, nil
+}
+
+func (c *Coordinator) resolveEnqueueDisplayName(ctx context.Context, built builtJob) string {
+	displayName := strings.TrimSpace(built.DisplayName)
+	if displayName != "" {
+		return displayName
+	}
+	if built.Request.SourceKind != core.SourceYouTube {
+		return ""
+	}
+	if c.youtube == nil {
+		return ""
+	}
+	if !util.LooksLikeYouTubeURL(built.Request.InputURL) {
+		return ""
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	resolveCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	title, err := c.youtube.ResolveVideoTitle(resolveCtx, built.Request.InputURL, built.Request.UseFirefoxCookies)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(title)
 }
 
 func (c *Coordinator) Cancel(jobID xuuid.UUID) core.ActionResponseDTO {
@@ -369,9 +399,12 @@ func (c *Coordinator) Cancel(jobID xuuid.UUID) core.ActionResponseDTO {
 		}
 		now := time.Now().UTC()
 		rec := &c.jobs[idx]
+		c.accumulateCurrentStepElapsedLocked(rec, now)
 		rec.Status = core.StatusCancelled
 		rec.EndedAt = &now
 		rec.CurrentStep = nil
+		rec.CurrentStepStartedAt = nil
+		c.finishTranslationLocked(rec, now, "cancelled")
 		rec.CurrentStepProgress = 0
 		rec.ErrorMessage = "Annule"
 		c.appendLogLocked(jobID, "[job] Annulation demandee.\n")
@@ -383,9 +416,12 @@ func (c *Coordinator) Cancel(jobID xuuid.UUID) core.ActionResponseDTO {
 	rec := &c.jobs[idx]
 	if rec.Status == core.StatusQueued {
 		now := time.Now().UTC()
+		c.accumulateCurrentStepElapsedLocked(rec, now)
 		rec.Status = core.StatusCancelled
 		rec.EndedAt = &now
 		rec.CurrentStep = nil
+		rec.CurrentStepStartedAt = nil
+		c.finishTranslationLocked(rec, now, "cancelled")
 		rec.CurrentStepProgress = 0
 		rec.ErrorMessage = "Annule"
 		c.appendLogLocked(jobID, "[job] Annule avant execution.\n")
@@ -496,6 +532,11 @@ func (c *Coordinator) startNextJobIfNeeded() {
 	rec.Status = core.StatusRunning
 	rec.StartedAt = &now
 	rec.CurrentStep = nil
+	rec.CurrentStepStartedAt = nil
+	rec.StepElapsed = map[core.JobStep]time.Duration{}
+	rec.TranslationStatus = ""
+	rec.TranslationStartedAt = nil
+	rec.TranslationEndedAt = nil
 	rec.CurrentStepProgress = 0
 	rec.CompletedSteps = map[core.JobStep]bool{}
 	rec.IsPauseRequested = false
@@ -531,6 +572,9 @@ func (c *Coordinator) execute(ctx context.Context, request core.JobRequest, opti
 		},
 		OnLog: func(chunk string) {
 			c.appendLog(jobID, chunk)
+		},
+		OnDisplayName: func(name string) {
+			c.setRuntimeDisplayName(jobID, name)
 		},
 	})
 
@@ -609,10 +653,19 @@ func (c *Coordinator) updateStep(jobID xuuid.UUID, step core.JobStep) {
 		rec.Status = core.StatusRunning
 		rec.IsPauseRequested = false
 	}
+	now := time.Now().UTC()
+	if rec.CurrentStep != nil && *rec.CurrentStep == step {
+		return
+	}
 	if rec.CurrentStep != nil && *rec.CurrentStep != step {
+		c.accumulateCurrentStepElapsedLocked(rec, now)
+		if *rec.CurrentStep == core.StepTranscription {
+			c.finishTranslationLocked(rec, now, "completed")
+		}
 		rec.CompletedSteps[*rec.CurrentStep] = true
 	}
 	rec.CurrentStep = &step
+	rec.CurrentStepStartedAt = &now
 	rec.CurrentStepProgress = 0
 }
 
@@ -666,6 +719,12 @@ func (c *Coordinator) updateLyricsTrackProgress(jobID xuuid.UUID, done, total in
 	}
 	rec.LyricsTracksTotal = total
 	rec.LyricsTracksDone = done
+	if total > rec.LyricsFoundTotal {
+		rec.LyricsFoundTotal = total
+	}
+	if rec.LyricsFound > rec.LyricsFoundTotal {
+		rec.LyricsFound = rec.LyricsFoundTotal
+	}
 }
 
 func (c *Coordinator) markCompleted(jobID xuuid.UUID, result core.JobResult) {
@@ -679,13 +738,16 @@ func (c *Coordinator) markCompleted(jobID xuuid.UUID, result core.JobResult) {
 	if rec.Status == core.StatusCancelled {
 		return
 	}
+	now := time.Now().UTC()
+	c.accumulateCurrentStepElapsedLocked(rec, now)
+	c.finishTranslationLocked(rec, now, "completed")
 	rec.Status = core.StatusCompleted
 	if rec.CurrentStep != nil {
 		rec.CompletedSteps[*rec.CurrentStep] = true
 	}
 	rec.CurrentStep = nil
+	rec.CurrentStepStartedAt = nil
 	rec.CurrentStepProgress = 1
-	now := time.Now().UTC()
 	rec.EndedAt = &now
 	rec.ErrorMessage = ""
 	rec.Result = &result
@@ -700,10 +762,13 @@ func (c *Coordinator) markCancelled(jobID xuuid.UUID) {
 		return
 	}
 	rec := &c.jobs[idx]
+	now := time.Now().UTC()
+	c.accumulateCurrentStepElapsedLocked(rec, now)
+	c.finishTranslationLocked(rec, now, "cancelled")
 	rec.Status = core.StatusCancelled
 	rec.CurrentStep = nil
+	rec.CurrentStepStartedAt = nil
 	rec.CurrentStepProgress = 0
-	now := time.Now().UTC()
 	rec.EndedAt = &now
 	rec.ErrorMessage = "Annule"
 	c.appendLogLocked(jobID, "[job] Annule.\n")
@@ -720,10 +785,13 @@ func (c *Coordinator) markFailed(jobID xuuid.UUID, err error) {
 	if rec.Status == core.StatusCancelled {
 		return
 	}
+	now := time.Now().UTC()
+	c.accumulateCurrentStepElapsedLocked(rec, now)
+	c.finishTranslationLocked(rec, now, "failed")
 	rec.Status = core.StatusFailed
 	rec.CurrentStep = nil
+	rec.CurrentStepStartedAt = nil
 	rec.CurrentStepProgress = 0
-	now := time.Now().UTC()
 	rec.EndedAt = &now
 	rec.ErrorMessage = err.Error()
 	c.appendLogLocked(jobID, "[erreur] "+err.Error()+"\n")
@@ -741,6 +809,7 @@ func (c *Coordinator) appendLogLocked(jobID xuuid.UUID, chunk string) {
 		return
 	}
 	rec := &c.jobs[idx]
+	now := time.Now().UTC()
 	rec.Logs += chunk
 	if rec.Request.SourceKind == core.SourceQobuz && rec.QobuzTracksTotal > 0 {
 		done := extractQobuzTrackDone(chunk)
@@ -751,10 +820,8 @@ func (c *Coordinator) appendLogLocked(jobID xuuid.UUID, chunk string) {
 			}
 		}
 	}
-	if found, total, ok := extractLyricsFoundSummary(chunk); ok {
-		rec.LyricsFound = found
-		rec.LyricsFoundTotal = total
-	}
+	updateLyricsProgressFromLogChunk(rec, chunk)
+	updateTranslationProgressFromLogChunk(rec, chunk, now)
 	if len(rec.Logs) > c.maxLogCharacters {
 		rec.Logs = rec.Logs[len(rec.Logs)-c.maxLogCharacters:]
 	}
@@ -765,6 +832,127 @@ func (c *Coordinator) appendLogLocked(jobID xuuid.UUID, chunk string) {
 		_, _ = f.WriteString(chunk)
 		_ = f.Close()
 	}
+}
+
+func (c *Coordinator) accumulateCurrentStepElapsedLocked(rec *core.JobRecord, now time.Time) {
+	if rec == nil || rec.CurrentStep == nil || rec.CurrentStepStartedAt == nil {
+		return
+	}
+	if now.Before(*rec.CurrentStepStartedAt) {
+		return
+	}
+	if rec.StepElapsed == nil {
+		rec.StepElapsed = map[core.JobStep]time.Duration{}
+	}
+	rec.StepElapsed[*rec.CurrentStep] += now.Sub(*rec.CurrentStepStartedAt)
+}
+
+func (c *Coordinator) finishTranslationLocked(rec *core.JobRecord, now time.Time, fallbackStatus string) {
+	if rec == nil {
+		return
+	}
+	if rec.TranslationStartedAt == nil {
+		return
+	}
+	if rec.TranslationEndedAt == nil {
+		rec.TranslationEndedAt = &now
+	}
+	if strings.TrimSpace(rec.TranslationStatus) == "" {
+		rec.TranslationStatus = fallbackStatus
+		return
+	}
+	if rec.TranslationStatus == "running" || rec.TranslationStatus == "pending" {
+		rec.TranslationStatus = fallbackStatus
+	}
+}
+
+func updateLyricsProgressFromLogChunk(rec *core.JobRecord, chunk string) {
+	if rec == nil {
+		return
+	}
+	generated := countLyricsGeneratedTracks(chunk)
+	alreadyPresent := countLyricsAlreadyPresentTracks(chunk)
+	failed := countLyricsFailedTracks(chunk)
+	if generated > 0 || alreadyPresent > 0 || failed > 0 {
+		rec.LyricsFound += generated + alreadyPresent
+		rec.LyricsFailed += failed
+		if rec.LyricsTracksTotal > rec.LyricsFoundTotal {
+			rec.LyricsFoundTotal = rec.LyricsTracksTotal
+		}
+		progressTotal := rec.LyricsFound + rec.LyricsFailed
+		if progressTotal > rec.LyricsFoundTotal {
+			rec.LyricsFoundTotal = progressTotal
+		}
+		if rec.LyricsFound > rec.LyricsFoundTotal {
+			rec.LyricsFound = rec.LyricsFoundTotal
+		}
+	}
+	if found, total, failedCount, ok := extractLyricsFoundSummary(chunk); ok {
+		rec.LyricsFound = found
+		rec.LyricsFoundTotal = total
+		rec.LyricsFailed = failedCount
+		if rec.LyricsTracksTotal > rec.LyricsFoundTotal {
+			rec.LyricsFoundTotal = rec.LyricsTracksTotal
+		}
+		if rec.LyricsFound > rec.LyricsFoundTotal {
+			rec.LyricsFound = rec.LyricsFoundTotal
+		}
+		if rec.LyricsFailed < 0 {
+			rec.LyricsFailed = 0
+		}
+	}
+}
+
+func updateTranslationProgressFromLogChunk(rec *core.JobRecord, chunk string, now time.Time) {
+	if rec == nil {
+		return
+	}
+	if strings.Contains(chunk, "[translation] Etape ignoree (") {
+		if rec.TranslationStartedAt == nil {
+			rec.TranslationStartedAt = &now
+		}
+		rec.TranslationEndedAt = &now
+		rec.TranslationStatus = "skipped"
+		return
+	}
+	if strings.Contains(chunk, "[translation] Traduction Argos ") || strings.Contains(chunk, "[translation] Traduction du fichier ") {
+		if rec.TranslationStartedAt == nil {
+			rec.TranslationStartedAt = &now
+		}
+		rec.TranslationEndedAt = nil
+		rec.TranslationStatus = "running"
+	}
+	if strings.Contains(chunk, "[translation] Variantes source/traduite conservees.") {
+		if rec.TranslationStartedAt == nil {
+			rec.TranslationStartedAt = &now
+		}
+		rec.TranslationEndedAt = &now
+		rec.TranslationStatus = "completed"
+	}
+}
+
+func (c *Coordinator) setRuntimeDisplayName(jobID xuuid.UUID, name string) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	idx := c.indexOfLocked(jobID)
+	if idx < 0 {
+		return
+	}
+	rec := &c.jobs[idx]
+	if rec.Request.SourceKind != core.SourceYouTube {
+		return
+	}
+	if strings.TrimSpace(rec.Request.CustomName) != "" {
+		return
+	}
+	if existing := strings.TrimSpace(c.displayNameByJobID[jobID]); existing != "" {
+		return
+	}
+	c.displayNameByJobID[jobID] = trimmed
 }
 
 func extractQobuzTrackDone(chunk string) int {
@@ -786,30 +974,42 @@ func extractQobuzTrackDone(chunk string) int {
 	return maxDone
 }
 
-func extractLyricsFoundSummary(chunk string) (int, int, bool) {
+func countLyricsGeneratedTracks(chunk string) int {
+	return len(lyricsGeneratedLineRe.FindAllString(chunk, -1))
+}
+
+func countLyricsAlreadyPresentTracks(chunk string) int {
+	return len(lyricsAlreadyPresentLineRe.FindAllString(chunk, -1))
+}
+
+func countLyricsFailedTracks(chunk string) int {
+	return len(lyricsFailureLineRe.FindAllString(chunk, -1))
+}
+
+func extractLyricsFoundSummary(chunk string) (int, int, int, bool) {
 	matches := lyricsSummaryRe.FindAllStringSubmatch(chunk, -1)
 	if len(matches) == 0 {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	last := matches[len(matches)-1]
 	if len(last) < 4 {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	generated, err := strconv.Atoi(last[1])
 	if err != nil || generated < 0 {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	alreadyPresent, err := strconv.Atoi(last[2])
 	if err != nil || alreadyPresent < 0 {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	errorsCount, err := strconv.Atoi(last[3])
 	if err != nil || errorsCount < 0 {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	found := generated + alreadyPresent
 	total := found + errorsCount
-	return found, total, true
+	return found, total, errorsCount, true
 }
 
 func (c *Coordinator) indexOfLocked(jobID xuuid.UUID) int {
@@ -831,19 +1031,20 @@ func (c *Coordinator) sortedJobsLocked() []core.JobRecord {
 }
 
 func (c *Coordinator) mapDTOsLocked(records []core.JobRecord) []core.JobSummaryDTO {
+	now := time.Now().UTC()
 	out := make([]core.JobSummaryDTO, 0, len(records))
 	for i := range records {
 		rec := records[i]
-		out = append(out, c.dtoFromRecordLocked(rec))
+		out = append(out, c.dtoFromRecordLocked(rec, now))
 	}
 	return out
 }
 
 func (c *Coordinator) dtoLocked(record *core.JobRecord) core.JobSummaryDTO {
-	return c.dtoFromRecordLocked(*record)
+	return c.dtoFromRecordLocked(*record, time.Now().UTC())
 }
 
-func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord) core.JobSummaryDTO {
+func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord, now time.Time) core.JobSummaryDTO {
 	completed := []string{}
 	for _, step := range core.AllSteps {
 		if record.CompletedSteps[step] {
@@ -858,33 +1059,66 @@ func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord) core.JobSummary
 	if record.CurrentStep != nil {
 		currentStep = string(*record.CurrentStep)
 	}
+	totalElapsedSeconds := int64(record.TotalElapsed(now) / time.Second)
+	if totalElapsedSeconds < 0 {
+		totalElapsedSeconds = 0
+	}
+	activeStepElapsedSeconds := int64(record.ActiveStepElapsed(now) / time.Second)
+	if activeStepElapsedSeconds < 0 {
+		activeStepElapsedSeconds = 0
+	}
+	downloadElapsedSeconds := int64(record.ElapsedForStep(core.StepDownload, now) / time.Second)
+	if downloadElapsedSeconds < 0 {
+		downloadElapsedSeconds = 0
+	}
+	lyricsElapsedSeconds := int64(record.ElapsedForStep(core.StepLyrics, now) / time.Second)
+	if lyricsElapsedSeconds < 0 {
+		lyricsElapsedSeconds = 0
+	}
+	transcriptionElapsedSeconds := int64(record.ElapsedForStep(core.StepTranscription, now) / time.Second)
+	if transcriptionElapsedSeconds < 0 {
+		transcriptionElapsedSeconds = 0
+	}
+	translationElapsedSeconds := int64(record.TranslationElapsed(now) / time.Second)
+	if translationElapsedSeconds < 0 {
+		translationElapsedSeconds = 0
+	}
 	return core.JobSummaryDTO{
-		ID:                  record.ID.String(),
-		CreatedAt:           record.Request.CreatedAt,
-		SourceKind:          string(record.Request.SourceKind),
-		ContentType:         string(record.Request.ContentType),
-		InputURL:            record.Request.InputURL,
-		OutputRootPath:      record.Request.OutputRootPath,
-		CustomName:          record.Request.CustomName,
-		DisplayName:         c.resolvedDisplayNameLocked(record),
-		Status:              string(record.Status),
-		CurrentStep:         currentStep,
-		CurrentStepProgress: record.CurrentStepProgress,
-		ProgressFraction:    record.ProgressFraction(),
-		ProgressPercent:     record.ProgressPercent(),
-		CompletedSteps:      completed,
-		StartedAt:           record.StartedAt,
-		EndedAt:             record.EndedAt,
-		ErrorMessage:        record.ErrorMessage,
-		IsPauseRequested:    record.IsPauseRequested,
-		Result:              result,
-		LogsSize:            len(record.Logs),
-		QobuzTracksDone:     record.QobuzTracksDone,
-		QobuzTracksTotal:    record.QobuzTracksTotal,
-		LyricsTracksDone:    record.LyricsTracksDone,
-		LyricsTracksTotal:   record.LyricsTracksTotal,
-		LyricsFound:         record.LyricsFound,
-		LyricsFoundTotal:    record.LyricsFoundTotal,
+		ID:                          record.ID.String(),
+		CreatedAt:                   record.Request.CreatedAt,
+		SourceKind:                  string(record.Request.SourceKind),
+		ContentType:                 string(record.Request.ContentType),
+		InputURL:                    record.Request.InputURL,
+		OutputRootPath:              record.Request.OutputRootPath,
+		CustomName:                  record.Request.CustomName,
+		DisplayName:                 c.resolvedDisplayNameLocked(record),
+		Status:                      string(record.Status),
+		CurrentStep:                 currentStep,
+		CurrentStepProgress:         record.CurrentStepProgress,
+		ProgressFraction:            record.ProgressFraction(),
+		ProgressPercent:             record.ProgressPercent(),
+		CompletedSteps:              completed,
+		StartedAt:                   record.StartedAt,
+		EndedAt:                     record.EndedAt,
+		CurrentStepStartedAt:        record.CurrentStepStartedAt,
+		TotalElapsedSeconds:         totalElapsedSeconds,
+		ActiveStepElapsedSeconds:    activeStepElapsedSeconds,
+		DownloadElapsedSeconds:      downloadElapsedSeconds,
+		LyricsElapsedSeconds:        lyricsElapsedSeconds,
+		TranscriptionElapsedSeconds: transcriptionElapsedSeconds,
+		TranslationStatus:           record.TranslationStatus,
+		TranslationElapsedSeconds:   translationElapsedSeconds,
+		ErrorMessage:                record.ErrorMessage,
+		IsPauseRequested:            record.IsPauseRequested,
+		Result:                      result,
+		LogsSize:                    len(record.Logs),
+		QobuzTracksDone:             record.QobuzTracksDone,
+		QobuzTracksTotal:            record.QobuzTracksTotal,
+		LyricsTracksDone:            record.LyricsTracksDone,
+		LyricsTracksTotal:           record.LyricsTracksTotal,
+		LyricsFound:                 record.LyricsFound,
+		LyricsFoundTotal:            record.LyricsFoundTotal,
+		LyricsFailed:                record.LyricsFailed,
 	}
 }
 

@@ -58,3 +58,26 @@ func TestResolveDatesConcurrencyLimitFromEnv(t *testing.T) {
 		t.Fatalf("unexpected capped concurrency limit: got=%d want=8", got)
 	}
 }
+
+func TestFirstPrintedYouTubeTitle(t *testing.T) {
+	t.Run("returns first plain non-empty line", func(t *testing.T) {
+		got := firstPrintedYouTubeTitle("\nVideo Title\n")
+		if got != "Video Title" {
+			t.Fatalf("unexpected title: %q", got)
+		}
+	})
+
+	t.Run("skips warning and error prefixes", func(t *testing.T) {
+		got := firstPrintedYouTubeTitle("WARNING: temporary issue\nERROR: something broke\nFinal Title")
+		if got != "Final Title" {
+			t.Fatalf("unexpected title after warnings/errors: %q", got)
+		}
+	})
+
+	t.Run("returns empty when no valid lines", func(t *testing.T) {
+		got := firstPrintedYouTubeTitle(" \nWARNING: nope\nERROR: nope\n")
+		if got != "" {
+			t.Fatalf("expected empty title, got %q", got)
+		}
+	})
+}

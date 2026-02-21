@@ -381,6 +381,39 @@ func (s *YouTubeService) FetchCatalog(ctx context.Context, url string, useFirefo
 	return core.YouTubeCatalogAPIResponse{SourceTitle: sourceTitle, Videos: videos}, nil
 }
 
+func (s *YouTubeService) ResolveVideoTitle(ctx context.Context, url string, useFirefoxCookies bool) (string, error) {
+	if !util.LooksLikeYouTubeURL(url) {
+		return "", fmt.Errorf("URL YouTube invalide")
+	}
+	args := []string{
+		"--quiet",
+		"--no-warnings",
+		"--retries", "1",
+		"--extractor-retries", "1",
+		"--socket-timeout", "10",
+		"--skip-download",
+		"--no-playlist",
+		"--print", "%(title)s",
+		url,
+	}
+	if useFirefoxCookies {
+		args = append([]string{"--cookies-from-browser", "firefox"}, args...)
+	}
+	output, err := s.runner.Run(ctx, sys.RunOptions{
+		Executable:    "yt-dlp",
+		Args:          args,
+		CaptureOutput: true,
+	})
+	if err != nil {
+		return "", err
+	}
+	title := firstPrintedYouTubeTitle(output)
+	if title == "" {
+		return "", fmt.Errorf("titre YouTube introuvable")
+	}
+	return title, nil
+}
+
 func (s *YouTubeService) ResolveDates(ctx context.Context, videoIDs []string, useFirefoxCookies bool) (map[string]time.Time, map[string]int) {
 	datesByVideoID := map[string]time.Time{}
 	durationsByVideoID := map[string]int{}
@@ -472,6 +505,21 @@ func (s *YouTubeService) ResolveDates(ctx context.Context, videoIDs []string, us
 	}
 
 	return datesByVideoID, durationsByVideoID
+}
+
+func firstPrintedYouTubeTitle(output string) string {
+	for _, rawLine := range strings.Split(output, "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if strings.HasPrefix(lower, "error:") || strings.HasPrefix(lower, "warning:") {
+			continue
+		}
+		return line
+	}
+	return ""
 }
 
 func isLikelyYouTubeVideoID(value string) bool {

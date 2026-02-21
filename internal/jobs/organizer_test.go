@@ -1,12 +1,78 @@
 package jobs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"persodl-cross/internal/core"
 )
+
+func TestMoveReplacingFallsBackToCopyForCrossDeviceFile(t *testing.T) {
+	sourceRoot := t.TempDir()
+	src := filepath.Join(sourceRoot, "audio.webm")
+	if err := os.WriteFile(src, []byte("payload"), 0o644); err != nil {
+		t.Fatalf("write source file failed: %v", err)
+	}
+	dst := filepath.Join(t.TempDir(), "target", "audio.webm")
+
+	originalRename := renamePath
+	renamePath = func(oldpath, newpath string) error {
+		return &os.LinkError{Op: "rename", Old: oldpath, New: newpath, Err: errors.New("cross-device link")}
+	}
+	t.Cleanup(func() {
+		renamePath = originalRename
+	})
+
+	if err := moveReplacing(src, dst); err != nil {
+		t.Fatalf("moveReplacing failed: %v", err)
+	}
+	if _, err := os.Stat(src); !os.IsNotExist(err) {
+		t.Fatalf("source should be removed after fallback copy, err=%v", err)
+	}
+	content, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("read destination failed: %v", err)
+	}
+	if string(content) != "payload" {
+		t.Fatalf("destination content mismatch: got=%q", string(content))
+	}
+}
+
+func TestMoveReplacingFallsBackToCopyForCrossDeviceDirectory(t *testing.T) {
+	sourceRoot := t.TempDir()
+	src := filepath.Join(sourceRoot, "album")
+	if err := os.MkdirAll(filepath.Join(src, "disc1"), 0o755); err != nil {
+		t.Fatalf("mkdir source failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "disc1", "01.flac"), []byte("track"), 0o644); err != nil {
+		t.Fatalf("write source track failed: %v", err)
+	}
+	dst := filepath.Join(t.TempDir(), "target", "album")
+
+	originalRename := renamePath
+	renamePath = func(oldpath, newpath string) error {
+		return &os.LinkError{Op: "rename", Old: oldpath, New: newpath, Err: errors.New("cross-device link")}
+	}
+	t.Cleanup(func() {
+		renamePath = originalRename
+	})
+
+	if err := moveReplacing(src, dst); err != nil {
+		t.Fatalf("moveReplacing failed: %v", err)
+	}
+	if _, err := os.Stat(src); !os.IsNotExist(err) {
+		t.Fatalf("source directory should be removed after fallback copy, err=%v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(dst, "disc1", "01.flac"))
+	if err != nil {
+		t.Fatalf("read destination track failed: %v", err)
+	}
+	if string(content) != "track" {
+		t.Fatalf("destination content mismatch: got=%q", string(content))
+	}
+}
 
 func TestOrganizeDirectoryCompleteMergesMissingFiles(t *testing.T) {
 	outputRoot := t.TempDir()

@@ -33,8 +33,19 @@ func newLRCLIBMockClient(t *testing.T, responses map[string]lrclibPayload, reque
 				t.Fatalf("unexpected host: %s", req.URL.Host)
 			}
 			track := strings.TrimSpace(req.URL.Query().Get("track_name"))
-			*requested = append(*requested, track)
-			payload, ok := responses[track]
+			if track == "" {
+				track = strings.TrimSpace(req.URL.Query().Get("q"))
+			}
+			artist := strings.TrimSpace(req.URL.Query().Get("artist_name"))
+			lookup := track
+			if artist != "" {
+				lookup = artist + "::" + track
+			}
+			*requested = append(*requested, lookup)
+			payload, ok := responses[lookup]
+			if !ok {
+				payload, ok = responses[track]
+			}
 			if !ok {
 				return &http.Response{
 					StatusCode: http.StatusOK,
@@ -43,6 +54,15 @@ func newLRCLIBMockClient(t *testing.T, responses map[string]lrclibPayload, reque
 				}, nil
 			}
 			item := map[string]string{}
+			if track != "" {
+				item["trackName"] = track
+			}
+			if artist != "" {
+				item["artistName"] = artist
+			}
+			if album := strings.TrimSpace(req.URL.Query().Get("album_name")); album != "" {
+				item["albumName"] = album
+			}
 			if payload.plainLyrics != "" {
 				item["plainLyrics"] = payload.plainLyrics
 			}
@@ -153,6 +173,137 @@ func TestFetchLyricsFromLRCLIBSkipsExistingTrackButContinuesAlbum(t *testing.T) 
 	assertFileContains(t, track2Base+".lyrics.txt", "Generated for second track")
 }
 
+func TestFetchLyricsFromLRCLIBNormalizesYouTubeStyleTitle(t *testing.T) {
+	root := t.TempDir()
+	mediaPath := filepath.Join(root, "GIMS & La Mano 1.9 - PARISIENNE (Clip officiel) [7CGKeID7nRc].webm")
+	if err := os.WriteFile(mediaPath, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write webm failed: %v", err)
+	}
+
+	responses := map[string]lrclibPayload{
+		"GIMS & La Mano 1.9::PARISIENNE": {syncedLyrics: "[00:00.00] Parisienne"},
+	}
+	var requested []string
+	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
+
+	r.fetchLyricsFromLRCLIB(context.Background(), mediaPath, RunCallbacks{})
+
+	assertFileContains(t, filepath.Join(root, "GIMS & La Mano 1.9 - PARISIENNE (Clip officiel) [7CGKeID7nRc].lrc"), "[00:00.00] Parisienne")
+	if !containsString(requested, "GIMS & La Mano 1.9::PARISIENNE") {
+		t.Fatalf("expected normalized artist/title query, got %v", requested)
+	}
+}
+
+func TestBuildLRCLIBSearchQueriesIncludesCleanedTitle(t *testing.T) {
+	queries := buildLRCLIBSearchQueries("GIMS & La Mano 1.9 - PARISIENNE (Clip officiel) [7CGKeID7nRc]", "", "")
+	if len(queries) == 0 {
+		t.Fatalf("expected at least one query")
+	}
+	found := false
+	for _, query := range queries {
+		if query.trackName == "PARISIENNE" && query.artistName == "GIMS & La Mano 1.9" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected cleaned artist/title query, got %+v", queries)
+	}
+}
+
+func TestBuildLRCLIBSearchQueriesStripsLeadingTrackNumber(t *testing.T) {
+	queries := buildLRCLIBSearchQueries("05. Check da Crou", "", "")
+	if len(queries) == 0 {
+		t.Fatalf("expected queries for numbered track")
+	}
+	found := false
+	for _, query := range queries {
+		if strings.EqualFold(strings.TrimSpace(query.trackName), "Check da Crou") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected stripped track name query, got %+v", queries)
+	}
+}
+
+func TestFetchLyricsFromLRCLIBWithHintsUsesArtistForAlbumTracks(t *testing.T) {
+	root := t.TempDir()
+	track1 := filepath.Join(root, "01. Invasion.flac")
+	track2 := filepath.Join(root, "05. Check da Crou.flac")
+	if err := os.WriteFile(track1, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write track1 failed: %v", err)
+	}
+	if err := os.WriteFile(track2, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write track2 failed: %v", err)
+	}
+
+	responses := map[string]lrclibPayload{
+		"Stupeflip::Check da Crou": {syncedLyrics: "[00:00.00] Crou"},
+	}
+	var requested []string
+	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
+
+	r.fetchLyricsFromLRCLIBWithHints(context.Background(), root, "", "Stupeflip", RunCallbacks{})
+
+	assertFileContains(t, filepath.Join(root, "05. Check da Crou.lrc"), "[00:00.00] Crou")
+	if !containsString(requested, "Stupeflip::Check da Crou") {
+		t.Fatalf("expected artist+track query for album track, got %v", requested)
+	}
+}
+
+func TestNormalizeLRCLIBTextFoldsAccents(t *testing.T) {
+	left := normalizeLRCLIBText("Gaëlle")
+	right := normalizeLRCLIBText("Gaelle")
+	if left == "" || right == "" || left != right {
+		t.Fatalf("expected accent-insensitive normalization, left=%q right=%q", left, right)
+	}
+}
+
+func TestPickBestLRCLIBPayloadPrefersSyncedMatchingArtist(t *testing.T) {
+	items := []map[string]any{
+		{
+			"trackName":   "Gaëlle",
+			"artistName":  "Other Artist",
+			"plainLyrics": "wrong",
+		},
+		{
+			"trackName":    "Gaelle",
+			"artistName":   "Stupeflip",
+			"syncedLyrics": "[00:00.00] correct",
+		},
+	}
+	payload, _ := pickBestLRCLIBPayload(items, lrclibSearchQuery{
+		trackName:  "Gaëlle",
+		artistName: "Stupeflip",
+	})
+	if payload.syncedLyrics != "[00:00.00] correct" {
+		t.Fatalf("expected synced lyrics from matching artist, got plain=%q synced=%q", payload.plainLyrics, payload.syncedLyrics)
+	}
+}
+
+func TestFetchLyricsFromLRCLIBWithHintsUsesMetadataForSingleTrack(t *testing.T) {
+	root := t.TempDir()
+	mediaPath := filepath.Join(root, "GIMS - 20250816 - GIMS & La Mano 1.9 - PARISIENNE (Clip officiel).webm")
+	if err := os.WriteFile(mediaPath, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write webm failed: %v", err)
+	}
+
+	responses := map[string]lrclibPayload{
+		"GIMS::GIMS & La Mano 1.9 - PARISIENNE (Clip officiel)": {syncedLyrics: "[00:00.00] From metadata"},
+	}
+	var requested []string
+	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
+
+	r.fetchLyricsFromLRCLIBWithHints(context.Background(), mediaPath, "GIMS & La Mano 1.9 - PARISIENNE (Clip officiel)", "GIMS", RunCallbacks{})
+
+	assertFileContains(t, filepath.Join(root, "GIMS - 20250816 - GIMS & La Mano 1.9 - PARISIENNE (Clip officiel).lrc"), "[00:00.00] From metadata")
+	if !containsString(requested, "GIMS::GIMS & La Mano 1.9 - PARISIENNE (Clip officiel)") {
+		t.Fatalf("expected metadata-assisted query, got %v", requested)
+	}
+}
+
 func TestFetchLRCLIBRetriesTransientTimeout(t *testing.T) {
 	attempts := 0
 	client := &http.Client{
@@ -169,15 +320,15 @@ func TestFetchLRCLIBRetriesTransientTimeout(t *testing.T) {
 		}),
 	}
 
-	payload, err := fetchLRCLIB(context.Background(), client, "02 Retry Song")
+	payload, err := fetchLRCLIB(context.Background(), client, "02 Retry Song", "", "")
 	if err != nil {
 		t.Fatalf("fetchLRCLIB returned unexpected error: %v", err)
 	}
 	if payload.syncedLyrics != "[00:00.00] Retry worked" {
 		t.Fatalf("unexpected synced lyrics: %q", payload.syncedLyrics)
 	}
-	if attempts != 2 {
-		t.Fatalf("expected 2 attempts, got %d", attempts)
+	if attempts < 2 {
+		t.Fatalf("expected at least 2 attempts, got %d", attempts)
 	}
 }
 
@@ -194,12 +345,62 @@ func TestFetchLRCLIBDoesNotRetryOnHTTP404(t *testing.T) {
 		}),
 	}
 
-	_, err := fetchLRCLIB(context.Background(), client, "Unknown Song")
+	_, err := fetchLRCLIB(context.Background(), client, "Unknown Song", "", "")
 	if err == nil {
 		t.Fatalf("expected an error for 404 response")
 	}
 	if attempts != 1 {
 		t.Fatalf("expected 1 attempt for 404 response, got %d", attempts)
+	}
+}
+
+func TestFetchLRCLIBPrefersArtistMatchedResultAcrossQueries(t *testing.T) {
+	client := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			artist := strings.TrimSpace(req.URL.Query().Get("artist_name"))
+			body := `[{"trackName":"Gaelle","artistName":"Other Artist","plainLyrics":"wrong plain"}]`
+			if artist == "Stupeflip" {
+				body = `[{"trackName":"Gaëlle","artistName":"Stupeflip","syncedLyrics":"[00:00.00] correct synced"}]`
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}, nil
+		}),
+	}
+
+	payload, err := fetchLRCLIB(context.Background(), client, "04. Gaëlle", "Stupeflip", "The Hypnoflip Invasion")
+	if err != nil {
+		t.Fatalf("fetchLRCLIB returned unexpected error: %v", err)
+	}
+	if payload.syncedLyrics != "[00:00.00] correct synced" {
+		t.Fatalf("expected synced artist-matched result, got plain=%q synced=%q", payload.plainLyrics, payload.syncedLyrics)
+	}
+}
+
+func TestFetchLRCLIBRejectsArtistMismatchAcrossQueries(t *testing.T) {
+	client := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			artist := strings.TrimSpace(req.URL.Query().Get("artist_name"))
+			body := `[]`
+			if artist == "" {
+				body = `[{"trackName":"Gaelle","artistName":"Other Artist","plainLyrics":"wrong plain"}]`
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}, nil
+		}),
+	}
+
+	payload, err := fetchLRCLIB(context.Background(), client, "04. Gaëlle", "Stupeflip", "The Hypnoflip Invasion")
+	if err != nil {
+		t.Fatalf("fetchLRCLIB returned unexpected error: %v", err)
+	}
+	if payload.syncedLyrics != "" || payload.plainLyrics != "" {
+		t.Fatalf("expected no lyrics when artist does not match, got plain=%q synced=%q", payload.plainLyrics, payload.syncedLyrics)
 	}
 }
 
@@ -542,6 +743,76 @@ func TestShouldTranslateSupportsPodcastAudio(t *testing.T) {
 	if !shouldTranslate(job, "/tmp/transcription.srt", "") {
 		t.Fatalf("expected podcasts to support translation when transcript/subtitle exists")
 	}
+}
+
+func TestShouldFetchLyricsSupportsYouTubeMusic(t *testing.T) {
+	job := core.JobRequest{
+		SourceKind:   core.SourceYouTube,
+		ContentType:  core.ContentMusic,
+		EnableLyrics: true,
+	}
+	artifact := downloadArtifact{
+		MediaPath:   "/tmp/song.webm",
+		IsDirectory: false,
+	}
+	if !shouldFetchLyrics(job, artifact) {
+		t.Fatalf("expected lyrics fetch to be enabled for youtube music")
+	}
+}
+
+func TestShouldFetchLyricsRequiresMusicAndEnabledFlag(t *testing.T) {
+	job := core.JobRequest{
+		SourceKind:   core.SourceQobuz,
+		ContentType:  core.ContentMusic,
+		EnableLyrics: false,
+	}
+	artifact := downloadArtifact{
+		MediaPath:   "/tmp/album/01.flac",
+		IsDirectory: false,
+	}
+	if shouldFetchLyrics(job, artifact) {
+		t.Fatalf("lyrics fetch should be disabled when enableLyrics is false")
+	}
+	job.EnableLyrics = true
+	job.ContentType = core.ContentAudio
+	if shouldFetchLyrics(job, artifact) {
+		t.Fatalf("lyrics fetch should only run for music content type")
+	}
+}
+
+func TestDiscoverAudioFilesIncludesWebM(t *testing.T) {
+	root := t.TempDir()
+	webm := filepath.Join(root, "song.webm")
+	if err := os.WriteFile(webm, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write webm failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "note.txt"), []byte("skip"), 0o644); err != nil {
+		t.Fatalf("write txt failed: %v", err)
+	}
+	files := discoverAudioFiles(root)
+	if !containsString(files, webm) {
+		t.Fatalf("expected webm file in discovered audio files, got %v", files)
+	}
+}
+
+func TestFetchLyricsFromLRCLIBSupportsSingleWebMFilePath(t *testing.T) {
+	root := t.TempDir()
+	mediaPath := filepath.Join(root, "Single Track.webm")
+	if err := os.WriteFile(mediaPath, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write webm failed: %v", err)
+	}
+	responses := map[string]lrclibPayload{
+		"Single Track": {syncedLyrics: "[00:00.00] line"},
+	}
+	var requested []string
+	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
+
+	r.fetchLyricsFromLRCLIB(context.Background(), mediaPath, RunCallbacks{})
+
+	if !containsString(requested, "Single Track") {
+		t.Fatalf("expected lrclib request for single webm track, got %v", requested)
+	}
+	assertFileContains(t, filepath.Join(root, "Single Track.lrc"), "[00:00.00] line")
 }
 
 func containsString(values []string, target string) bool {

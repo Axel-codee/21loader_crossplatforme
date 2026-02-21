@@ -63,6 +63,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/dependencies/install-progress", s.handleDependencyInstallProgress)
 	s.mux.HandleFunc("/api/translation/languages", s.handleTranslationLanguages)
 	s.mux.HandleFunc("/api/translation/languages/install", s.handleInstallTranslationLanguage)
+	s.mux.HandleFunc("/api/system/select-directory", s.handleSelectDirectory)
 	s.mux.HandleFunc("/api/whisper/models", s.handleWhisperModels)
 	s.mux.HandleFunc("/api/whisper/models/install-progress", s.handleWhisperModelInstallProgress)
 	s.mux.HandleFunc("/api/whisper/models/install", s.handleInstallWhisperModel)
@@ -397,7 +398,7 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 			errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
 			return
 		}
-		created, err := s.coordinator.Enqueue(payload)
+		created, err := s.coordinator.Enqueue(r.Context(), payload)
 		if err != nil {
 			errorJSON(w, http.StatusBadRequest, err.Error())
 			return
