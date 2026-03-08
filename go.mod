@@ -1,3 +1,3 @@
-module persodl-cross
+module 21loader-cross
 
 go 1.22

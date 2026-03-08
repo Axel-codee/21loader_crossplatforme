@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"persodl-cross/internal/core"
+	"21loader-cross/internal/core"
 )
 
 func TestMoveReplacingFallsBackToCopyForCrossDeviceFile(t *testing.T) {

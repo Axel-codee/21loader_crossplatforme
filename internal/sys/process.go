@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -45,14 +43,7 @@ func (r *Runner) Run(parent context.Context, opt RunOptions) (string, error) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
-	executable := opt.Executable
-	args := opt.Args
-	if !strings.Contains(executable, string(filepath.Separator)) {
-		args = append([]string{executable}, args...)
-		executable = "env"
-	}
-
-	cmd := exec.CommandContext(ctx, executable, args...)
+	cmd := exec.CommandContext(ctx, opt.Executable, opt.Args...)
 	if opt.WorkingDir != "" {
 		cmd.Dir = opt.WorkingDir
 	}
@@ -71,8 +62,6 @@ func (r *Runner) Run(parent context.Context, opt RunOptions) (string, error) {
 		if err != nil {
 			return "", err
 		}
-	} else {
-		cmd.Stdin = os.Stdin
 	}
 
 	if err := cmd.Start(); err != nil {

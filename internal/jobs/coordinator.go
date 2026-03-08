@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/services"
-	"persodl-cross/internal/util"
-	"persodl-cross/internal/xuuid"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/services"
+	"21loader-cross/internal/util"
+	"21loader-cross/internal/xuuid"
 )
 
 type JobExecutionOptions struct {
@@ -271,6 +271,18 @@ func (c *Coordinator) FetchQobuzAlbumTracks(ctx context.Context, payload core.Qo
 	password := fallbackRaw(payload.QobuzPassword, c.settings.QobuzPassword)
 	c.mu.Unlock()
 	return c.qobuz.FetchAlbumTracks(ctx, albumID, email, password)
+}
+
+func (c *Coordinator) FetchQobuzPlaylistCatalog(ctx context.Context, payload core.QobuzPlaylistCatalogAPIRequest) (core.QobuzPlaylistCatalogAPIResponse, error) {
+	playlistURL := strings.TrimSpace(payload.PlaylistURL)
+	if playlistURL == "" {
+		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("le champ playlistURL est requis")
+	}
+	c.mu.Lock()
+	email := fallbackTrimmed(payload.QobuzEmail, c.settings.QobuzEmail)
+	password := fallbackRaw(payload.QobuzPassword, c.settings.QobuzPassword)
+	c.mu.Unlock()
+	return c.qobuz.FetchPlaylistCatalog(ctx, playlistURL, email, password)
 }
 
 func (c *Coordinator) FetchRSSEpisodes(ctx context.Context, payload core.RSSFeedEpisodesAPIRequest) (core.RSSFeedEpisodesAPIResponse, error) {
@@ -602,20 +614,36 @@ func (c *Coordinator) preloadQobuzTrackTotal(ctx context.Context, request core.J
 		return
 	}
 	rt, ok := util.QobuzResourceTypeFromURL(request.InputURL)
-	if !ok || rt != util.QobuzAlbum {
-		return
-	}
-	albumID, ok := util.QobuzResourceIdentifier(request.InputURL)
-	if !ok || strings.TrimSpace(albumID) == "" {
+	if !ok {
 		return
 	}
 	metaCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
-	resp, err := c.qobuz.FetchAlbumTracks(metaCtx, albumID, request.QobuzEmail, request.QobuzPassword)
-	if err != nil {
+	total := 0
+	switch rt {
+	case util.QobuzAlbum:
+		albumID, idOK := util.QobuzResourceIdentifier(request.InputURL)
+		if !idOK || strings.TrimSpace(albumID) == "" {
+			return
+		}
+		resp, err := c.qobuz.FetchAlbumTracks(metaCtx, albumID, request.QobuzEmail, request.QobuzPassword)
+		if err != nil {
+			return
+		}
+		total = len(resp.Tracks)
+	case util.QobuzPlaylist:
+		resp, err := c.qobuz.FetchPlaylistCatalog(metaCtx, request.InputURL, request.QobuzEmail, request.QobuzPassword)
+		if err != nil {
+			return
+		}
+		if resp.TracksCount > 0 {
+			total = resp.TracksCount
+		} else {
+			total = len(resp.Tracks)
+		}
+	default:
 		return
 	}
-	total := len(resp.Tracks)
 	if total <= 0 {
 		return
 	}
@@ -1284,6 +1312,7 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		QobuzEmail:                qobuzEmail,
 		QobuzPassword:             qobuzPassword,
 		QobuzArtistName:           strings.TrimSpace(payload.QobuzArtistName),
+		QobuzPlaylistName:         strings.TrimSpace(payload.QobuzPlaylistName),
 	}
 	displayName := strings.TrimSpace(payload.DisplayName)
 	if displayName == "" && selectedRSS != nil {

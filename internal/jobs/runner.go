@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/sys"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/sys"
+	"21loader-cross/internal/util"
 )
 
 type Runner struct {
@@ -157,7 +157,9 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 			PublicationDate: reusedOutput.PublicationDate,
 			IsDirectory:     false,
 		}
-	} else if job.SourceKind == core.SourceQobuz && opt.QobuzExistingAlbumCollision == core.CollisionFetchMissingLyrics {
+	} else if job.SourceKind == core.SourceQobuz &&
+		opt.QobuzExistingAlbumCollision == core.CollisionFetchMissingLyrics &&
+		isQobuzAlbumURL(job.InputURL) {
 		if existing := r.findExistingQobuzAlbumDirectory(job.InputURL, outputRoot); existing != "" {
 			if cb.OnLog != nil {
 				cb.OnLog("[qobuz] Telechargement ignore: album existant reutilise.\n")
@@ -870,16 +872,25 @@ func dedupeStrings(values []string) []string {
 
 func (r *Runner) downloadQobuzAlbum(ctx context.Context, job core.JobRequest, outputRoot, workspace string, cb RunCallbacks) (downloadArtifact, error) {
 	rt, ok := util.QobuzResourceTypeFromURL(job.InputURL)
-	if !ok || rt != util.QobuzAlbum {
-		if rt == util.QobuzArtist {
-			return downloadArtifact{}, fmt.Errorf("les URL artiste Qobuz necessitent de selectionner des albums dans l'ecran Nouveau job")
-		}
+	if !ok {
+		return downloadArtifact{}, fmt.Errorf("URL Qobuz invalide ou non supportee")
+	}
+	if rt == util.QobuzArtist {
+		return downloadArtifact{}, fmt.Errorf("les URL artiste Qobuz necessitent de selectionner des albums dans l'ecran Nouveau job")
+	}
+	if rt != util.QobuzAlbum && rt != util.QobuzPlaylist {
 		return downloadArtifact{}, fmt.Errorf("URL Qobuz invalide ou non supportee")
 	}
 	if err := r.ensureQobuzConfigured(ctx, job.QobuzEmail, job.QobuzPassword, cb); err != nil {
 		return downloadArtifact{}, err
 	}
+	if rt == util.QobuzPlaylist {
+		return r.downloadQobuzPlaylistResource(ctx, job, outputRoot, workspace, cb)
+	}
+	return r.downloadQobuzAlbumResource(ctx, job, outputRoot, workspace, cb)
+}
 
+func (r *Runner) downloadQobuzAlbumResource(ctx context.Context, job core.JobRequest, outputRoot, workspace string, cb RunCallbacks) (downloadArtifact, error) {
 	artistOverride := strings.TrimSpace(job.QobuzArtistName)
 	downloadRoot := filepath.Join(outputRoot, "qobuz", util.SanitizePathComponent(defaultIfEmpty(artistOverride, "Artiste inconnu"), 120))
 	if err := os.MkdirAll(downloadRoot, 0o755); err != nil {
@@ -893,8 +904,75 @@ func (r *Runner) downloadQobuzAlbum(ctx context.Context, job core.JobRequest, ou
 	args = append(args, util.ParseArgumentString(job.QobuzExtraArguments)...)
 	args = append(args, job.InputURL)
 
+	if err := r.runQobuzDownloadCommand(ctx, args, workspace, cb); err != nil {
+		return downloadArtifact{}, err
+	}
+
+	albumDir := discoverLatestDirectory(downloadRoot)
+	if albumDir == "" {
+		return downloadArtifact{}, fmt.Errorf("telechargement Qobuz termine mais dossier d'album introuvable")
+	}
+	meta := r.readQobuzFolderMetadata(albumDir, artistOverride)
+	return downloadArtifact{MediaPath: albumDir, Title: meta.albumTitle, SourceName: meta.artistName, IsDirectory: true}, nil
+}
+
+func (r *Runner) downloadQobuzPlaylistResource(ctx context.Context, job core.JobRequest, outputRoot, workspace string, cb RunCallbacks) (downloadArtifact, error) {
+	playlistOverride := strings.TrimSpace(job.QobuzPlaylistName)
+	downloadRoot := filepath.Join(outputRoot, "qobuz", "Playlists")
+	if err := os.MkdirAll(downloadRoot, 0o755); err != nil {
+		return downloadArtifact{}, err
+	}
+	if cb.OnLog != nil {
+		cb.OnLog("[qobuz] Telechargement playlist dans: " + downloadRoot + "\n")
+	}
+
+	args := []string{"dl", "-q", "27", "--embed-art", "--og-cover", "--no-db", "-d", downloadRoot}
+	args = append(args, util.ParseArgumentString(job.QobuzExtraArguments)...)
+	args = append(args, job.InputURL)
+	if err := r.runQobuzDownloadCommand(ctx, args, workspace, cb); err != nil {
+		return downloadArtifact{}, err
+	}
+
+	playlistDir := discoverLatestDirectory(downloadRoot)
+	if playlistDir == "" {
+		return downloadArtifact{}, fmt.Errorf("telechargement Qobuz termine mais dossier de playlist introuvable")
+	}
+
+	if playlistOverride != "" {
+		sanitized := util.SanitizePathComponent(playlistOverride, 140)
+		if sanitized != "" {
+			targetDir := filepath.Join(downloadRoot, sanitized)
+			if !samePath(playlistDir, targetDir) {
+				if _, err := os.Stat(targetDir); err == nil {
+					targetDir = filepath.Join(downloadRoot, uniqueDirectoryName(downloadRoot, sanitized))
+				}
+				if err := moveReplacing(playlistDir, targetDir); err == nil {
+					playlistDir = targetDir
+				} else if cb.OnLog != nil {
+					cb.OnLog("[qobuz] Renommage dossier playlist ignore: " + err.Error() + "\n")
+				}
+			}
+		}
+	}
+
+	title := strings.TrimSpace(playlistOverride)
+	if title == "" {
+		title = strings.TrimSpace(filepath.Base(playlistDir))
+	}
+	if title == "" {
+		title = "Playlist"
+	}
+	return downloadArtifact{MediaPath: playlistDir, Title: title, SourceName: "Playlists", IsDirectory: true}, nil
+}
+
+func (r *Runner) runQobuzDownloadCommand(ctx context.Context, args []string, workspace string, cb RunCallbacks) error {
+	qobuzExec := "qobuz-dl"
+	if resolved, _, err := util.ResolveToolExecutable("qobuz-dl"); err == nil {
+		qobuzExec = resolved
+	}
+
 	_, err := r.processRunner.Run(ctx, sys.RunOptions{
-		Executable: "qobuz-dl",
+		Executable: qobuzExec,
 		Args:       args,
 		WorkingDir: workspace,
 		OnOutput: func(line string) {
@@ -910,23 +988,16 @@ func (r *Runner) downloadQobuzAlbum(ctx context.Context, job core.JobRequest, ou
 		CaptureOutput: false,
 	})
 	if err != nil {
-		return downloadArtifact{}, err
+		return err
 	}
 	if cb.OnStepProgress != nil {
 		cb.OnStepProgress(0.99)
 	}
-
-	albumDir := discoverLatestDirectory(downloadRoot)
-	if albumDir == "" {
-		return downloadArtifact{}, fmt.Errorf("telechargement Qobuz termine mais dossier d'album introuvable")
-	}
-	meta := r.readQobuzFolderMetadata(albumDir, artistOverride)
-	return downloadArtifact{MediaPath: albumDir, Title: meta.albumTitle, SourceName: meta.artistName, IsDirectory: true}, nil
+	return nil
 }
 
 func (r *Runner) ensureQobuzConfigured(ctx context.Context, email, password string, cb RunCallbacks) error {
-	configFile := qobuzConfigPath()
-	if _, err := os.Stat(configFile); err == nil {
+	if existing := qobuzExistingConfigPath(); existing != "" {
 		return nil
 	}
 	email = strings.TrimSpace(email)
@@ -934,12 +1005,16 @@ func (r *Runner) ensureQobuzConfigured(ctx context.Context, email, password stri
 	if email == "" || password == "" {
 		return fmt.Errorf("qobuz-dl n'est pas configure. Renseigne email/mot de passe Qobuz dans Reglages")
 	}
+	qobuzExec, _, err := util.ResolveToolExecutable("qobuz-dl")
+	if err != nil {
+		return fmt.Errorf("qobuz-dl introuvable. Installe-le depuis Systeme > Diagnostics")
+	}
 	if cb.OnLog != nil {
 		cb.OnLog("[qobuz] Initialisation de la configuration qobuz-dl...\n")
 	}
 	stdin := email + "\n" + password + "\n\n27\n"
-	_, err := r.processRunner.Run(ctx, sys.RunOptions{
-		Executable:    "qobuz-dl",
+	_, err = r.processRunner.Run(ctx, sys.RunOptions{
+		Executable:    qobuzExec,
 		Args:          []string{"-r"},
 		StandardInput: stdin,
 		CaptureOutput: false,
@@ -952,15 +1027,47 @@ func (r *Runner) ensureQobuzConfigured(ctx context.Context, email, password stri
 	if err != nil {
 		return fmt.Errorf("impossible d'initialiser la configuration qobuz-dl")
 	}
-	if _, err := os.Stat(configFile); err != nil {
+	if existing := qobuzExistingConfigPath(); existing == "" {
 		return fmt.Errorf("impossible d'initialiser la configuration qobuz-dl")
 	}
 	return nil
 }
 
 func qobuzConfigPath() string {
+	if existing := qobuzExistingConfigPath(); existing != "" {
+		return existing
+	}
+	candidates := qobuzConfigPathCandidates()
+	if len(candidates) > 0 {
+		return candidates[0]
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "qobuz-dl", "config.ini")
+}
+
+func qobuzExistingConfigPath() string {
+	for _, candidate := range qobuzConfigPathCandidates() {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func qobuzConfigPathCandidates() []string {
+	candidates := make([]string, 0, 3)
+	if runtime.GOOS == "windows" {
+		if cfg := strings.TrimSpace(os.Getenv("APPDATA")); cfg != "" {
+			candidates = append(candidates, filepath.Join(cfg, "qobuz-dl", "config.ini"))
+		}
+	}
+	if home, _ := os.UserHomeDir(); strings.TrimSpace(home) != "" {
+		candidates = append(candidates, filepath.Join(home, ".config", "qobuz-dl", "config.ini"))
+	}
+	if len(candidates) == 0 {
+		candidates = append(candidates, filepath.Join(".config", "qobuz-dl", "config.ini"))
+	}
+	return dedupeStrings(candidates)
 }
 
 func (r *Runner) transcribe(ctx context.Context, mediaPath, workspace string, job core.JobRequest, cb RunCallbacks) (string, string, error) {
@@ -1892,6 +1999,10 @@ func (r *Runner) embedArtwork(ctx context.Context, mediaPath, artworkPath, works
 }
 
 func (r *Runner) findExistingQobuzAlbumDirectory(inputURL, outputRoot string) string {
+	currentType, typeOK := util.QobuzResourceTypeFromURL(inputURL)
+	if !typeOK {
+		return ""
+	}
 	currentID, ok := util.QobuzResourceIdentifier(inputURL)
 	if !ok || strings.TrimSpace(currentID) == "" {
 		return ""
@@ -1924,6 +2035,10 @@ func (r *Runner) findExistingQobuzAlbumDirectory(inputURL, outputRoot string) st
 			return nil
 		}
 		orig := strings.TrimSpace(anyToString(meta["originalInputURL"]))
+		existingType, existingTypeOK := util.QobuzResourceTypeFromURL(orig)
+		if !existingTypeOK || existingType != currentType {
+			return nil
+		}
 		existingID, ok := util.QobuzResourceIdentifier(orig)
 		if ok && existingID == currentID {
 			found = filepath.Dir(path)
@@ -1937,6 +2052,11 @@ func (r *Runner) findExistingQobuzAlbumDirectory(inputURL, outputRoot string) st
 		}
 	}
 	return ""
+}
+
+func isQobuzAlbumURL(inputURL string) bool {
+	rt, ok := util.QobuzResourceTypeFromURL(inputURL)
+	return ok && rt == util.QobuzAlbum
 }
 
 func (r *Runner) findExistingOutputForCompletion(job core.JobRequest, outputRoot string) existingOutput {
@@ -2362,15 +2482,17 @@ func (r *Runner) fetchLyricsFromLRCLIBWithHints(ctx context.Context, albumDir, t
 			continue
 		}
 		searchTrack := track
-		searchArtist := strings.TrimSpace(artistHint)
+		searchArtist := sanitizeLRCLIBArtistHint(artistHint)
 		searchAlbum := ""
 		if len(audioFiles) == 1 {
 			if t := strings.TrimSpace(titleHint); t != "" {
 				searchTrack = t
 			}
-		} else if a := strings.TrimSpace(titleHint); a != "" {
-			// For multi-track jobs, the title hint is usually the album title.
-			searchAlbum = a
+		} else if searchArtist != "" {
+			if a := strings.TrimSpace(titleHint); a != "" {
+				// For multi-track jobs, the title hint is usually the album title.
+				searchAlbum = a
+			}
 		}
 		payload, err := fetchLRCLIB(ctx, r.httpClient, searchTrack, searchArtist, searchAlbum)
 		if err != nil {
@@ -2728,6 +2850,29 @@ var lrclibLeadingTrackNumberRe = regexp.MustCompile(`^\s*\d{1,3}\s*[\.\-:]\s+`)
 var lrclibBracketChunkRe = regexp.MustCompile(`\s*[\(\[][^\)\]]*[\)\]]`)
 var lrclibTitleNoiseRe = regexp.MustCompile(`(?i)\s*[\(\[][^)\]]*(clip officiel|clip|official|video|audio|lyrics?|paroles?|visualizer|remix|remaster|version|hd|4k)[^)\]]*[\)\]]`)
 var lrclibTextTokenRe = regexp.MustCompile(`[^\p{L}\p{N}]+`)
+var lrclibGenericArtistHints = map[string]bool{
+	"artiste inconnu": true,
+	"source inconnue": true,
+	"unknown artist":  true,
+	"unknown source":  true,
+	"playlist":        true,
+	"playlists":       true,
+}
+
+func sanitizeLRCLIBArtistHint(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	normalized := normalizeLRCLIBText(trimmed)
+	if normalized == "" {
+		return ""
+	}
+	if lrclibGenericArtistHints[normalized] {
+		return ""
+	}
+	return trimmed
+}
 
 func normalizeLRCLIBTrackCandidates(track string) []string {
 	raw := strings.TrimSpace(track)

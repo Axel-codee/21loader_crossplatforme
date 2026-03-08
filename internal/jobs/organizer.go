@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/util"
 )
 
 type MediaMetadata struct {

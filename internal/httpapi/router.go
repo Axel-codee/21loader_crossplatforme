@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/jobs"
-	"persodl-cross/internal/services"
-	"persodl-cross/internal/xuuid"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/jobs"
+	"21loader-cross/internal/services"
+	"21loader-cross/internal/xuuid"
 )
 
 type Server struct {
@@ -61,9 +61,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/diagnostics", s.handleDiagnostics)
 	s.mux.HandleFunc("/api/dependencies/install", s.handleInstallDependencies)
 	s.mux.HandleFunc("/api/dependencies/install-progress", s.handleDependencyInstallProgress)
+	s.mux.HandleFunc("/api/app/update", s.handleApplyAppUpdate)
 	s.mux.HandleFunc("/api/translation/languages", s.handleTranslationLanguages)
 	s.mux.HandleFunc("/api/translation/languages/install", s.handleInstallTranslationLanguage)
 	s.mux.HandleFunc("/api/system/select-directory", s.handleSelectDirectory)
+	s.mux.HandleFunc("/api/system/select-file", s.handleSelectFile)
 	s.mux.HandleFunc("/api/whisper/models", s.handleWhisperModels)
 	s.mux.HandleFunc("/api/whisper/models/install-progress", s.handleWhisperModelInstallProgress)
 	s.mux.HandleFunc("/api/whisper/models/install", s.handleInstallWhisperModel)
@@ -71,6 +73,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/qobuz/search-artists", s.handleQobuzArtistSearch)
 	s.mux.HandleFunc("/api/qobuz/artist-catalog", s.handleQobuzArtistCatalog)
 	s.mux.HandleFunc("/api/qobuz/album-tracks", s.handleQobuzAlbumTracks)
+	s.mux.HandleFunc("/api/qobuz/playlist-catalog", s.handleQobuzPlaylistCatalog)
 	s.mux.HandleFunc("/api/rss/episodes", s.handleRSSEpisodes)
 	s.mux.HandleFunc("/api/youtube/catalog", s.handleYouTubeCatalog)
 	s.mux.HandleFunc("/api/youtube/dates", s.handleYouTubeDates)
@@ -153,6 +156,25 @@ func (s *Server) handleDependencyInstallProgress(w http.ResponseWriter, r *http.
 		return
 	}
 	writeJSON(w, http.StatusOK, s.coordinator.DependencyInstallProgress(r.Context()))
+}
+
+func (s *Server) handleApplyAppUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	var payload core.AppUpdateRequest
+	if err := decodeJSON(r, &payload); err != nil {
+		errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
+		return
+	}
+
+	resp, err := triggerLocalAppUpdate(payload.FilePath)
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleTranslationLanguages(w http.ResponseWriter, r *http.Request) {
@@ -303,6 +325,24 @@ func (s *Server) handleQobuzAlbumTracks(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, tracks)
+}
+
+func (s *Server) handleQobuzPlaylistCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	var payload core.QobuzPlaylistCatalogAPIRequest
+	if err := decodeJSON(r, &payload); err != nil {
+		errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
+		return
+	}
+	catalog, err := s.coordinator.FetchQobuzPlaylistCatalog(r.Context(), payload)
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, catalog)
 }
 
 func (s *Server) handleRSSEpisodes(w http.ResponseWriter, r *http.Request) {

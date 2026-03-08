@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/util"
 )
 
 type whisperModelSpec struct {
@@ -245,7 +245,7 @@ func (s *WhisperModelService) InstallModel(ctx context.Context, modelID string) 
 		s.setInstallProgress(progress)
 		return core.WhisperModelInfoDTO{}, "", err
 	}
-	req.Header.Set("User-Agent", "PersoDL/whisper-model-installer")
+	req.Header.Set("User-Agent", "21loader/whisper-model-installer")
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -401,7 +401,7 @@ func (s *WhisperModelService) UninstallModel(ctx context.Context, modelID string
 }
 
 func whisperModelDirectory() (string, error) {
-	binDir := util.PersoDLBinDir()
+	binDir := util.Loader21BinDir()
 	if strings.TrimSpace(binDir) == "" {
 		return "", fmt.Errorf("dossier applicatif introuvable")
 	}

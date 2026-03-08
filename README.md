@@ -1,6 +1,6 @@
 # 21loader_crossplatforme
 
-Portage cross-platform du mode web PersoDL vers Go.
+Portage cross-platform du mode web 21loader vers Go.
 
 Ce projet fournit une application locale complete pour telecharger et organiser des medias depuis YouTube, RSS (podcasts) et Qobuz, avec transcription Whisper, traduction Argos, lyrics LRCLIB, diagnostics des dependances, et supervision en temps reel des jobs.
 
@@ -79,6 +79,50 @@ L'application expose:
 
 Cette section decrit un setup complet "pret a produire des jobs" sur chaque OS.
 
+### 0) Installer Go (obligatoire)
+
+L'application se lance avec `go run` et se build avec `go build`, donc Go doit etre installe en premier.
+Version minimale recommandee: `go 1.22`.
+
+#### macOS
+
+```bash
+brew install go
+go version
+```
+
+#### Windows
+
+```powershell
+winget install --id GoLang.Go -e
+go version
+```
+
+Si `go` n'est pas reconnu, fermer/reouvrir le terminal (ou session), puis verifier que `C:\Program Files\Go\bin` est dans le `PATH`.
+
+#### Linux
+
+Installer Go via le gestionnaire de paquets:
+
+```bash
+# Debian / Ubuntu
+sudo apt-get update && sudo apt-get install -y golang-go
+
+# Fedora / RHEL
+sudo dnf install -y golang
+
+# Arch / Manjaro
+sudo pacman -Sy --noconfirm go
+```
+
+Puis verifier:
+
+```bash
+go version
+```
+
+Si la version fournie par la distribution est inferieure a `1.22`, installer une version officielle depuis `go.dev` (tarball Linux), puis verifier a nouveau `go version`.
+
 ### 1) Recuperer le projet
 
 ```bash
@@ -86,126 +130,7 @@ git clone <url-du-repo>
 cd 21loader_crossplatforme
 ```
 
-### 2) Installer les prerequis de base
-
-#### macOS (Homebrew)
-
-1. Installer Homebrew si absent.
-2. Installer les outils:
-
-```bash
-brew install go yt-dlp ffmpeg qobuz-dl whisper-cpp python
-```
-
-3. Installer Argos dans le venv PersoDL:
-
-```bash
-python3.13 -m venv "$HOME/Library/Application Support/PersoDL/argostranslate-venv" \
-  || python3.12 -m venv "$HOME/Library/Application Support/PersoDL/argostranslate-venv" \
-  || python3 -m venv "$HOME/Library/Application Support/PersoDL/argostranslate-venv"
-"$HOME/Library/Application Support/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
-```
-
-#### Windows (winget recommande)
-
-1. Ouvrir PowerShell (normal ou admin selon politique machine).
-2. Installer les outils:
-
-```powershell
-winget install --id GoLang.Go -e
-winget install --id yt-dlp.yt-dlp -e
-winget install --id Gyan.FFmpeg -e
-winget install --id Python.Python.3.12 -e
-winget install --id ggml-org.whisper.cpp -e
-```
-
-3. Installer `qobuz-dl` via pipx:
-
-```powershell
-py -m pip install --user pipx
-py -m pipx install qobuz-dl
-```
-
-4. Installer Argos dans le venv PersoDL:
-
-```powershell
-py -3.13 -m venv "$env:APPDATA\PersoDL\argostranslate-venv" `
-  || py -3.12 -m venv "$env:APPDATA\PersoDL\argostranslate-venv" `
-  || py -3 -m venv "$env:APPDATA\PersoDL\argostranslate-venv"
-"$env:APPDATA\PersoDL\argostranslate-venv\Scripts\python.exe" -m pip install --upgrade pip argostranslate
-```
-
-Si `whisper-cli` n'est pas disponible apres installation, utiliser la page `Systeme > Diagnostics` pour l'installation assistee.
-
-#### Linux (APT, DNF, Pacman)
-
-Choisir le bloc correspondant a votre distribution.
-
-##### Debian/Ubuntu (APT)
-
-```bash
-sudo apt-get update
-sudo apt-get install -y golang-go yt-dlp ffmpeg python3 python3-venv pipx
-pipx install qobuz-dl
-# Selon distribution:
-sudo apt-get install -y whisper-cpp || true
-python3.12 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
-  || python3.11 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
-  || python3 -m venv "$HOME/.config/PersoDL/argostranslate-venv"
-"$HOME/.config/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
-```
-
-##### Fedora/RHEL (DNF)
-
-```bash
-sudo dnf install -y golang yt-dlp ffmpeg python3 pipx
-pipx install qobuz-dl
-# Selon distribution:
-sudo dnf install -y whisper-cpp || true
-python3.12 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
-  || python3.11 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
-  || python3 -m venv "$HOME/.config/PersoDL/argostranslate-venv"
-"$HOME/.config/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
-```
-
-##### Arch/Manjaro (Pacman)
-
-```bash
-sudo pacman -Sy --noconfirm go yt-dlp ffmpeg python python-pipx
-pipx install qobuz-dl
-# Selon distribution:
-sudo pacman -Sy --noconfirm whisper-cpp || true
-python3.12 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
-  || python3.11 -m venv "$HOME/.config/PersoDL/argostranslate-venv" \
-  || python3 -m venv "$HOME/.config/PersoDL/argostranslate-venv"
-"$HOME/.config/PersoDL/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
-```
-
-### 3) Verification des installations
-
-Verifier que les binaires repondent:
-
-```bash
-go version
-yt-dlp --version
-ffmpeg -version
-qobuz-dl --help
-whisper-cli --version || whisper-cpp --version
-```
-
-Verification Argos:
-
-```bash
-python3 -c "import argostranslate; print('argostranslate OK')"
-```
-
-Sur Windows, utiliser:
-
-```powershell
-py -c "import argostranslate; print('argostranslate OK')"
-```
-
-### 4) Premier lancement
+### 2) Premier lancement (sans installer manuellement les outils)
 
 ```bash
 cd 21loader_crossplatforme
@@ -214,16 +139,111 @@ go run ./cmd/server --host 0.0.0.0 --port 8080
 
 Puis ouvrir `http://localhost:8080`.
 
-### 5) Finalisation recommandee dans l'UI
+### 3) Installer les dependances depuis l'application (recommande)
 
 1. Aller sur `Systeme`.
 2. Cliquer `Rafraichir` dans `Diagnostics et dependances`.
-3. Installer/mettre a jour les outils proposes si besoin.
+3. Utiliser les boutons `Installer` / `Mettre a jour` proposes pour chaque outil manquant.
 4. Aller sur `Gestionnaire de modeles Whisper` et installer au moins un modele.
-5. Aller sur `Reglages`:
+5. Si vous voulez la traduction:
+   - activer la traduction dans un job
+   - installer la paire de langues via le bouton `+` (Argos) dans la section langues.
+6. Aller sur `Reglages`:
    - definir le dossier de sortie par defaut
    - saisir email/mot de passe Qobuz si utilise
    - activer cookies Firefox si necessaire pour YouTube
+
+### 4) Verification rapide apres installation auto
+
+Lancer un job simple depuis `Telechargements`:
+
+- une URL YouTube video publique,
+- sans options avancees,
+- avec un dossier de sortie valide.
+
+Puis verifier dans le tableau jobs:
+
+- progression des etapes,
+- statut final (`completed` attendu),
+- presence des fichiers de sortie.
+
+### 5) Si l'installation automatique ne fonctionne pas (fallback manuel)
+
+N'utiliser cette section que si l'installation via `Systeme > Diagnostics` echoue.
+
+#### macOS (Homebrew)
+
+```bash
+brew install yt-dlp ffmpeg qobuz-dl whisper-cpp python
+python3.13 -m venv "$HOME/Library/Application Support/21loader/argostranslate-venv" \
+  || python3.12 -m venv "$HOME/Library/Application Support/21loader/argostranslate-venv" \
+  || python3 -m venv "$HOME/Library/Application Support/21loader/argostranslate-venv"
+"$HOME/Library/Application Support/21loader/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+#### Windows (winget + pipx)
+
+```powershell
+winget install --id yt-dlp.yt-dlp -e
+winget install --id Gyan.FFmpeg -e
+winget install --id Python.Python.3.12 -e
+winget install --id ggml-org.whisper.cpp -e
+py -m pip install --user pipx
+py -m pipx install qobuz-dl
+py -3.13 -m venv "$env:APPDATA\21loader\argostranslate-venv" `
+  || py -3.12 -m venv "$env:APPDATA\21loader\argostranslate-venv" `
+  || py -3 -m venv "$env:APPDATA\21loader\argostranslate-venv"
+"$env:APPDATA\21loader\argostranslate-venv\Scripts\python.exe" -m pip install --upgrade pip argostranslate
+```
+
+#### Linux (APT / DNF / Pacman)
+
+##### Debian/Ubuntu (APT)
+
+```bash
+sudo apt-get update
+sudo apt-get install -y yt-dlp ffmpeg python3 python3-venv pipx
+pipx install qobuz-dl
+sudo apt-get install -y whisper-cpp || true
+python3.12 -m venv "$HOME/.config/21loader/argostranslate-venv" \
+  || python3.11 -m venv "$HOME/.config/21loader/argostranslate-venv" \
+  || python3 -m venv "$HOME/.config/21loader/argostranslate-venv"
+"$HOME/.config/21loader/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+##### Fedora/RHEL (DNF)
+
+```bash
+sudo dnf install -y yt-dlp ffmpeg python3 pipx
+pipx install qobuz-dl
+sudo dnf install -y whisper-cpp || true
+python3.12 -m venv "$HOME/.config/21loader/argostranslate-venv" \
+  || python3.11 -m venv "$HOME/.config/21loader/argostranslate-venv" \
+  || python3 -m venv "$HOME/.config/21loader/argostranslate-venv"
+"$HOME/.config/21loader/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+##### Arch/Manjaro (Pacman)
+
+```bash
+sudo pacman -Sy --noconfirm yt-dlp ffmpeg python python-pipx
+pipx install qobuz-dl
+sudo pacman -Sy --noconfirm whisper-cpp || true
+python3.12 -m venv "$HOME/.config/21loader/argostranslate-venv" \
+  || python3.11 -m venv "$HOME/.config/21loader/argostranslate-venv" \
+  || python3 -m venv "$HOME/.config/21loader/argostranslate-venv"
+"$HOME/.config/21loader/argostranslate-venv/bin/python3" -m pip install --upgrade pip argostranslate
+```
+
+Verification manuelle des binaires (optionnel):
+
+```bash
+go version
+yt-dlp --version
+ffmpeg -version
+qobuz-dl --help
+whisper-cli --version || whisper-cpp --version
+```
 
 ## Lancement rapide
 
@@ -243,6 +263,92 @@ Puis ouvrir:
 cd 21loader_crossplatforme
 go build ./cmd/server
 ```
+
+### Export macOS (.dmg)
+
+Depuis la racine du projet:
+
+```bash
+./scripts/macos/build-dmg.sh
+```
+
+Resultat:
+
+- App bundle: `dist/macos/build/21loader.app`
+- Installateur: `dist/macos/21loader-<version>.dmg`
+
+Options utiles:
+
+```bash
+# Definir une version lisible dans le nom du dmg
+./scripts/macos/build-dmg.sh --version 0.1.0
+
+# Utiliser une autre icone (PNG ou ICNS)
+./scripts/macos/build-dmg.sh --icon /chemin/vers/icone.png
+```
+
+Par defaut, le script utilise `assets/macos/AppIcon.icns`.
+
+### Export Windows (.exe portable)
+
+Depuis la racine du projet:
+
+```bash
+./scripts/windows/build-exe.sh --arch amd64
+```
+
+Variantes:
+
+```bash
+# Build Windows ARM64
+./scripts/windows/build-exe.sh --arch arm64
+
+# Forcer une version lisible dans le nom de dossier/archive
+./scripts/windows/build-exe.sh --version 0.1.0 --arch amd64
+```
+
+Resultat:
+
+- Dossier portable: `dist/windows/21loader-<version>-<arch>/`
+- Binaire: `dist/windows/21loader-<version>-<arch>/app/21loader-server.exe`
+- Lanceur utilisateur: `dist/windows/21loader-<version>-<arch>/21loader.cmd`
+- Archive zip (si `zip` est installe): `dist/windows/21loader-<version>-<arch>.zip`
+
+Sur Windows, lancer `21loader.cmd` (pas directement le `.exe`) pour:
+
+- demarrer le serveur local dans le bon dossier runtime (`app/`),
+- ouvrir automatiquement le navigateur.
+
+### Export Windows (.exe installable)
+
+Depuis la racine du projet:
+
+```bash
+./scripts/windows/build-installer.sh --arch amd64
+```
+
+Resultat:
+
+- Installateur: `dist/windows/21loader-<version>-<arch>-setup.exe`
+
+L'installateur extrait l'application dans:
+
+- `%LOCALAPPDATA%\Programs\21loader`
+
+Puis:
+
+- crée un raccourci `21loader` dans le menu Démarrer (avec icône),
+- lance automatiquement `21loader.cmd` à la fin de l'installation.
+
+Utilisation quotidienne (Windows):
+
+- ouvre `21loader` depuis le menu Démarrer (pas besoin de relancer le `setup.exe`).
+
+Mise à jour locale (Windows):
+
+- page `Systeme` > bloc `Mise à jour de 21loader (Windows)`,
+- choisir un fichier `*.zip` (package portable) ou `*-setup.exe`,
+- cliquer `Appliquer la mise à jour`.
 
 ### Flags serveur
 
@@ -657,7 +763,7 @@ Artefacts possibles:
 
 ## Stockage local (settings, logs, cache)
 
-Base config: `os.UserConfigDir()/PersoDL`
+Base config: `os.UserConfigDir()/21loader`
 
 - `web-settings.json`
 - `Logs/<job-id>.log`
@@ -666,7 +772,7 @@ Base config: `os.UserConfigDir()/PersoDL`
 - `bin/`
 - `bin/models/`
 
-Base cache: `os.UserCacheDir()/PersoDL`
+Base cache: `os.UserCacheDir()/21loader`
 
 - `Jobs/<job-id>/` (workspace temporaire)
 - `Web/RSSArtworkThumbnails/`
@@ -751,7 +857,7 @@ Notes:
 - Outils manquants:
   - ouvrir page `Systeme` puis `Diagnostics` et lancer install.
 - Runtime Argos indisponible:
-  - installer `argostranslate` via Diagnostics (venv PersoDL gere).
+  - installer `argostranslate` via Diagnostics (venv 21loader gere).
 - Modele Whisper introuvable:
   - installer un modele dans `Gestionnaire de modeles Whisper`.
 - Qobuz non configure:
@@ -766,4 +872,4 @@ Notes:
 - JSON decode strict (`DisallowUnknownFields`).
 - Taille max body JSON: 4 MB.
 - Variable env utile:
-  - `PERSODL_YT_DATES_CONCURRENCY` (concurrence resolution dates YouTube, bornee a 8).
+  - `LOADER21_YT_DATES_CONCURRENCY` (concurrence resolution dates YouTube, bornee a 8).

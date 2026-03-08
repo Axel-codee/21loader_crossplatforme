@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/sys"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/sys"
+	"21loader-cross/internal/util"
 )
 
-const argosJSONBeginMarker = "PERSODL_ARGOS_JSON_BEGIN"
-const argosJSONEndMarker = "PERSODL_ARGOS_JSON_END"
+const argosJSONBeginMarker = "LOADER21_ARGOS_JSON_BEGIN"
+const argosJSONEndMarker = "LOADER21_ARGOS_JSON_END"
 
 type TranslationLanguageService struct {
 	runner  *sys.Runner

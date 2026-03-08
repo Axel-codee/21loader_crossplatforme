@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"persodl-cross/internal/core"
+	"21loader-cross/internal/core"
 )
 
 type RSSService struct {

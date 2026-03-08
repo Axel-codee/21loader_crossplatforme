@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"persodl-cross/internal/core"
+	"21loader-cross/internal/core"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -250,6 +250,28 @@ func TestFetchLyricsFromLRCLIBWithHintsUsesArtistForAlbumTracks(t *testing.T) {
 	assertFileContains(t, filepath.Join(root, "05. Check da Crou.lrc"), "[00:00.00] Crou")
 	if !containsString(requested, "Stupeflip::Check da Crou") {
 		t.Fatalf("expected artist+track query for album track, got %v", requested)
+	}
+}
+
+func TestFetchLyricsFromLRCLIBWithHintsIgnoresGenericPlaylistArtistHint(t *testing.T) {
+	root := t.TempDir()
+	for _, rel := range []string{"01. PRESSURE.flac", "02. Filler.flac"} {
+		if err := os.WriteFile(filepath.Join(root, rel), []byte("audio"), 0o644); err != nil {
+			t.Fatalf("write track failed: %v", err)
+		}
+	}
+
+	responses := map[string]lrclibPayload{
+		"PRESSURE": {syncedLyrics: "[00:00.00] Pressure"},
+	}
+	var requested []string
+	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
+
+	r.fetchLyricsFromLRCLIBWithHints(context.Background(), root, "My Playlist", "Playlists", RunCallbacks{})
+
+	assertFileContains(t, filepath.Join(root, "01. PRESSURE.lrc"), "[00:00.00] Pressure")
+	if containsString(requested, "Playlists::PRESSURE") || containsString(requested, "Playlists::01. PRESSURE") {
+		t.Fatalf("generic playlist artist hint should not be used as strict artist filter, got %v", requested)
 	}
 }
 
@@ -725,6 +747,40 @@ func TestFindExistingRSSOutputMatchesSelectedEpisode(t *testing.T) {
 	}
 	if !samePath(got.TranscriptPath, transcriptPath) {
 		t.Fatalf("unexpected transcript path: got=%q want=%q", got.TranscriptPath, transcriptPath)
+	}
+}
+
+func TestFindExistingQobuzAlbumDirectoryRequiresSameResourceType(t *testing.T) {
+	outputRoot := t.TempDir()
+	playlistDir := filepath.Join(outputRoot, "qobuz", "Playlists", "Playlist Demo")
+	if err := os.MkdirAll(playlistDir, 0o755); err != nil {
+		t.Fatalf("mkdir failed: %v", err)
+	}
+
+	metadataPath := filepath.Join(playlistDir, "album.json")
+	meta := MediaMetadata{
+		Title:            "Playlist Demo",
+		SourceName:       "Playlists",
+		SourceKind:       core.SourceQobuz,
+		OriginalInputURL: "https://play.qobuz.com/playlist/123456",
+		MediaPath:        playlistDir,
+	}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal metadata failed: %v", err)
+	}
+	if err := os.WriteFile(metadataPath, data, 0o644); err != nil {
+		t.Fatalf("write metadata failed: %v", err)
+	}
+
+	r := &Runner{}
+	if got := r.findExistingQobuzAlbumDirectory("https://play.qobuz.com/album/123456", outputRoot); got != "" {
+		t.Fatalf("expected no reuse across qobuz resource types, got=%q", got)
+	}
+
+	gotPlaylist := r.findExistingQobuzAlbumDirectory("https://play.qobuz.com/playlist/123456", outputRoot)
+	if !samePath(gotPlaylist, playlistDir) {
+		t.Fatalf("expected playlist reuse path: got=%q want=%q", gotPlaylist, playlistDir)
 	}
 }
 

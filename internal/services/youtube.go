@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/sys"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/sys"
+	"21loader-cross/internal/util"
 )
 
 type YouTubeService struct {
@@ -44,7 +44,7 @@ type cachedYouTubeMetadata struct {
 }
 
 func resolveDatesConcurrencyLimit() int {
-	if raw := strings.TrimSpace(os.Getenv("PERSODL_YT_DATES_CONCURRENCY")); raw != "" {
+	if raw := strings.TrimSpace(os.Getenv("LOADER21_YT_DATES_CONCURRENCY")); raw != "" {
 		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
 			if parsed > 8 {
 				return 8

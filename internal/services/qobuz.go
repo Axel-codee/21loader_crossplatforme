@@ -13,26 +13,28 @@ import (
 	"strings"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/sys"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/sys"
+	"21loader-cross/internal/util"
 )
 
-const qobuzJSONMarker = "__PERSODL_QOBUZ_JSON__"
+const qobuzJSONMarker = "__LOADER21_QOBUZ_JSON__"
 
 type QobuzService struct {
-	runner       *sys.Runner
-	artistScript string
-	searchScript string
-	tracksScript string
+	runner         *sys.Runner
+	artistScript   string
+	searchScript   string
+	tracksScript   string
+	playlistScript string
 }
 
 func NewQobuzService(r *sys.Runner, baseDir string) *QobuzService {
 	return &QobuzService{
-		runner:       r,
-		artistScript: filepath.Join(baseDir, "assets", "scripts", "qobuz_artist_catalog.py"),
-		searchScript: filepath.Join(baseDir, "assets", "scripts", "qobuz_artist_search.py"),
-		tracksScript: filepath.Join(baseDir, "assets", "scripts", "qobuz_album_tracks.py"),
+		runner:         r,
+		artistScript:   filepath.Join(baseDir, "assets", "scripts", "qobuz_artist_catalog.py"),
+		searchScript:   filepath.Join(baseDir, "assets", "scripts", "qobuz_artist_search.py"),
+		tracksScript:   filepath.Join(baseDir, "assets", "scripts", "qobuz_album_tracks.py"),
+		playlistScript: filepath.Join(baseDir, "assets", "scripts", "qobuz_playlist_catalog.py"),
 	}
 }
 
@@ -77,6 +79,45 @@ type qobuzArtistSearchScriptOutput struct {
 	} `json:"artists"`
 }
 
+type qobuzPlaylistScriptOutput struct {
+	PlaylistID   string `json:"playlist_id"`
+	PlaylistName string `json:"playlist_name"`
+	URL          string `json:"url"`
+	TracksCount  *int   `json:"tracks_count"`
+	Tracks       []struct {
+		ID              string `json:"id"`
+		Position        *int   `json:"position"`
+		Title           string `json:"title"`
+		DurationSeconds *int   `json:"duration_seconds"`
+		ArtistID        string `json:"artist_id"`
+		ArtistName      string `json:"artist_name"`
+		ArtistURL       string `json:"artist_url"`
+		AlbumID         string `json:"album_id"`
+		AlbumTitle      string `json:"album_title"`
+		AlbumURL        string `json:"album_url"`
+	} `json:"tracks"`
+	Albums []struct {
+		ID               string `json:"id"`
+		Title            string `json:"title"`
+		ArtistID         string `json:"artist_id"`
+		ArtistName       string `json:"artist_name"`
+		URL              string `json:"url"`
+		ReleaseTimestamp *int64 `json:"release_timestamp"`
+		TracksCount      *int   `json:"tracks_count"`
+		ReleaseKind      string `json:"release_kind"`
+		IsHiRes          bool   `json:"is_hires"`
+		CoverURL         string `json:"cover_url"`
+		TracksInPlaylist *int   `json:"tracks_in_playlist"`
+	} `json:"albums"`
+	Artists []struct {
+		ID               string `json:"id"`
+		Name             string `json:"name"`
+		URL              string `json:"url"`
+		TracksInPlaylist *int   `json:"tracks_in_playlist"`
+		AlbumsInPlaylist *int   `json:"albums_in_playlist"`
+	} `json:"artists"`
+}
+
 func (s *QobuzService) SearchArtists(ctx context.Context, query string, limit int, qobuzEmail, qobuzPassword string) (core.QobuzArtistSearchAPIResponse, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -95,9 +136,10 @@ func (s *QobuzService) SearchArtists(ctx context.Context, query string, limit in
 	if err != nil {
 		return core.QobuzArtistSearchAPIResponse{}, err
 	}
+	args := append(append([]string{}, python.PrefixArgs...), s.searchScript, query, strconv.Itoa(limit))
 	output, err := s.runner.Run(ctx, sys.RunOptions{
-		Executable:    python,
-		Args:          []string{s.searchScript, query, strconv.Itoa(limit)},
+		Executable:    python.Exec,
+		Args:          args,
 		CaptureOutput: true,
 	})
 	if err != nil {
@@ -177,9 +219,10 @@ func (s *QobuzService) FetchArtistCatalog(ctx context.Context, artistURL, qobuzE
 	if err != nil {
 		return core.QobuzArtistCatalogAPIResponse{}, err
 	}
+	args := append(append([]string{}, python.PrefixArgs...), s.artistScript, artistID)
 	output, err := s.runner.Run(ctx, sys.RunOptions{
-		Executable:    python,
-		Args:          []string{s.artistScript, artistID},
+		Executable:    python.Exec,
+		Args:          args,
 		CaptureOutput: true,
 	})
 	if err != nil {
@@ -237,9 +280,10 @@ func (s *QobuzService) FetchAlbumTracks(ctx context.Context, albumID, qobuzEmail
 	if err != nil {
 		return core.QobuzAlbumTracksAPIResponse{}, err
 	}
+	args := append(append([]string{}, python.PrefixArgs...), s.tracksScript, albumID)
 	output, err := s.runner.Run(ctx, sys.RunOptions{
-		Executable:    python,
-		Args:          []string{s.tracksScript, albumID},
+		Executable:    python.Exec,
+		Args:          args,
 		CaptureOutput: true,
 	})
 	if err != nil {
@@ -273,6 +317,155 @@ func (s *QobuzService) FetchAlbumTracks(ctx context.Context, albumID, qobuzEmail
 	return core.QobuzAlbumTracksAPIResponse{AlbumID: albumID, Tracks: tracks}, nil
 }
 
+func (s *QobuzService) FetchPlaylistCatalog(ctx context.Context, playlistURL, qobuzEmail, qobuzPassword string) (core.QobuzPlaylistCatalogAPIResponse, error) {
+	rt, ok := util.QobuzResourceTypeFromURL(playlistURL)
+	if !ok || rt != util.QobuzPlaylist {
+		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("URL playlist Qobuz invalide")
+	}
+	playlistID, ok := util.QobuzResourceIdentifier(playlistURL)
+	if !ok || playlistID == "" {
+		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("URL playlist Qobuz invalide")
+	}
+	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword); err != nil {
+		return core.QobuzPlaylistCatalogAPIResponse{}, err
+	}
+	python, err := resolveQobuzPythonRuntime()
+	if err != nil {
+		return core.QobuzPlaylistCatalogAPIResponse{}, err
+	}
+	args := append(append([]string{}, python.PrefixArgs...), s.playlistScript, playlistID)
+	output, err := s.runner.Run(ctx, sys.RunOptions{
+		Executable:    python.Exec,
+		Args:          args,
+		CaptureOutput: true,
+	})
+	if err != nil {
+		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("la recuperation de la playlist Qobuz a echoue: %w", err)
+	}
+	jsonPayload, ok := extractQobuzJSON(output)
+	if !ok {
+		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("impossible de lire la playlist Qobuz")
+	}
+	var parsed qobuzPlaylistScriptOutput
+	if err := json.Unmarshal([]byte(jsonPayload), &parsed); err != nil {
+		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("impossible de lire la playlist Qobuz")
+	}
+
+	tracks := make([]core.QobuzPlaylistTrackDTO, 0, len(parsed.Tracks))
+	for i, t := range parsed.Tracks {
+		id := strings.TrimSpace(t.ID)
+		if id == "" {
+			id = fmt.Sprintf("track-%d", i+1)
+		}
+		title := strings.TrimSpace(t.Title)
+		if title == "" {
+			title = fmt.Sprintf("Titre %d", i+1)
+		}
+		artistName := strings.TrimSpace(t.ArtistName)
+		if artistName == "" {
+			artistName = "Artiste inconnu"
+		}
+		tracks = append(tracks, core.QobuzPlaylistTrackDTO{
+			ID:               id,
+			Position:         t.Position,
+			Title:            title,
+			DurationSeconds:  t.DurationSeconds,
+			ArtistID:         strings.TrimSpace(t.ArtistID),
+			ArtistName:       artistName,
+			ArtistWebpageURL: strings.TrimSpace(t.ArtistURL),
+			AlbumID:          strings.TrimSpace(t.AlbumID),
+			AlbumTitle:       strings.TrimSpace(t.AlbumTitle),
+			AlbumWebpageURL:  strings.TrimSpace(t.AlbumURL),
+		})
+	}
+
+	albums := make([]core.QobuzAlbumDTO, 0, len(parsed.Albums))
+	for _, a := range parsed.Albums {
+		id := strings.TrimSpace(a.ID)
+		if id == "" {
+			continue
+		}
+		var releaseDate *time.Time
+		if a.ReleaseTimestamp != nil && *a.ReleaseTimestamp > 0 {
+			t := time.Unix(*a.ReleaseTimestamp, 0).UTC()
+			releaseDate = &t
+		}
+		title := strings.TrimSpace(a.Title)
+		if title == "" {
+			title = "Album " + id
+		}
+		artistName := strings.TrimSpace(a.ArtistName)
+		if artistName == "" {
+			artistName = "Artiste inconnu"
+		}
+		webpageURL := strings.TrimSpace(a.URL)
+		if webpageURL == "" {
+			webpageURL = "https://play.qobuz.com/album/" + id
+		}
+		releaseKind := strings.TrimSpace(a.ReleaseKind)
+		if releaseKind == "" {
+			releaseKind = "Release"
+		}
+		albums = append(albums, core.QobuzAlbumDTO{
+			ID:               id,
+			Title:            title,
+			ArtistName:       artistName,
+			WebpageURL:       webpageURL,
+			ReleaseDate:      releaseDate,
+			TrackCount:       a.TracksCount,
+			ReleaseKindLabel: releaseKind,
+			IsHiRes:          a.IsHiRes,
+			ArtworkURL:       strings.TrimSpace(a.CoverURL),
+		})
+	}
+
+	artists := make([]core.QobuzPlaylistArtistDTO, 0, len(parsed.Artists))
+	for _, a := range parsed.Artists {
+		name := strings.TrimSpace(a.Name)
+		if name == "" {
+			continue
+		}
+		tracksInPlaylist := 0
+		if a.TracksInPlaylist != nil && *a.TracksInPlaylist > 0 {
+			tracksInPlaylist = *a.TracksInPlaylist
+		}
+		albumsInPlaylist := 0
+		if a.AlbumsInPlaylist != nil && *a.AlbumsInPlaylist > 0 {
+			albumsInPlaylist = *a.AlbumsInPlaylist
+		}
+		artists = append(artists, core.QobuzPlaylistArtistDTO{
+			ID:               strings.TrimSpace(a.ID),
+			Name:             name,
+			WebpageURL:       strings.TrimSpace(a.URL),
+			TracksInPlaylist: tracksInPlaylist,
+			AlbumsInPlaylist: albumsInPlaylist,
+		})
+	}
+
+	playlistName := strings.TrimSpace(parsed.PlaylistName)
+	if playlistName == "" {
+		playlistName = "Playlist " + playlistID
+	}
+	webpageURL := strings.TrimSpace(parsed.URL)
+	if webpageURL == "" {
+		webpageURL = "https://play.qobuz.com/playlist/" + playlistID
+	}
+	tracksCount := len(tracks)
+	if parsed.TracksCount != nil && *parsed.TracksCount >= 0 {
+		tracksCount = *parsed.TracksCount
+	}
+
+	return core.QobuzPlaylistCatalogAPIResponse{
+		PlaylistID:   playlistID,
+		PlaylistName: playlistName,
+		WebpageURL:   webpageURL,
+		TracksCount:  tracksCount,
+		Tracks:       tracks,
+		Albums:       albums,
+		Artists:      artists,
+	}, nil
+}
+
 func (s *QobuzService) ensureConfigured(ctx context.Context, email, password string) error {
 	cfgFile, err := qobuzConfigFilePath()
 	if err == nil {
@@ -283,9 +476,13 @@ func (s *QobuzService) ensureConfigured(ctx context.Context, email, password str
 	if strings.TrimSpace(email) == "" || strings.TrimSpace(password) == "" {
 		return fmt.Errorf("qobuz-dl n'est pas configure. Renseigne email/mot de passe Qobuz dans Reglages")
 	}
+	qobuzExec, _, resolveErr := util.ResolveToolExecutable("qobuz-dl")
+	if resolveErr != nil {
+		return fmt.Errorf("qobuz-dl introuvable. Installe-le depuis Systeme > Diagnostics")
+	}
 	stdin := strings.TrimSpace(email) + "\n" + strings.TrimSpace(password) + "\n\n27\n"
 	_, err = s.runner.Run(ctx, sys.RunOptions{
-		Executable:    "qobuz-dl",
+		Executable:    qobuzExec,
 		Args:          []string{"-r"},
 		StandardInput: stdin,
 		CaptureOutput: true,
@@ -306,58 +503,133 @@ func qobuzConfigFilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	candidates := make([]string, 0, 2)
 	if runtime.GOOS == "windows" {
-		cfg := os.Getenv("APPDATA")
-		if cfg != "" {
-			return filepath.Join(cfg, "qobuz-dl", "config.ini"), nil
+		if cfg := strings.TrimSpace(os.Getenv("APPDATA")); cfg != "" {
+			candidates = append(candidates, filepath.Join(cfg, "qobuz-dl", "config.ini"))
 		}
+	}
+	candidates = append(candidates, filepath.Join(home, ".config", "qobuz-dl", "config.ini"))
+
+	for _, candidate := range candidates {
+		if _, statErr := os.Stat(candidate); statErr == nil {
+			return candidate, nil
+		}
+	}
+	if len(candidates) > 0 {
+		return candidates[0], nil
 	}
 	return filepath.Join(home, ".config", "qobuz-dl", "config.ini"), nil
 }
 
-func resolveQobuzPythonRuntime() (string, error) {
-	path, err := exec.LookPath("qobuz-dl")
-	if err != nil {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
-	}
-	defer f.Close()
-	s := bufio.NewScanner(f)
-	if !s.Scan() {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
-	}
-	line := strings.TrimSpace(s.Text())
-	if !strings.HasPrefix(line, "#!") {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
-	}
-	interpreter := strings.TrimSpace(strings.TrimPrefix(line, "#!"))
-	if interpreter == "" {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
-	}
-	parts := strings.Split(interpreter, " ")
-	candidate := strings.TrimSpace(parts[0])
-	if candidate == "" {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
-	}
-	if strings.HasSuffix(candidate, "env") && len(parts) >= 2 {
-		candidate = strings.TrimSpace(parts[1])
-	}
-	if candidate == "" {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
-	}
-	if strings.Contains(candidate, string(os.PathSeparator)) {
-		if _, err := os.Stat(candidate); err == nil {
+func resolveQobuzPythonRuntime() (pythonCommandCandidate, error) {
+	for _, candidate := range qobuzPythonProbeCandidates() {
+		if qobuzPythonCandidateSupportsModule(candidate) {
 			return candidate, nil
 		}
 	}
+	return pythonCommandCandidate{}, fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
+}
+
+func qobuzPythonProbeCandidates() []pythonCommandCandidate {
+	candidates := make([]pythonCommandCandidate, 0, 16)
+	if qobuzPath, _, err := util.ResolveToolExecutable("qobuz-dl"); err == nil {
+		for _, probeFile := range qobuzRuntimeProbeFiles(qobuzPath) {
+			if resolved := qobuzPythonFromShebang(probeFile); strings.TrimSpace(resolved) != "" {
+				candidates = append(candidates, pythonCommandCandidate{Exec: resolved})
+			}
+		}
+	}
+	candidates = append(candidates, pythonCommandCandidates()...)
+	return uniquePythonCommandCandidates(candidates)
+}
+
+func qobuzRuntimeProbeFiles(entrypoint string) []string {
+	out := []string{entrypoint}
+	if runtime.GOOS == "windows" && strings.EqualFold(filepath.Ext(entrypoint), ".exe") {
+		base := strings.TrimSuffix(entrypoint, filepath.Ext(entrypoint))
+		out = append(out, base+"-script.py")
+		out = append(out, base+".py")
+	}
+	return out
+}
+
+func qobuzPythonFromShebang(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+	if !s.Scan() {
+		return ""
+	}
+	line := strings.TrimSpace(s.Text())
+	if !strings.HasPrefix(line, "#!") {
+		return ""
+	}
+
+	interpreter := strings.TrimSpace(strings.TrimPrefix(line, "#!"))
+	if interpreter == "" {
+		return ""
+	}
+	parts := strings.Fields(interpreter)
+	if len(parts) == 0 {
+		return ""
+	}
+	candidate := strings.Trim(parts[0], "\"'")
+	if strings.EqualFold(filepath.Base(candidate), "env") && len(parts) >= 2 {
+		candidate = strings.Trim(parts[1], "\"'")
+	}
+	return resolvePythonCandidatePath(candidate)
+}
+
+func resolvePythonCandidatePath(candidate string) string {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return ""
+	}
+
+	looksLikePath := filepath.IsAbs(candidate) ||
+		strings.Contains(candidate, string(filepath.Separator)) ||
+		(runtime.GOOS == "windows" && strings.Contains(candidate, "/"))
+
+	if looksLikePath {
+		info, err := os.Stat(candidate)
+		if err != nil || info.IsDir() {
+			return ""
+		}
+		return candidate
+	}
+
 	resolved, err := exec.LookPath(candidate)
 	if err != nil {
-		return "", fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
+		return ""
 	}
-	return resolved, nil
+	return resolved
+}
+
+func qobuzPythonCandidateSupportsModule(candidate pythonCommandCandidate) bool {
+	execName := strings.TrimSpace(candidate.Exec)
+	if execName == "" {
+		return false
+	}
+
+	if strings.Contains(execName, string(filepath.Separator)) || (runtime.GOOS == "windows" && strings.Contains(execName, "/")) {
+		info, err := os.Stat(execName)
+		if err != nil || info.IsDir() {
+			return false
+		}
+	} else {
+		if _, err := exec.LookPath(execName); err != nil {
+			return false
+		}
+	}
+
+	args := append(append([]string{}, candidate.PrefixArgs...), "-c", "import qobuz_dl.qopy")
+	cmd := exec.Command(execName, args...)
+	return cmd.Run() == nil
 }
 
 func extractQobuzJSON(output string) (string, bool) {

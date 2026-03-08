@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"persodl-cross/internal/httpapi"
-	"persodl-cross/internal/jobs"
-	"persodl-cross/internal/services"
-	"persodl-cross/internal/sys"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/httpapi"
+	"21loader-cross/internal/jobs"
+	"21loader-cross/internal/services"
+	"21loader-cross/internal/sys"
+	"21loader-cross/internal/util"
 )
 
 func main() {
@@ -59,7 +59,7 @@ func main() {
 	}
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)
-	log.Printf("PersoDLWeb cross-platform demarre sur http://%s", addr)
+	log.Printf("21loaderWeb cross-platform demarre sur http://%s", addr)
 	log.Printf("Depuis un autre appareil: http://<IP_DE_LA_MACHINE>:%d", *port)
 
 	if err := http.ListenAndServe(addr, server.Handler()); err != nil {

@@ -45,7 +45,7 @@ func WhisperModelSearchDirs(configuredPath, whisperExecutable string) []string {
 		}
 	}
 
-	if appBin := PersoDLBinDir(); appBin != "" {
+	if appBin := Loader21BinDir(); appBin != "" {
 		dirs = append(dirs, filepath.Join(appBin, "models"), appBin)
 	}
 

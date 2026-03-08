@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-const AppName = "PersoDL"
+const AppName = "21loader"
 
 type AppPaths struct {
 	ApplicationSupport  string

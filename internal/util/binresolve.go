@@ -19,8 +19,8 @@ func ToolBinaryCandidates(tool string) []string {
 	}
 }
 
-// PersoDLBinDir is an app-managed binary directory used for local installs.
-func PersoDLBinDir() string {
+// Loader21BinDir is an app-managed binary directory used for local installs.
+func Loader21BinDir() string {
 	cfg, err := os.UserConfigDir()
 	if err != nil {
 		return ""
@@ -41,13 +41,28 @@ func resolveExecutableCandidates(candidates []string) (path string, resolvedName
 		}
 	}
 
-	binDir := PersoDLBinDir()
+	binDir := Loader21BinDir()
 	if binDir != "" {
 		for _, candidate := range ordered {
 			for _, fileName := range candidateFileNames(candidate) {
 				p := filepath.Join(binDir, fileName)
 				if isExecutableFile(p) {
 					return p, candidate, nil
+				}
+			}
+		}
+	}
+
+	// Windows users frequently install qobuz-dl with pipx without adding
+	// pipx app directories to PATH. Probe common user-level locations.
+	if runtime.GOOS == "windows" {
+		for _, candidate := range ordered {
+			for _, dir := range windowsToolSearchDirs(candidate) {
+				for _, fileName := range candidateFileNames(candidate) {
+					p := filepath.Join(dir, fileName)
+					if isExecutableFile(p) {
+						return p, candidate, nil
+					}
 				}
 			}
 		}
@@ -79,9 +94,30 @@ func candidateFileNames(name string) []string {
 		return nil
 	}
 	if runtime.GOOS == "windows" && filepath.Ext(name) == "" {
-		return []string{name + ".exe", name}
+		return []string{name + ".exe", name + ".cmd", name + ".bat", name}
 	}
 	return []string{name}
+}
+
+func windowsToolSearchDirs(tool string) []string {
+	out := make([]string, 0, 6)
+
+	if home, err := os.UserHomeDir(); err == nil && strings.TrimSpace(home) != "" {
+		out = append(out, filepath.Join(home, ".local", "bin"))
+		trimmedTool := strings.TrimSpace(tool)
+		if trimmedTool != "" {
+			out = append(out, filepath.Join(home, "pipx", "venvs", trimmedTool, "Scripts"))
+		}
+	}
+
+	if localAppData := strings.TrimSpace(os.Getenv("LOCALAPPDATA")); localAppData != "" {
+		out = append(out, filepath.Join(localAppData, "Programs", "Python", "Scripts"))
+	}
+	if appData := strings.TrimSpace(os.Getenv("APPDATA")); appData != "" {
+		out = append(out, filepath.Join(appData, "Python", "Scripts"))
+	}
+
+	return uniqueNonEmpty(out)
 }
 
 func isExecutableFile(path string) bool {

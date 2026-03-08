@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/util"
-	"persodl-cross/internal/xuuid"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/util"
+	"21loader-cross/internal/xuuid"
 )
 
 func TestExtractLyricsFoundSummary(t *testing.T) {

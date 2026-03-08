@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/xuuid"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/xuuid"
 )
 
 func TestSetRuntimeDisplayNameSetsYouTubeWhenMissing(t *testing.T) {

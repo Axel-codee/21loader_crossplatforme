@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"persodl-cross/internal/core"
-	"persodl-cross/internal/sys"
-	"persodl-cross/internal/util"
+	"21loader-cross/internal/core"
+	"21loader-cross/internal/sys"
+	"21loader-cross/internal/util"
 )
 
 var dependencyTools = []string{"yt-dlp", "ffmpeg", "qobuz-dl", "whisper-cli", "argostranslate"}
@@ -275,7 +275,7 @@ func inspectArgosTranslate(ctx context.Context, runner *sys.Runner) core.WebBina
 		return core.WebBinaryDiagnostic{
 			Name:      moduleName,
 			Available: false,
-			Notes:     "Module Python introuvable. Utilise le bouton Installer pour creer le venv PersoDL et installer argostranslate.",
+			Notes:     "Module Python introuvable. Utilise le bouton Installer pour creer le venv 21loader et installer argostranslate.",
 		}
 	}
 	if moduleError != "" {
@@ -288,7 +288,7 @@ func inspectArgosTranslate(ctx context.Context, runner *sys.Runner) core.WebBina
 	return core.WebBinaryDiagnostic{
 		Name:      moduleName,
 		Available: false,
-		Notes:     "Module Python introuvable. Utilise le bouton Installer pour creer le venv PersoDL et installer argostranslate.",
+		Notes:     "Module Python introuvable. Utilise le bouton Installer pour creer le venv 21loader et installer argostranslate.",
 	}
 }
 
@@ -517,14 +517,19 @@ func (s *DiagnosticsService) runCommandSequence(ctx context.Context, tool string
 		appendLogChunk("$ " + commandText + "\n")
 		s.setInstallProgress(true, "running", tool, action, commandText, "Execution de la commande...")
 
-		_, err := s.runner.Run(ctx, sys.RunOptions{
-			Executable: cmd.Exec,
-			Args:       cmd.Args,
-			OnOutput:   appendLogChunk,
+		output, err := s.runner.Run(ctx, sys.RunOptions{
+			Executable:    cmd.Exec,
+			Args:          cmd.Args,
+			OnOutput:      appendLogChunk,
+			CaptureOutput: true,
 		})
 		if err != nil {
-			appendLogChunk(fmt.Sprintf("[erreur] %v\n", err))
-			continue
+			if isBenignDependencyCommandError(cmd, output) {
+				appendLogChunk("[info] Commande ignoree: package deja installe ou deja a jour.\n")
+			} else {
+				appendLogChunk(fmt.Sprintf("[erreur] %v\n", err))
+				continue
+			}
 		}
 		if s.toolAvailable(ctx, tool) {
 			s.setInstallProgress(true, "running", tool, action, commandText, successMessage)
@@ -533,6 +538,25 @@ func (s *DiagnosticsService) runCommandSequence(ctx context.Context, tool string
 	}
 
 	return false, failureMessage, logText()
+}
+
+func isBenignDependencyCommandError(cmd commandSpec, output string) bool {
+	if !strings.EqualFold(strings.TrimSpace(cmd.Exec), "winget") {
+		return false
+	}
+	args := strings.ToLower(strings.Join(cmd.Args, " "))
+	if !strings.Contains(args, "install") && !strings.Contains(args, "upgrade") {
+		return false
+	}
+	text := strings.ToLower(strings.TrimSpace(output))
+	if text == "" {
+		return false
+	}
+	return strings.Contains(text, "existing package is already installed") ||
+		strings.Contains(text, "no available upgrade found") ||
+		strings.Contains(text, "aucune version de package plus") ||
+		strings.Contains(text, "deja ete installe") ||
+		strings.Contains(text, "déjà été installé")
 }
 
 func (s *DiagnosticsService) detectOutdatedTools(ctx context.Context, pm packageManager) map[string]bool {
@@ -995,17 +1019,17 @@ func uniqueCommandSpecs(commands []commandSpec) []commandSpec {
 
 func whisperWindowsInstallScript() string {
 	return "$ErrorActionPreference='Stop';" +
-		"$release=Invoke-RestMethod -Headers @{ 'User-Agent'='PersoDL' } -Uri 'https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest';" +
+		"$release=Invoke-RestMethod -Headers @{ 'User-Agent'='21loader' } -Uri 'https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest';" +
 		"$asset=$release.assets | Where-Object { $_.name -match 'win' -and $_.name -match 'x64' -and $_.name -match 'zip' } | Select-Object -First 1;" +
 		"if(-not $asset){ throw 'Aucun binaire Windows x64 whisper.cpp trouve'; };" +
-		"$zipPath=Join-Path $env:TEMP 'persodl-whispercpp.zip';" +
-		"$extractDir=Join-Path $env:TEMP 'persodl-whispercpp';" +
+		"$zipPath=Join-Path $env:TEMP '21loader-whispercpp.zip';" +
+		"$extractDir=Join-Path $env:TEMP '21loader-whispercpp';" +
 		"Remove-Item -Path $extractDir -Recurse -Force -ErrorAction SilentlyContinue;" +
 		"Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath;" +
 		"Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force;" +
 		"$candidate=Get-ChildItem -Path $extractDir -Recurse -File | Where-Object { $_.Name -ieq 'whisper-cli.exe' -or $_.Name -ieq 'whisper-cpp.exe' } | Select-Object -First 1;" +
 		"if(-not $candidate){ throw 'whisper-cli.exe introuvable dans l archive'; };" +
-		"$binDir=Join-Path $env:APPDATA 'PersoDL\\bin';" +
+		"$binDir=Join-Path $env:APPDATA '21loader\\bin';" +
 		"New-Item -ItemType Directory -Path $binDir -Force | Out-Null;" +
 		"$sourceDir=Split-Path -Parent $candidate.FullName;" +
 		"Copy-Item -Path (Join-Path $sourceDir '*') -Destination $binDir -Recurse -Force;" +

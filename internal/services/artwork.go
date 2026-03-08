@@ -51,7 +51,7 @@ type artworkTask struct {
 func NewArtworkThumbnailService(cacheDir string) *ArtworkThumbnailService {
 	cleanCacheDir := strings.TrimSpace(cacheDir)
 	if cleanCacheDir == "" {
-		cleanCacheDir = filepath.Join(os.TempDir(), "PersoDL", "Web", "RSSArtworkThumbnails")
+		cleanCacheDir = filepath.Join(os.TempDir(), "21loader", "Web", "RSSArtworkThumbnails")
 	}
 	_ = os.MkdirAll(cleanCacheDir, 0o755)
 
@@ -144,7 +144,7 @@ func (s *ArtworkThumbnailService) buildThumbnail(
 	)
 	req.Header.Set(
 		"User-Agent",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) PersoDLWeb/1.0",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) 21loaderWeb/1.0",
 	)
 
 	resp, err := s.client.Do(req)

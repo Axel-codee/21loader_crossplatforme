@@ -48,12 +48,12 @@ func TestParseResolvedMetadataLine(t *testing.T) {
 }
 
 func TestResolveDatesConcurrencyLimitFromEnv(t *testing.T) {
-	t.Setenv("PERSODL_YT_DATES_CONCURRENCY", "2")
+	t.Setenv("LOADER21_YT_DATES_CONCURRENCY", "2")
 	if got := resolveDatesConcurrencyLimit(); got != 2 {
 		t.Fatalf("unexpected concurrency limit: got=%d want=2", got)
 	}
 
-	t.Setenv("PERSODL_YT_DATES_CONCURRENCY", "999")
+	t.Setenv("LOADER21_YT_DATES_CONCURRENCY", "999")
 	if got := resolveDatesConcurrencyLimit(); got != 8 {
 		t.Fatalf("unexpected capped concurrency limit: got=%d want=8", got)
 	}

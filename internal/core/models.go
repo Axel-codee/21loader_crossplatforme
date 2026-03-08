@@ -3,7 +3,7 @@ package core
 import (
 	"time"
 
-	"persodl-cross/internal/xuuid"
+	"21loader-cross/internal/xuuid"
 )
 
 type JobSourceKind string
@@ -135,6 +135,17 @@ type SelectDirectoryResponse struct {
 	Cancelled bool   `json:"cancelled"`
 }
 
+type SelectFileRequest struct {
+	CurrentPath string   `json:"currentPath"`
+	Title       string   `json:"title,omitempty"`
+	Filters     []string `json:"filters,omitempty"`
+}
+
+type SelectFileResponse struct {
+	Path      string `json:"path,omitempty"`
+	Cancelled bool   `json:"cancelled"`
+}
+
 type CreateJobAPIRequest struct {
 	InputURL                  string              `json:"inputURL"`
 	SourceKind                string              `json:"sourceKind"`
@@ -157,6 +168,7 @@ type CreateJobAPIRequest struct {
 	QobuzEmail                string              `json:"qobuzEmail"`
 	QobuzPassword             string              `json:"qobuzPassword"`
 	QobuzArtistName           string              `json:"qobuzArtistName"`
+	QobuzPlaylistName         string              `json:"qobuzPlaylistName"`
 	CollisionPolicy           string              `json:"collisionPolicy"`
 	QobuzExistingAlbumPolicy  string              `json:"qobuzExistingAlbumPolicy"`
 	RSSEpisode                *RSSEpisodeAPIInput `json:"rssEpisode"`
@@ -186,6 +198,12 @@ type QobuzArtistSearchAPIRequest struct {
 
 type QobuzAlbumTracksAPIRequest struct {
 	AlbumID       string `json:"albumID"`
+	QobuzEmail    string `json:"qobuzEmail"`
+	QobuzPassword string `json:"qobuzPassword"`
+}
+
+type QobuzPlaylistCatalogAPIRequest struct {
+	PlaylistURL   string `json:"playlistURL"`
 	QobuzEmail    string `json:"qobuzEmail"`
 	QobuzPassword string `json:"qobuzPassword"`
 }
@@ -236,6 +254,37 @@ type QobuzTrackDTO struct {
 type QobuzAlbumTracksAPIResponse struct {
 	AlbumID string          `json:"albumID"`
 	Tracks  []QobuzTrackDTO `json:"tracks"`
+}
+
+type QobuzPlaylistTrackDTO struct {
+	ID               string `json:"id"`
+	Position         *int   `json:"position,omitempty"`
+	Title            string `json:"title"`
+	DurationSeconds  *int   `json:"durationSeconds,omitempty"`
+	ArtistID         string `json:"artistID,omitempty"`
+	ArtistName       string `json:"artistName"`
+	ArtistWebpageURL string `json:"artistWebpageURL,omitempty"`
+	AlbumID          string `json:"albumID,omitempty"`
+	AlbumTitle       string `json:"albumTitle,omitempty"`
+	AlbumWebpageURL  string `json:"albumWebpageURL,omitempty"`
+}
+
+type QobuzPlaylistArtistDTO struct {
+	ID               string `json:"id,omitempty"`
+	Name             string `json:"name"`
+	WebpageURL       string `json:"webpageURL,omitempty"`
+	TracksInPlaylist int    `json:"tracksInPlaylist"`
+	AlbumsInPlaylist int    `json:"albumsInPlaylist"`
+}
+
+type QobuzPlaylistCatalogAPIResponse struct {
+	PlaylistID   string                   `json:"playlistID"`
+	PlaylistName string                   `json:"playlistName"`
+	WebpageURL   string                   `json:"webpageURL"`
+	TracksCount  int                      `json:"tracksCount"`
+	Tracks       []QobuzPlaylistTrackDTO  `json:"tracks"`
+	Albums       []QobuzAlbumDTO          `json:"albums"`
+	Artists      []QobuzPlaylistArtistDTO `json:"artists"`
 }
 
 type JobResultDTO struct {
@@ -349,6 +398,16 @@ type DependencyInstallProgressResponse struct {
 	Logs      string    `json:"logs,omitempty"`
 	StartedAt time.Time `json:"startedAt,omitempty"`
 	UpdatedAt time.Time `json:"updatedAt,omitempty"`
+}
+
+type AppUpdateRequest struct {
+	FilePath string `json:"filePath"`
+}
+
+type AppUpdateResponse struct {
+	OK               bool   `json:"ok"`
+	Message          string `json:"message"`
+	RestartScheduled bool   `json:"restartScheduled,omitempty"`
 }
 
 type TranslationLanguageInfoDTO struct {
@@ -470,6 +529,7 @@ type JobRequest struct {
 	QobuzEmail                string
 	QobuzPassword             string
 	QobuzArtistName           string
+	QobuzPlaylistName         string
 }
 
 type JobResult struct {
