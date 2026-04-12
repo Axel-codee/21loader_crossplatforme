@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>21loader Web</title>
+  <title>21loader</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/app-logo.png" />
+  <link rel="apple-touch-icon" href="/app-logo.png" />
   <style>
     :root {
       --bg: #f3f5f9;
@@ -35,9 +38,32 @@
     }
 
     .app-frame {
-      max-width: 1460px;
+      max-width: 1680px;
       margin: 0 auto;
       padding: 18px 16px 0;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px 20px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      display: block;
+      width: clamp(88px, 12vw, 144px);
+      height: auto;
+      border-radius: 28px;
+      box-shadow: 0 16px 34px rgba(18, 28, 45, 0.12);
     }
 
     .view-nav {
@@ -45,6 +71,7 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+      margin-left: auto;
     }
 
     .view-nav button {
@@ -65,7 +92,7 @@
     }
 
     .shell {
-      max-width: 1460px;
+      max-width: 1680px;
       margin: 0 auto;
       padding: 12px 16px 28px;
       display: grid;
@@ -74,7 +101,7 @@
     }
 
     .shell.is-single-column {
-      grid-template-columns: minmax(0, 960px);
+      grid-template-columns: minmax(0, 1320px);
       justify-content: center;
     }
 
@@ -101,6 +128,28 @@
       font-size: 15px;
       font-weight: 650;
       letter-spacing: 0.2px;
+    }
+
+    .panel-head-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .panel-eyebrow {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #5b6e8c;
+    }
+
+    .panel-subtitle {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #51627d;
     }
 
     .stack {
@@ -155,6 +204,73 @@
 
     .job-flow-step .hint {
       margin: 0;
+    }
+
+    .job-option-group {
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid #e5ebf7;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .job-option-group-head {
+      display: grid;
+      gap: 4px;
+    }
+
+    .job-option-group-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08px;
+      color: #0f172a;
+    }
+
+    .job-builder-form {
+      gap: 14px;
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .job-builder-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .job-builder-card {
+      border: 1px solid #dbe4f3;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfdff, #f4f8ff);
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .job-builder-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #60708a;
+    }
+
+    .job-builder-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .job-builder-submit {
+      justify-self: start;
+      padding-inline: 16px;
     }
 
     .field {
@@ -273,8 +389,43 @@
 
     .jobs-wrap {
       display: grid;
-      grid-template-rows: min-content minmax(180px, 1fr) minmax(160px, 230px);
+      grid-template-rows: min-content min-content minmax(180px, 1fr) minmax(160px, 230px);
       min-height: 62vh;
+    }
+
+    .jobs-dashboard {
+      padding: 12px 14px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .jobs-dashboard-card {
+      border: 1px solid #dbe4f3;
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 10px 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .jobs-dashboard-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #60708a;
+    }
+
+    .jobs-dashboard-value {
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 750;
+      color: #0f172a;
+    }
+
+    .jobs-table-wrap {
+      overflow: auto;
     }
 
     table {
@@ -374,6 +525,14 @@
       margin-top: -2px;
     }
 
+    .hint.is-error {
+      color: #9a1d1d;
+    }
+
+    .hint.is-success {
+      color: #166534;
+    }
+
     .qobuz-artist-tools {
       border: 1px solid var(--line);
       border-radius: 10px;
@@ -391,6 +550,80 @@
     .qobuz-inline-summary {
       font-size: 12px;
       color: #475569;
+    }
+
+    .lyrics-search-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .lyrics-search-results {
+      display: grid;
+      gap: 8px;
+    }
+
+    .lyrics-search-result {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .lyrics-search-result.is-selected {
+      border-color: #1d4ed8;
+      background: #eef4ff;
+      box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.08);
+    }
+
+    .lyrics-search-result-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) min-content;
+      gap: 8px;
+      align-items: start;
+    }
+
+    .lyrics-search-result-title {
+      font-size: 13px;
+      font-weight: 650;
+      color: #0f172a;
+    }
+
+    .lyrics-search-result-meta {
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.4;
+    }
+
+    .lyrics-search-result-preview {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #e5ebf7;
+      color: #1e293b;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 140px;
+      overflow: auto;
+    }
+
+    .lyrics-search-result-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e8f2ff;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
     }
 
     .mode-toggle-row {
@@ -420,6 +653,7 @@
       place-items: center;
       padding: 18px;
       z-index: 100;
+      overflow: auto;
     }
 
     .picker-modal[hidden] {
@@ -436,6 +670,7 @@
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
       display: grid;
       grid-template-rows: min-content min-content min-content min-content minmax(180px, 1fr) min-content;
+      min-height: 0;
     }
 
     .picker-head {
@@ -490,6 +725,7 @@
       display: grid;
       gap: 8px;
       align-content: start;
+      min-height: 0;
     }
 
     .picker-row {
@@ -1027,6 +1263,12 @@
     }
 
     @media (max-width: 1100px) {
+      .app-header {
+        align-items: flex-start;
+      }
+      .brand-logo {
+        width: min(160px, 42vw);
+      }
       .shell {
         grid-template-columns: 1fr;
       }
@@ -1045,27 +1287,40 @@
       }
       .view-nav {
         width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
       }
       .view-nav button {
         flex: 1 1 180px;
       }
     }
+
   </style>
 </head>
 <body>
   <div class="app-frame">
-    <nav class="view-nav" aria-label="Navigation principale">
-      <button type="button" data-page-target="downloads">Téléchargements</button>
-      <button type="button" data-page-target="settings">Réglages</button>
-      <button type="button" data-page-target="system">Système</button>
-    </nav>
+    <div class="app-header">
+      <div class="brand" aria-label="21loader">
+        <img class="brand-logo" src="/app-logo.png" alt="Logo 21loader" loading="eager" decoding="async" />
+      </div>
+      <nav class="view-nav" aria-label="Navigation principale">
+        <button type="button" data-page-target="add-job">Ajouter un job</button>
+        <button type="button" data-page-target="jobs">Jobs en cours</button>
+        <button type="button" data-page-target="settings">Réglages</button>
+        <button type="button" data-page-target="system">Système</button>
+      </nav>
+    </div>
   </div>
 
   <div id="shellRoot" class="shell">
     <section class="stack">
       <div class="panel" id="panelIntro">
         <div class="panel-head">
-          <h2 class="panel-title">21loader Web</h2>
+          <div class="panel-head-copy">
+            <p id="introEyebrow" class="panel-eyebrow">21loader</p>
+            <h2 id="introTitle" class="panel-title">Ajouter un job</h2>
+            <p id="introSubtitle" class="panel-subtitle">Prépare un nouveau téléchargement dans une vue dédiée, puis bascule sur les jobs en cours pour suivre l'exécution.</p>
+          </div>
           <span class="badge" id="activeBadge">Aucun job actif</span>
         </div>
         <div class="form">
@@ -1090,10 +1345,32 @@
 
       <div class="panel" id="panelNewJob">
         <div class="panel-head">
-          <h3 class="panel-title">Nouveau job</h3>
+          <div class="panel-head-copy">
+            <h3 class="panel-title">Ajouter un job</h3>
+            <p class="panel-subtitle">Cette page est centrée sur la préparation du prochain lot: source, sélection, traitement et destination.</p>
+          </div>
+          <button id="openJobsPageFromBuilder" class="btn-ghost" type="button">Voir les jobs en cours</button>
         </div>
-        <form id="jobForm" class="form">
-          <section class="job-flow-step">
+        <form id="jobForm" class="form job-builder-form">
+          <div class="job-builder-overview">
+            <article class="job-builder-card">
+              <span class="job-builder-label">Source</span>
+              <strong id="builderSourceValue" class="job-builder-value">Détection auto</strong>
+              <span id="builderSourceHint" class="hint">Choisis une plateforme ou colle directement une URL.</span>
+            </article>
+            <article class="job-builder-card">
+              <span class="job-builder-label">Sélection</span>
+              <strong id="builderSelectionValue" class="job-builder-value">Sélection implicite</strong>
+              <span id="builderSelectionHint" class="hint">Selon la source, l'étape 3 ouvre un sélecteur dédié.</span>
+            </article>
+            <article class="job-builder-card">
+              <span class="job-builder-label">Sortie</span>
+              <strong id="builderOutputValue" class="job-builder-value">Dossier par défaut</strong>
+              <span id="builderOutputHint" class="hint">Le nom personnalisé et la politique de collision s'appliqueront au moment du lancement.</span>
+            </article>
+          </div>
+
+          <section class="job-flow-step job-step-platform">
             <div class="job-flow-head">
               <span class="job-flow-index">1</span>
               <h4 class="job-flow-title">Plateforme</h4>
@@ -1120,7 +1397,7 @@
             </div>
           </section>
 
-          <section class="job-flow-step">
+          <section class="job-flow-step job-step-source">
             <div class="job-flow-head">
               <span class="job-flow-index">2</span>
               <h4 class="job-flow-title">Source (URL ou recherche artiste)</h4>
@@ -1155,7 +1432,7 @@
             <div id="qobuzSelectedArtistSummary" class="qobuz-inline-summary" hidden></div>
           </section>
 
-          <section id="jobSelectionStep" class="job-flow-step" hidden>
+          <section id="jobSelectionStep" class="job-flow-step job-step-selection" hidden>
             <div class="job-flow-head">
               <span class="job-flow-index">3</span>
               <h4 class="job-flow-title">Sélection albums / vidéos / épisodes</h4>
@@ -1210,59 +1487,111 @@
             </div>
           </section>
 
-          <section class="job-flow-step">
+          <section class="job-flow-step job-step-processing">
             <div class="job-flow-head">
               <span class="job-flow-index">4</span>
-              <h4 class="job-flow-title">Options (lyrics / sous-titres / transcription)</h4>
-            </div>
-            <div id="transcriptionControls" class="field">
-              <label class="checkbox">
-                <input type="checkbox" id="enableTranscription" checked />
-                Activer la transcription
-              </label>
+              <h4 class="job-flow-title">Options de traitement</h4>
             </div>
 
-            <div id="transcriptionLanguageField" class="field">
-              <label for="transcriptionLanguage">Langue transcription</label>
-              <input id="transcriptionLanguage" value="auto" />
-            </div>
-
-            <div id="transcriptionModelField" class="field">
-              <label for="jobWhisperModelPath">Modèle Whisper</label>
-              <select id="jobWhisperModelPath">
-                <option value="">Modèle par défaut (réglages moteur)</option>
-              </select>
-              <p class="hint">Choix par job. Laisse “par défaut” pour utiliser le modèle moteur.</p>
-            </div>
-
-            <div id="translationControls" class="field">
-              <label class="checkbox">
-                <input type="checkbox" id="enableTranslation" />
-                Traduire la transcription et les sous-titres (Argos)
-              </label>
-              <p class="hint">Option locale/offline. Exige Python + argostranslate.</p>
-            </div>
-
-            <div id="translationLanguagesRow" class="row2">
-              <div class="field">
-                <label for="translationSourceLanguage">Langue source</label>
-                <select id="translationSourceLanguage"></select>
+            <div class="job-option-group">
+              <div class="job-option-group-head">
+                <h5 class="job-option-group-title">Transcription Whisper</h5>
+                <p class="hint">Genere un transcript texte et un fichier de sous-titres `.srt`.</p>
               </div>
-              <div class="field">
-                <label for="translationTargetLanguage">Langue cible</label>
-                <div class="translation-target-picker">
-                  <select id="translationTargetLanguage"></select>
-                  <button id="installTranslationPair" class="btn-ghost btn-micro" type="button" title="Installer la paire source → cible">+</button>
+
+              <div id="transcriptionControls" class="field">
+                <label class="checkbox">
+                  <input type="checkbox" id="enableTranscription" checked />
+                  Activer la transcription
+                </label>
+              </div>
+
+              <div id="transcriptionLanguageField" class="field">
+                <label for="transcriptionLanguage">Langue transcription</label>
+                <input id="transcriptionLanguage" value="auto" />
+              </div>
+
+              <div id="transcriptionModelField" class="field">
+                <label for="jobWhisperModelPath">Modele Whisper</label>
+                <select id="jobWhisperModelPath">
+                  <option value="">Modele par defaut (reglages moteur)</option>
+                </select>
+                <p class="hint">Choix par job. Laisse "par defaut" pour utiliser le modele moteur.</p>
+              </div>
+            </div>
+
+            <div id="subtitleOptionsGroup" class="job-option-group">
+              <div class="job-option-group-head">
+                <h5 class="job-option-group-title">Sous-titres et traduction</h5>
+                <p class="hint">La traduction utilise les fichiers generes par Whisper pour produire une variante locale/offline.</p>
+              </div>
+
+              <div id="translationControls" class="field">
+                <label class="checkbox">
+                  <input type="checkbox" id="enableTranslation" />
+                  Traduire la transcription et les sous-titres (Argos)
+                </label>
+                <p class="hint">Option locale/offline. Exige Python + argostranslate.</p>
+              </div>
+
+              <p id="translationDependencyHint" class="hint" hidden>Active la transcription pour produire le transcript et les sous-titres avant traduction.</p>
+
+              <div id="translationLanguagesRow" class="row2">
+                <div class="field">
+                  <label for="translationSourceLanguage">Langue source</label>
+                  <select id="translationSourceLanguage"></select>
+                </div>
+                <div class="field">
+                  <label for="translationTargetLanguage">Langue cible</label>
+                  <div class="translation-target-picker">
+                    <select id="translationTargetLanguage"></select>
+                    <button id="installTranslationPair" class="btn-ghost btn-micro" type="button" title="Installer la paire source -> cible">+</button>
+                  </div>
                 </div>
               </div>
+              <p id="translationPairHint" class="hint" hidden>Chargement du catalogue des langues...</p>
             </div>
-            <p id="translationPairHint" class="hint" hidden>Chargement du catalogue des langues...</p>
 
-            <div id="lyricsControls" class="field" hidden>
-              <label class="checkbox">
-                <input type="checkbox" id="enableLyrics" checked />
-                Activer les lyrics (LRC)
-              </label>
+            <div id="lyricsOptionsGroup" class="job-option-group" hidden>
+              <div class="job-option-group-head">
+                <h5 class="job-option-group-title">Lyrics</h5>
+                <p class="hint">Visible uniquement pour le type Music.</p>
+              </div>
+
+              <div id="lyricsControls" class="field">
+                <label class="checkbox">
+                  <input type="checkbox" id="lyricsModeDisabled" />
+                  Lyrics désactivé
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="lyricsModeAutomatic" checked />
+                  Recherche automatique LRCLIB
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="lyricsModeManual" />
+                  Renseigner manuellement la recherche LRCLIB
+                </label>
+                <label id="lyricsModeDescriptionRow" class="checkbox" hidden>
+                  <input type="checkbox" id="lyricsModeDescription" />
+                  Rechercher lyrics dans la description de la vidéo
+                </label>
+                <p id="lyricsModeHint" class="hint">Une seule option peut être active à la fois.</p>
+                <input type="hidden" id="lyricsMode" value="automatic_lrclib" />
+                <input type="checkbox" id="enableLyrics" checked hidden />
+                <input type="checkbox" id="useCustomLyricsSearch" hidden />
+              </div>
+
+              <div id="lyricsDescriptionModeHint" class="field" hidden>
+                <p class="hint">Ce mode YouTube sera implémenté plus tard. Il est sélectionnable mais non exécutable pour l'instant.</p>
+              </div>
+
+              <div id="lyricsSearchOverridesFields" class="field" hidden>
+                <div class="lyrics-search-actions">
+                  <button id="openLyricsSelection" class="btn-ghost" type="button">Ouvrir la recherche LRCLIB</button>
+                  <button id="clearSelectedLyricsResult" class="btn-ghost" type="button" hidden>Réinitialiser les sélections</button>
+                </div>
+                <div id="lyricsSearchManualStatus" class="qobuz-inline-summary">Sans sélection manuelle, la recherche restera automatique au lancement du job.</div>
+              </div>
             </div>
 
             <div class="row2">
@@ -1278,7 +1607,7 @@
             </div>
           </section>
 
-          <section class="job-flow-step">
+          <section class="job-flow-step job-step-output">
             <div class="job-flow-head">
               <span class="job-flow-index">5</span>
               <h4 class="job-flow-title">Destination et paramètres avancés</h4>
@@ -1319,7 +1648,7 @@
             </details>
           </section>
 
-          <button class="btn-primary" type="submit">Ajouter à la file</button>
+          <button class="btn-primary job-builder-submit" type="submit">Ajouter à la file</button>
         </form>
       </div>
 
@@ -1354,6 +1683,19 @@
               <label for="qobuzPassword">Qobuz mot de passe</label>
               <input id="qobuzPassword" type="password" />
             </div>
+          </div>
+          <div class="toolbar">
+            <button id="verifyQobuzCredentials" class="btn-ghost" type="button">Tester la connexion Qobuz</button>
+          </div>
+          <p id="qobuzCredentialsCheckHint" class="hint">Teste la connexion Qobuz utilisée par qobuz-dl. Un échec peut venir des identifiants, de la configuration locale ou d'un changement côté Qobuz.</p>
+          <label id="qobuzTokenWorkaroundToggleRow" class="checkbox" hidden>
+            <input type="checkbox" id="qobuzUseTokenWorkaround" />
+            Activer le contournement Qobuz par token de session
+          </label>
+          <div id="qobuzTokenWorkaroundFields" class="field" hidden>
+            <label for="qobuzUserAuthToken">Token de session Qobuz</label>
+            <input id="qobuzUserAuthToken" type="password" autocomplete="off" />
+            <p class="hint">À utiliser uniquement si le test classique échoue. Récupération manuelle: Qobuz web, DevTools, Réseau, requête <code>user/login</code>, puis copie de <code>user_auth_token</code>.</p>
           </div>
           <label class="checkbox">
             <input type="checkbox" id="useFirefoxCookies" />
@@ -1424,14 +1766,41 @@
 
     <section class="panel jobs-wrap" id="panelJobs">
       <div class="panel-head">
-        <h3 class="panel-title">Jobs</h3>
+        <div class="panel-head-copy">
+          <h3 class="panel-title">Jobs en cours</h3>
+          <p class="panel-subtitle">Surveille la file, ouvre les logs du job sélectionné et pilote pause/reprise/annulation sans être distrait par le formulaire.</p>
+        </div>
         <div class="toolbar">
+          <button id="openAddJobPageFromJobs" class="btn-ghost" type="button">Ajouter un job</button>
           <span class="hint" id="lastRefresh">--</span>
           <button id="manualRefresh" class="btn-ghost" type="button">Rafraîchir</button>
         </div>
       </div>
 
-      <div style="overflow:auto;">
+      <div class="jobs-dashboard">
+        <article class="jobs-dashboard-card">
+          <span class="jobs-dashboard-label">Actifs</span>
+          <strong id="jobsDashboardActive" class="jobs-dashboard-value">0</strong>
+          <span class="hint">En execution ou en pause</span>
+        </article>
+        <article class="jobs-dashboard-card">
+          <span class="jobs-dashboard-label">En attente</span>
+          <strong id="jobsDashboardQueued" class="jobs-dashboard-value">0</strong>
+          <span class="hint">Jobs déjà ajoutés</span>
+        </article>
+        <article class="jobs-dashboard-card">
+          <span class="jobs-dashboard-label">Terminés</span>
+          <strong id="jobsDashboardCompleted" class="jobs-dashboard-value">0</strong>
+          <span class="hint">Succès complets</span>
+        </article>
+        <article class="jobs-dashboard-card">
+          <span class="jobs-dashboard-label">Erreurs</span>
+          <strong id="jobsDashboardFailed" class="jobs-dashboard-value">0</strong>
+          <span class="hint">Jobs à inspecter</span>
+        </article>
+      </div>
+
+      <div class="jobs-table-wrap">
         <table>
           <thead>
             <tr>
@@ -1576,13 +1945,62 @@
     </section>
   </div>
 
+  <div id="lyricsSelectionModal" class="picker-modal" hidden>
+    <section class="picker-card" role="dialog" aria-modal="true" aria-labelledby="lyricsSelectionTitle">
+      <div class="picker-head">
+        <h3 id="lyricsSelectionTitle" class="picker-title">Résultats LRCLIB</h3>
+        <button id="lyricsModalClose" class="btn-ghost" type="button">Fermer</button>
+      </div>
+      <div class="picker-meta">
+        <span id="lyricsModalCount">0 résultat(s)</span>
+        <span id="lyricsModalQuery"></span>
+      </div>
+      <div class="picker-controls">
+        <div id="lyricsTargetField" class="field" hidden>
+          <label for="lyricsTargetSelect">Morceau à configurer</label>
+          <select id="lyricsTargetSelect"></select>
+          <div id="lyricsTargetSummary" class="hint"></div>
+        </div>
+        <div class="field">
+          <label for="lyricsSearchTitle">Titre pour LRCLIB</label>
+          <input id="lyricsSearchTitle" placeholder="Titre de la chanson" />
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="lyricsSearchArtist">Artiste pour LRCLIB (optionnel)</label>
+            <input id="lyricsSearchArtist" placeholder="Artiste" />
+          </div>
+          <div class="field">
+            <label for="lyricsSearchAlbum">Album pour LRCLIB (optionnel)</label>
+            <input id="lyricsSearchAlbum" placeholder="Album" />
+          </div>
+        </div>
+        <div class="lyrics-search-actions">
+          <button id="searchLyricsResults" class="btn-ghost" type="button">Rechercher dans LRCLIB</button>
+          <span class="hint">Choisis un résultat puis clique sur "Utiliser ce résultat".</span>
+        </div>
+      </div>
+      <div class="picker-actions">
+        <button id="lyricsModalClearSelection" class="btn-ghost" type="button">Retirer la sélection</button>
+        <span id="lyricsModalSelectionSummary" class="hint">Aucun résultat sélectionné.</span>
+      </div>
+      <div id="lyricsResultsBody" class="picker-list">
+        <div class="hint">Renseigne un titre puis clique sur "Rechercher dans LRCLIB".</div>
+      </div>
+      <div class="picker-foot">
+        <button id="lyricsModalCancel" class="btn-ghost" type="button">Annuler</button>
+        <button id="lyricsModalApply" class="btn-primary" type="button">Fermer</button>
+      </div>
+    </section>
+  </div>
+
   <script>
     const state = {
       selectedJobId: null,
       lastRenderedLogsJobId: null,
       lastRenderedLogsText: "",
       lastActiveJobId: null,
-      currentPage: "downloads",
+      currentPage: "add-job",
       settingsLoaded: false,
       lastJobs: [],
       failureAlertJobId: null,
@@ -1598,6 +2016,16 @@
       translationLanguageCatalog: null,
       isLoadingTranslationLanguageCatalog: false,
       isInstallingTranslationPair: false,
+      lrclibSearchResults: [],
+      selectedLRCLIBResultID: "",
+      isSearchingLRCLIB: false,
+      hasSearchedLRCLIB: false,
+      isPreparingLyricsTargets: false,
+      lyricsSelectionTargets: [],
+      lyricsTargetsContextKey: "",
+      currentLyricsTargetKey: "",
+      manualLyricsSelectionsByTargetKey: {},
+      lyricsSearchDraftsByTargetKey: {},
       whisperModelsResponse: null,
       whisperModelInstallInProgress: new Set(),
       whisperInstallProgressByModelID: {},
@@ -1619,6 +2047,10 @@
       qobuzArtistSearchResults: [],
       selectedQobuzArtistSearchID: "",
       isSearchingQobuzArtists: false,
+      isVerifyingQobuzCredentials: false,
+      qobuzCredentialsCheckTone: "idle",
+      qobuzCredentialsCheckMessage: "",
+      qobuzTokenWorkaroundAvailable: false,
       selectedQobuzAlbumIDs: new Set(),
       expandedQobuzAlbumIDs: new Set(),
       qobuzTracksByAlbumID: {},
@@ -1653,6 +2085,7 @@
     const RSS_ARTWORK_RETRY_BASE_DELAY_MS = 1400;
     const RSS_ARTWORK_RETRY_MAX_DELAY_MS = 12000;
     const RSS_ARTWORK_LOAD_TIMEOUT_MS = 9000;
+    const DEFAULT_QOBUZ_CREDENTIALS_CHECK_HINT = "Teste la connexion Qobuz utilisée par qobuz-dl. Un échec peut venir des identifiants, de la configuration locale ou d'un changement côté Qobuz.";
 
     function escapeHtml(value) {
       return String(value || "")
@@ -1676,6 +2109,47 @@
 
     function setChecked(id, value) {
       $(id).checked = Boolean(value);
+    }
+
+    function qobuzUseTokenWorkaroundEnabled() {
+      return Boolean($("qobuzUseTokenWorkaround")?.checked);
+    }
+
+    function currentQobuzAuthPayload() {
+      return {
+        qobuzEmail: inputValue("qobuzEmail") || null,
+        qobuzPassword: $("qobuzPassword").value || null,
+        qobuzUseUserAuthToken: qobuzUseTokenWorkaroundEnabled(),
+        qobuzUserAuthToken: $("qobuzUserAuthToken").value.trim() || null,
+      };
+    }
+
+    function renderQobuzTokenWorkaround() {
+      const toggleRow = $("qobuzTokenWorkaroundToggleRow");
+      const fields = $("qobuzTokenWorkaroundFields");
+      if (!toggleRow || !fields) return;
+
+      const shouldShow = state.qobuzTokenWorkaroundAvailable
+        || qobuzUseTokenWorkaroundEnabled()
+        || Boolean($("qobuzUserAuthToken").value.trim());
+      toggleRow.hidden = !shouldShow;
+      fields.hidden = !shouldShow || !qobuzUseTokenWorkaroundEnabled();
+    }
+
+    const LYRICS_MODE_DISABLED = "disabled";
+    const LYRICS_MODE_AUTOMATIC = "automatic_lrclib";
+    const LYRICS_MODE_MANUAL = "manual_lrclib";
+    const LYRICS_MODE_YOUTUBE_DESCRIPTION = "youtube_description";
+
+    function normalizeLyricsMode(value) {
+      const mode = String(value || "").trim();
+      if (mode === LYRICS_MODE_DISABLED
+        || mode === LYRICS_MODE_AUTOMATIC
+        || mode === LYRICS_MODE_MANUAL
+        || mode === LYRICS_MODE_YOUTUBE_DESCRIPTION) {
+        return mode;
+      }
+      return "";
     }
 
     function normalizeLanguageCode(value) {
@@ -1925,9 +2399,13 @@
     }
 
     const PAGE_CONFIG = {
-      downloads: {
-        layout: "dual",
-        visiblePanels: ["panelIntro", "panelNewJob", "panelJobs"],
+      "add-job": {
+        layout: "single",
+        visiblePanels: ["panelIntro", "panelNewJob"],
+      },
+      jobs: {
+        layout: "single",
+        visiblePanels: ["panelIntro", "panelJobs"],
       },
       settings: {
         layout: "single",
@@ -1948,9 +2426,42 @@
       "panelJobs",
     ];
 
+    const PAGE_INTRO_CONFIG = {
+      "add-job": {
+        eyebrow: "Creation",
+        title: "Ajouter un job",
+        subtitle: "Prépare un téléchargement dans une vue dédiée, avec une structure plus claire entre source, sélection, traitement et sortie.",
+      },
+      jobs: {
+        eyebrow: "Suivi",
+        title: "Jobs en cours",
+        subtitle: "Concentre-toi sur la file, les statuts et les logs sans mélanger le monitoring avec la création d'un nouveau job.",
+      },
+      settings: {
+        eyebrow: "Configuration",
+        title: "Réglages moteur",
+        subtitle: "Ajuste les chemins, les identifiants et les options globales utilisées par les prochains jobs.",
+      },
+      system: {
+        eyebrow: "Maintenance",
+        title: "Système et dépendances",
+        subtitle: "Vérifie l'environnement local, les dépendances installées, les mises à jour et les modèles Whisper.",
+      },
+    };
+
     function normalizedPage(value) {
       const key = String(value || "").trim().toLowerCase();
-      return PAGE_CONFIG[key] ? key : "downloads";
+      if (key === "downloads") {
+        return "jobs";
+      }
+      return PAGE_CONFIG[key] ? key : "add-job";
+    }
+
+    function renderPageIntro() {
+      const config = PAGE_INTRO_CONFIG[state.currentPage] || PAGE_INTRO_CONFIG["add-job"];
+      $("introEyebrow").textContent = config.eyebrow;
+      $("introTitle").textContent = config.title;
+      $("introSubtitle").textContent = config.subtitle;
     }
 
     function applyPage(page, options = {}) {
@@ -1976,6 +2487,7 @@
       });
 
       state.currentPage = pageKey;
+      renderPageIntro();
 
       if (options.updateHash !== false) {
         const nextHash = `#${pageKey}`;
@@ -2004,7 +2516,8 @@
       const anyModalOpen = !$("qobuzSelectionModal").hidden
         || !$("qobuzArtistSelectionModal").hidden
         || !$("rssSelectionModal").hidden
-        || !$("youtubeSelectionModal").hidden;
+        || !$("youtubeSelectionModal").hidden
+        || !$("lyricsSelectionModal").hidden;
       document.body.style.overflow = anyModalOpen ? "hidden" : "";
     }
 
@@ -2048,6 +2561,23 @@
 
     function closeYouTubeSelectionModal() {
       $("youtubeSelectionModal").hidden = true;
+      updateModalScrollLock();
+    }
+
+    function openLyricsSelectionModal() {
+      const wasHidden = $("lyricsSelectionModal").hidden;
+      $("lyricsSelectionModal").hidden = false;
+      renderLRCLIBSearchResults();
+      updateModalScrollLock();
+      if (wasHidden && canManualLyricsLookup() && lyricsMode() === LYRICS_MODE_MANUAL) {
+        window.requestAnimationFrame(() => {
+          $("lyricsSearchTitle").focus();
+        });
+      }
+    }
+
+    function closeLyricsSelectionModal() {
+      $("lyricsSelectionModal").hidden = true;
       updateModalScrollLock();
     }
 
@@ -2393,6 +2923,30 @@
       return "unknown";
     }
 
+    function qobuzResourceIdentifier(urlValue) {
+      const raw = String(urlValue || "").trim();
+      if (!raw) return "";
+
+      let parsed;
+      try {
+        parsed = new URL(raw);
+      } catch {
+        return "";
+      }
+
+      const host = String(parsed.hostname || "").toLowerCase();
+      if (!host.includes("qobuz.com")) return "";
+
+      const parts = String(parsed.pathname || "").split("/").filter(Boolean);
+      for (let index = 0; index < parts.length; index += 1) {
+        const part = String(parts[index] || "").toLowerCase();
+        if (part === "album" || part === "artist" || part === "track" || part === "playlist" || part === "label") {
+          return String(parts[parts.length - 1] || "").trim();
+        }
+      }
+      return "";
+    }
+
     function isYouTubeCollectionURL(urlValue) {
       const raw = String(urlValue || "").trim();
       if (!raw) return false;
@@ -2475,6 +3029,139 @@
       return inferredContentType(resolvedSourceKind(), inputValue("contentType"));
     }
 
+    function sourceKindLabel(value) {
+      switch (String(value || "").toLowerCase()) {
+      case "youtube":
+        return "YouTube";
+      case "rss":
+        return "RSS";
+      case "qobuz":
+        return "Qobuz";
+      case "auto":
+        return "Détection auto";
+      default:
+        return "Source à définir";
+      }
+    }
+
+    function contentTypeLabel(value) {
+      switch (String(value || "").toLowerCase()) {
+      case "video":
+        return "Vidéo";
+      case "audio":
+        return "Audio";
+      case "music":
+        return "Musique";
+      case "auto":
+        return "Type auto";
+      default:
+        return "Type à définir";
+      }
+    }
+
+    function collisionPolicyLabel(value) {
+      switch (String(value || "").toLowerCase()) {
+      case "complete":
+        return "Compléter";
+      case "overwrite":
+        return "Écraser";
+      case "cancel":
+        return "Annuler";
+      default:
+        return "Renommer";
+      }
+    }
+
+    function builderSelectionSummary() {
+      if (isRSSContext()) {
+        const count = state.selectedRSSEpisodeIDs.size;
+        return {
+          value: count > 0 ? `${count} épisode(s)` : "Aucun épisode",
+          hint: count > 0
+            ? "La sélection RSS sera transformée en un job par épisode."
+            : "Clique sur \"Choisir épisodes\" pour charger le flux et cocher les épisodes voulus.",
+        };
+      }
+
+      if (isYouTubeCollectionContext()) {
+        const count = state.selectedYouTubeVideoIDs.size;
+        return {
+          value: count > 0 ? `${count} vidéo(s)` : "Aucune vidéo",
+          hint: count > 0
+            ? "Chaque vidéo cochée générera son propre job YouTube."
+            : "Liste d'abord la chaîne ou la playlist puis sélectionne les vidéos utiles.",
+        };
+      }
+
+      if (isQobuzPlaylistContext()) {
+        const action = qobuzPlaylistAction();
+        if (action === "tracks") {
+          return {
+            value: hasFreshQobuzPlaylistCatalog() ? "Playlist complète" : "Playlist à analyser",
+            hint: "Ce mode crée un seul job playlist après analyse.",
+          };
+        }
+        if (action === "albums") {
+          const count = Array.isArray(state.qobuzPlaylistCatalog?.albums) ? state.qobuzPlaylistCatalog.albums.length : 0;
+          return {
+            value: count > 0 ? `${count} album(s) détecté(s)` : "Albums à détecter",
+            hint: "L'analyse de playlist servira à créer un job par album détecté.",
+          };
+        }
+        const count = selectedQobuzPlaylistAlbums().length;
+        return {
+          value: count > 0 ? `${count} album(s)` : "Aucun album",
+          hint: "Sélectionne un artiste de playlist puis charge et coche ses albums.",
+        };
+      }
+
+      if (isQobuzArtistContext()) {
+        const count = state.selectedQobuzAlbumIDs.size;
+        return {
+          value: count > 0 ? `${count} album(s)` : "Aucun album",
+          hint: count > 0
+            ? "Un job Qobuz sera créé pour chaque album retenu."
+            : "Charge le catalogue de l'artiste puis sélectionne les albums voulus.",
+        };
+      }
+
+      return {
+        value: "Sélection implicite",
+        hint: "Pour une URL unitaire, le job utilisera directement la source saisie.",
+      };
+    }
+
+    function updateJobBuilderOverview() {
+      const explicitSource = inputValue("sourceKind") || "auto";
+      const explicitType = inputValue("contentType") || "auto";
+      const source = resolvedSourceKind();
+      const contentType = resolvedContentType();
+      const sourceLabel = source === "unknown"
+        ? sourceKindLabel(explicitSource)
+        : sourceKindLabel(source);
+      const typeLabel = contentType === "unknown"
+        ? contentTypeLabel(explicitType)
+        : contentTypeLabel(contentType);
+      const sourceHint = inputValue("inputURL")
+        ? (source === "unknown"
+          ? "L'URL n'a pas été reconnue automatiquement: garde le choix manuel si la source est correcte."
+          : "La source active pilote les outils affichés plus bas dans la page.")
+        : "Choisis une plateforme ou colle directement une URL pour préremplir le type approprié.";
+      const selection = builderSelectionSummary();
+      const outputRoot = inputValue("outputRootPath") || inputValue("defaultOutputRoot") || "";
+      const customName = inputValue("customName");
+      const collision = collisionPolicyLabel(inputValue("collisionPolicy") || "rename");
+
+      $("builderSourceValue").textContent = `${sourceLabel} • ${typeLabel}`;
+      $("builderSourceHint").textContent = sourceHint;
+      $("builderSelectionValue").textContent = selection.value;
+      $("builderSelectionHint").textContent = selection.hint;
+      $("builderOutputValue").textContent = outputRoot || "Dossier par défaut";
+      $("builderOutputHint").textContent = customName
+        ? `Nom personnalisé: ${customName} • Collision: ${collision}`
+        : `Nom généré automatiquement • Collision: ${collision}`;
+    }
+
     function syncDetectedSourceAndTypeFromURL() {
       const detectedSourceKind = detectedSourceKindFromURL(inputValue("inputURL"));
       if (detectedSourceKind === "unknown") return;
@@ -2488,6 +3175,31 @@
       if (inputValue("contentType") !== detectedContentType) {
         setInput("contentType", detectedContentType);
       }
+      applyDefaultTranscriptionForSelectedContentType();
+    }
+
+    function selectedExplicitContentType() {
+      const value = inputValue("contentType");
+      if (value === "audio" || value === "video" || value === "music") {
+        return value;
+      }
+      return "";
+    }
+
+    function applyDefaultTranscriptionForSelectedContentType(options = {}) {
+      const contentTypeField = $("contentType");
+      const selectedType = selectedExplicitContentType();
+      const previousType = String(contentTypeField.dataset.transcriptionDefaultType || "").trim();
+      contentTypeField.dataset.transcriptionDefaultType = selectedType;
+
+      if (!selectedType) {
+        return;
+      }
+      if (!options.force && selectedType === previousType) {
+        return;
+      }
+
+      setChecked("enableTranscription", selectedType !== "music");
     }
 
     function isQobuzMusicContext() {
@@ -2513,9 +3225,10 @@
 
     function isRSSContext() {
       const url = inputValue("inputURL");
+      const selectedSource = String(inputValue("sourceKind") || "").toLowerCase();
       return resolvedSourceKind() === "rss"
         && resolvedContentType() === "audio"
-        && detectedSourceKindFromURL(url) === "rss";
+        && (selectedSource === "rss" || detectedSourceKindFromURL(url) === "rss");
     }
 
     function isYouTubeCollectionContext() {
@@ -2525,30 +3238,782 @@
         && isYouTubeCollectionURL(url);
     }
 
+    function canManualLyricsLookup() {
+      const sourceKind = resolvedSourceKind();
+      return resolvedContentType() === "music"
+        && (sourceKind === "youtube" || sourceKind === "qobuz");
+    }
+
+    function canUseYouTubeDescriptionLyricsMode() {
+      return resolvedContentType() === "music"
+        && resolvedSourceKind() === "youtube";
+    }
+
+    function derivedLyricsModeFromInputs() {
+      if (!$("enableLyrics").checked) {
+        return LYRICS_MODE_DISABLED;
+      }
+      if ($("useCustomLyricsSearch").checked) {
+        return LYRICS_MODE_MANUAL;
+      }
+      return LYRICS_MODE_AUTOMATIC;
+    }
+
+    function sanitizeLyricsModeForContext(value) {
+      let mode = normalizeLyricsMode(value) || derivedLyricsModeFromInputs();
+      if (mode === LYRICS_MODE_MANUAL && !canManualLyricsLookup()) {
+        mode = LYRICS_MODE_AUTOMATIC;
+      }
+      if (mode === LYRICS_MODE_YOUTUBE_DESCRIPTION && !canUseYouTubeDescriptionLyricsMode()) {
+        mode = LYRICS_MODE_AUTOMATIC;
+      }
+      return normalizeLyricsMode(mode) || LYRICS_MODE_AUTOMATIC;
+    }
+
+    function lyricsMode() {
+      return sanitizeLyricsModeForContext(inputValue("lyricsMode"));
+    }
+
+    function setLyricsMode(mode, options = {}) {
+      const previousMode = normalizeLyricsMode(inputValue("lyricsMode")) || derivedLyricsModeFromInputs();
+      const nextMode = sanitizeLyricsModeForContext(mode);
+      const modeChanged = nextMode !== previousMode;
+
+      setInput("lyricsMode", nextMode);
+      setChecked("lyricsModeDisabled", nextMode === LYRICS_MODE_DISABLED);
+      setChecked("lyricsModeAutomatic", nextMode === LYRICS_MODE_AUTOMATIC);
+      setChecked("lyricsModeManual", nextMode === LYRICS_MODE_MANUAL);
+      setChecked("lyricsModeDescription", nextMode === LYRICS_MODE_YOUTUBE_DESCRIPTION);
+      setChecked("enableLyrics", nextMode !== LYRICS_MODE_DISABLED);
+      setChecked("useCustomLyricsSearch", nextMode === LYRICS_MODE_MANUAL);
+
+      $("lyricsModeDescriptionRow").hidden = !canUseYouTubeDescriptionLyricsMode();
+      $("lyricsDescriptionModeHint").hidden = nextMode !== LYRICS_MODE_YOUTUBE_DESCRIPTION;
+
+      if (modeChanged) {
+        if (previousMode === LYRICS_MODE_MANUAL) {
+          persistLyricsSearchDraftForCurrentTarget();
+        }
+        if (nextMode !== LYRICS_MODE_MANUAL) {
+          clearLRCLIBSearchState();
+        } else {
+          closeLyricsSelectionModal();
+        }
+      }
+
+      if (options.render !== false) {
+        renderLRCLIBSearchResults();
+      }
+      return nextMode;
+    }
+
+    function currentLyricsTargetsContextKey() {
+      const sourceKind = resolvedSourceKind();
+      if (resolvedContentType() !== "music") {
+        return "";
+      }
+      if (sourceKind === "youtube") {
+        return JSON.stringify({
+          sourceKind,
+          collection: isYouTubeCollectionContext(),
+          inputURL: normalizeYouTubeCollectionURL(inputValue("inputURL")),
+          videoIDs: selectedYouTubeVideos()
+            .map((video) => String(video?.id || "").trim())
+            .filter(Boolean)
+            .sort(),
+        });
+      }
+      if (sourceKind === "qobuz") {
+        const resourceType = qobuzResourceType(inputValue("inputURL")) || "";
+        const playlistActionValue = resourceType === "playlist" ? qobuzPlaylistAction() : "";
+        let albumIDs = [];
+        if (resourceType === "artist") {
+          albumIDs = selectedQobuzAlbums().map((album) => String(album?.id || "").trim()).filter(Boolean).sort();
+        } else if (resourceType === "playlist" && playlistActionValue === "artistAlbums") {
+          albumIDs = selectedQobuzPlaylistAlbums().map((album) => String(album?.id || "").trim()).filter(Boolean).sort();
+        } else if (resourceType === "playlist" && playlistActionValue === "albums") {
+          albumIDs = Array.isArray(state.qobuzPlaylistCatalog?.albums)
+            ? state.qobuzPlaylistCatalog.albums.map((album) => String(album?.id || "").trim()).filter(Boolean).sort()
+            : [];
+        }
+        return JSON.stringify({
+          sourceKind,
+          resourceType,
+          playlistAction: playlistActionValue,
+          inputURL: normalizeArtistURL(inputValue("inputURL")),
+          albumIDs,
+        });
+      }
+      return "";
+    }
+
+    function currentLyricsTarget() {
+      if (!Array.isArray(state.lyricsSelectionTargets) || state.lyricsSelectionTargets.length === 0) {
+        return null;
+      }
+      return state.lyricsSelectionTargets.find((target) => target.key === state.currentLyricsTargetKey) || state.lyricsSelectionTargets[0] || null;
+    }
+
+    function lyricsManualSelectionsArray() {
+      return Object.values(state.manualLyricsSelectionsByTargetKey || {}).filter(Boolean);
+    }
+
+    function currentLyricsManualSelection() {
+      const target = currentLyricsTarget();
+      if (!target) {
+        return null;
+      }
+      return state.manualLyricsSelectionsByTargetKey?.[target.key] || null;
+    }
+
+    function lyricsTargetDefaultDraft(target) {
+      return {
+        trackName: String(target?.targetTrackName || "").trim(),
+        artistName: String(target?.targetArtistName || "").trim(),
+        albumName: String(target?.targetAlbumName || "").trim(),
+      };
+    }
+
+    function applyLyricsDraftForTarget(target) {
+      const draft = state.lyricsSearchDraftsByTargetKey?.[target?.key] || lyricsTargetDefaultDraft(target);
+      setInput("lyricsSearchTitle", draft.trackName || "");
+      setInput("lyricsSearchArtist", draft.artistName || "");
+      setInput("lyricsSearchAlbum", draft.albumName || "");
+    }
+
+    function persistLyricsSearchDraftForCurrentTarget() {
+      const target = currentLyricsTarget();
+      if (!target) {
+        return;
+      }
+      state.lyricsSearchDraftsByTargetKey[target.key] = {
+        trackName: inputValue("lyricsSearchTitle"),
+        artistName: inputValue("lyricsSearchArtist"),
+        albumName: inputValue("lyricsSearchAlbum"),
+      };
+    }
+
+    function resetLyricsManualSelections() {
+      state.lrclibSearchResults = [];
+      state.selectedLRCLIBResultID = "";
+      state.isSearchingLRCLIB = false;
+      state.hasSearchedLRCLIB = false;
+      state.isPreparingLyricsTargets = false;
+      state.lyricsSelectionTargets = [];
+      state.lyricsTargetsContextKey = "";
+      state.currentLyricsTargetKey = "";
+      state.manualLyricsSelectionsByTargetKey = {};
+      state.lyricsSearchDraftsByTargetKey = {};
+    }
+
+    function setCurrentLyricsTarget(targetKey) {
+      const targets = Array.isArray(state.lyricsSelectionTargets) ? state.lyricsSelectionTargets : [];
+      if (!targets.length) {
+        state.currentLyricsTargetKey = "";
+        return;
+      }
+      persistLyricsSearchDraftForCurrentTarget();
+      const nextTarget = targets.find((target) => target.key === targetKey) || targets[0];
+      state.currentLyricsTargetKey = nextTarget.key;
+      applyLyricsDraftForTarget(nextTarget);
+      state.lrclibSearchResults = [];
+      state.selectedLRCLIBResultID = String(state.manualLyricsSelectionsByTargetKey?.[nextTarget.key]?.lrclibResultID || "").trim();
+      state.hasSearchedLRCLIB = false;
+      renderLRCLIBSearchResults();
+    }
+
+    function buildYouTubeLyricsTargets() {
+      if (isYouTubeCollectionContext()) {
+        const sourceTitle = String(state.youtubeCatalog?.sourceTitle || "").trim();
+        return selectedYouTubeVideos().map((video, index) => {
+          const videoID = String(video?.id || "").trim() || `video-${index + 1}`;
+          const title = String(video?.title || "").trim() || `Video ${index + 1}`;
+          return {
+            key: `youtube:${videoID}`,
+            jobKey: `youtube:${videoID}`,
+            targetTrackName: title,
+            targetArtistName: sourceTitle,
+            targetAlbumName: "",
+            displayLabel: title,
+            displayMeta: sourceTitle || String(video?.webpageURL || "").trim(),
+          };
+        });
+      }
+      return [{
+        key: "lyrics-single",
+        jobKey: "lyrics-single",
+        targetTrackName: "",
+        targetArtistName: "",
+        targetAlbumName: "",
+        displayLabel: "Titre courant",
+        displayMeta: "Sélection manuelle pour ce job music.",
+      }];
+    }
+
+    async function buildLyricsTargetsFromQobuzAlbums(albums, fallbackArtistName = "") {
+      const safeAlbums = Array.isArray(albums) ? albums : [];
+      await Promise.all(safeAlbums.map((album) => ensureQobuzAlbumTracksLoaded(String(album?.id || "").trim())));
+
+      const targets = [];
+      safeAlbums.forEach((album, albumIndex) => {
+        const albumID = String(album?.id || "").trim();
+        if (!albumID) {
+          return;
+        }
+        const albumTitle = String(album?.title || "").trim() || `Album ${albumIndex + 1}`;
+        const artistName = String(album?.artistName || "").trim() || String(fallbackArtistName || "").trim();
+        const tracks = Array.isArray(state.qobuzTracksByAlbumID?.[albumID]) ? state.qobuzTracksByAlbumID[albumID] : [];
+        tracks.forEach((track, trackIndex) => {
+          const trackTitle = String(track?.title || "").trim() || `Titre ${trackIndex + 1}`;
+          const trackID = String(track?.id || "").trim() || `${albumID}-${trackIndex + 1}`;
+          const rawTrackNumber = Number(track?.trackNumber);
+          const trackNumber = Number.isFinite(rawTrackNumber) && rawTrackNumber > 0 ? rawTrackNumber : (trackIndex + 1);
+          targets.push({
+            key: `qobuz-album:${albumID}:${trackID}`,
+            jobKey: `qobuz-album:${albumID}`,
+            targetTrackName: trackTitle,
+            targetArtistName: artistName,
+            targetAlbumName: albumTitle,
+            displayLabel: `${String(trackNumber).padStart(2, "0")} • ${trackTitle}`,
+            displayMeta: [artistName, albumTitle].filter(Boolean).join(" • "),
+          });
+        });
+      });
+      return targets;
+    }
+
+    async function buildQobuzLyricsTargets() {
+      const resourceType = qobuzResourceType(inputValue("inputURL"));
+      const fallbackArtistName = inputValue("qobuzArtistName") || state.qobuzCatalog?.artistName || "";
+      if (resourceType === "album") {
+        const albumID = qobuzResourceIdentifier(inputValue("inputURL"));
+        if (!albumID) {
+          return [];
+        }
+        const albumTitle = inputValue("customName") || "Album Qobuz";
+        return buildLyricsTargetsFromQobuzAlbums([{
+          id: albumID,
+          title: albumTitle,
+          artistName: fallbackArtistName || "",
+        }], fallbackArtistName);
+      }
+      if (resourceType === "artist") {
+        return buildLyricsTargetsFromQobuzAlbums(selectedQobuzAlbums(), fallbackArtistName);
+      }
+      if (resourceType === "playlist") {
+        const catalog = await ensureQobuzPlaylistCatalogLoaded();
+        if (!catalog) {
+          return [];
+        }
+        const action = qobuzPlaylistAction();
+        if (action === "tracks") {
+          const jobKey = `qobuz-playlist:${String(catalog?.playlistID || normalizeArtistURL(inputValue("inputURL"))).trim() || "playlist"}`;
+          const playlistName = String(catalog?.playlistName || "").trim();
+          return (Array.isArray(catalog?.tracks) ? catalog.tracks : []).map((track, index) => {
+            const trackID = String(track?.id || "").trim() || `track-${index + 1}`;
+            const title = String(track?.title || "").trim() || `Titre ${index + 1}`;
+            const artistName = String(track?.artistName || "").trim();
+            const albumTitle = String(track?.albumTitle || "").trim() || playlistName;
+            return {
+              key: `${jobKey}:${trackID}`,
+              jobKey,
+              targetTrackName: title,
+              targetArtistName: artistName,
+              targetAlbumName: albumTitle,
+              displayLabel: title,
+              displayMeta: [artistName, albumTitle].filter(Boolean).join(" • "),
+            };
+          });
+        }
+        if (action === "albums") {
+          const albums = Array.isArray(catalog?.albums) ? catalog.albums : [];
+          return buildLyricsTargetsFromQobuzAlbums(albums, fallbackArtistName);
+        }
+        return buildLyricsTargetsFromQobuzAlbums(selectedQobuzPlaylistAlbums(), fallbackArtistName);
+      }
+      return [];
+    }
+
+    async function ensureLyricsSelectionTargetsPrepared() {
+      const contextKey = currentLyricsTargetsContextKey();
+      if (!contextKey) {
+        resetLyricsManualSelections();
+        return [];
+      }
+      if (contextKey === state.lyricsTargetsContextKey && state.lyricsSelectionTargets.length > 0) {
+        return state.lyricsSelectionTargets;
+      }
+
+      const sourceKind = resolvedSourceKind();
+      let targets = [];
+      if (sourceKind === "youtube") {
+        targets = buildYouTubeLyricsTargets();
+      } else if (sourceKind === "qobuz") {
+        targets = await buildQobuzLyricsTargets();
+      }
+
+      state.lyricsSelectionTargets = Array.isArray(targets) ? targets.filter(Boolean) : [];
+      state.lyricsTargetsContextKey = contextKey;
+
+      const validTargetKeys = new Set(state.lyricsSelectionTargets.map((target) => target.key));
+      state.manualLyricsSelectionsByTargetKey = Object.fromEntries(
+        Object.entries(state.manualLyricsSelectionsByTargetKey || {}).filter(([key]) => validTargetKeys.has(key))
+      );
+      state.lyricsSearchDraftsByTargetKey = Object.fromEntries(
+        Object.entries(state.lyricsSearchDraftsByTargetKey || {}).filter(([key]) => validTargetKeys.has(key))
+      );
+
+      const defaultTarget = state.lyricsSelectionTargets[0] || null;
+      state.currentLyricsTargetKey = defaultTarget?.key || "";
+      if (defaultTarget) {
+        applyLyricsDraftForTarget(defaultTarget);
+        state.selectedLRCLIBResultID = String(state.manualLyricsSelectionsByTargetKey?.[defaultTarget.key]?.lrclibResultID || "").trim();
+      } else {
+        setInput("lyricsSearchTitle", "");
+        setInput("lyricsSearchArtist", "");
+        setInput("lyricsSearchAlbum", "");
+        state.selectedLRCLIBResultID = "";
+      }
+      state.lrclibSearchResults = [];
+      state.hasSearchedLRCLIB = false;
+      return state.lyricsSelectionTargets;
+    }
+
     function updateContentSpecificOptionsVisibility() {
       const sourceKind = resolvedSourceKind();
       const contentType = resolvedContentType();
       const isMusic = contentType === "music";
+      const canShowManualLyricsLookup = canManualLyricsLookup();
       const isQobuzMusic = sourceKind === "qobuz" && isMusic;
       const isQobuzArtistSelection = isQobuzArtistContext();
       const isQobuzSearchMode = isQobuzArtistSelection && qobuzArtistLookupMode() === "search";
       const showQobuzArtistField = isQobuzMusic && !isQobuzPlaylistContext() && !isQobuzSearchMode;
-      const transcriptionEnabled = !isMusic && $("enableTranscription").checked;
+      const transcriptionEnabled = $("enableTranscription").checked;
       const translationEnabled = transcriptionEnabled && $("enableTranslation").checked;
+      const activeLyricsMode = setLyricsMode(lyricsMode(), { render: false });
+      const customLyricsSearchEnabled = activeLyricsMode === LYRICS_MODE_MANUAL && canShowManualLyricsLookup;
 
-      $("transcriptionControls").hidden = isMusic;
+      $("enableTranslation").disabled = !transcriptionEnabled;
+      $("transcriptionControls").hidden = false;
       $("transcriptionLanguageField").hidden = !transcriptionEnabled;
       $("transcriptionModelField").hidden = !transcriptionEnabled;
-      $("translationControls").hidden = !transcriptionEnabled;
+      $("translationControls").hidden = false;
+      $("translationDependencyHint").hidden = transcriptionEnabled;
       $("translationLanguagesRow").hidden = !translationEnabled;
       $("translationPairHint").hidden = !translationEnabled;
+      $("lyricsOptionsGroup").hidden = !isMusic;
       $("lyricsControls").hidden = !isMusic;
+      $("lyricsSearchOverridesFields").hidden = !isMusic || !customLyricsSearchEnabled;
+      $("useCustomLyricsSearch").disabled = !canShowManualLyricsLookup;
       $("qobuzArtistField").hidden = !showQobuzArtistField;
 
       if (translationEnabled && !state.translationLanguageCatalog && !state.isLoadingTranslationLanguageCatalog) {
         refreshTranslationLanguages({ silent: true });
       }
       updateTranslationPairStatus();
+      renderLRCLIBSearchResults();
+    }
+
+    function selectedLRCLIBSearchResult() {
+      const selectedID = String(state.selectedLRCLIBResultID || "").trim();
+      if (!selectedID) return null;
+      return state.lrclibSearchResults.find((result) => String(result?.id || "").trim() === selectedID) || null;
+    }
+
+    function clearLRCLIBSearchState(options = {}) {
+      state.lrclibSearchResults = [];
+      state.selectedLRCLIBResultID = "";
+      if (!options.keepSearchState) {
+        state.hasSearchedLRCLIB = false;
+      }
+      if (options.keepModal !== true) {
+        closeLyricsSelectionModal();
+      }
+      renderLRCLIBSearchResults();
+    }
+
+    function invalidateLRCLIBSearchState() {
+      if (state.isSearchingLRCLIB) {
+        return;
+      }
+      persistLyricsSearchDraftForCurrentTarget();
+      clearLRCLIBSearchState({ keepModal: !$("lyricsSelectionModal").hidden });
+    }
+
+    function resetLyricsSearchOverrides() {
+      setInput("lyricsSearchTitle", "");
+      setInput("lyricsSearchArtist", "");
+      setInput("lyricsSearchAlbum", "");
+      resetLyricsManualSelections();
+      closeLyricsSelectionModal();
+      setLyricsMode(LYRICS_MODE_AUTOMATIC, { render: false });
+      renderLRCLIBSearchResults();
+    }
+
+    function clearAllManualLyricsSelections() {
+      state.manualLyricsSelectionsByTargetKey = {};
+      state.selectedLRCLIBResultID = "";
+      renderLRCLIBSearchResults();
+    }
+
+    function clearCurrentManualLyricsSelection() {
+      const target = currentLyricsTarget();
+      if (!target) {
+        return;
+      }
+      delete state.manualLyricsSelectionsByTargetKey[target.key];
+      state.selectedLRCLIBResultID = "";
+      renderLRCLIBSearchResults();
+    }
+
+    function manualLyricsSelectionsForJobKey(jobKey) {
+      return lyricsManualSelectionsArray()
+        .filter((selection) => selection && selection.jobKey === jobKey)
+        .map((selection) => ({
+          targetTrackName: selection.targetTrackName || "",
+          targetArtistName: selection.targetArtistName || "",
+          targetAlbumName: selection.targetAlbumName || "",
+          trackName: selection.trackName || "",
+          artistName: selection.artistName || "",
+          albumName: selection.albumName || "",
+          plainLyrics: selection.plainLyrics || "",
+          syncedLyrics: selection.syncedLyrics || "",
+        }));
+    }
+
+    async function openLyricsSelection() {
+      if (!canManualLyricsLookup() || lyricsMode() !== LYRICS_MODE_MANUAL) {
+        return;
+      }
+      openLyricsSelectionModal();
+      state.isPreparingLyricsTargets = true;
+      renderLRCLIBSearchResults();
+      try {
+        await ensureLyricsSelectionTargetsPrepared();
+      } catch (error) {
+        setFlash(error.message || "Impossible de preparer la selection LRCLIB.", true);
+      } finally {
+        state.isPreparingLyricsTargets = false;
+        renderLRCLIBSearchResults();
+      }
+    }
+
+    function lyricsTargetsForJobKey(jobKey) {
+      return (state.lyricsSelectionTargets || []).filter((target) => target && target.jobKey === jobKey);
+    }
+
+    function lyricsDraftForJobKey(jobKey) {
+      const targets = lyricsTargetsForJobKey(jobKey);
+      if (targets.length !== 1) {
+        return { trackName: "", artistName: "", albumName: "" };
+      }
+      const [target] = targets;
+      if (target.key === state.currentLyricsTargetKey) {
+        return {
+          trackName: inputValue("lyricsSearchTitle"),
+          artistName: inputValue("lyricsSearchArtist"),
+          albumName: inputValue("lyricsSearchAlbum"),
+        };
+      }
+      return state.lyricsSearchDraftsByTargetKey?.[target.key] || lyricsTargetDefaultDraft(target);
+    }
+
+    function defaultLyricsJobKeyForPayload(sourceKind, inputURL) {
+      if (sourceKind === "youtube") {
+        return "lyrics-single";
+      }
+      if (sourceKind === "qobuz") {
+        const resourceType = qobuzResourceType(inputURL);
+        if (resourceType === "album") {
+          const albumID = qobuzResourceIdentifier(inputURL);
+          return albumID ? `qobuz-album:${albumID}` : "lyrics-single";
+        }
+        if (resourceType === "playlist" && qobuzPlaylistAction() === "tracks") {
+          const playlistID = String(state.qobuzPlaylistCatalog?.playlistID || qobuzResourceIdentifier(inputURL) || normalizeArtistURL(inputURL)).trim();
+          return `qobuz-playlist:${playlistID || "playlist"}`;
+        }
+      }
+      return "lyrics-single";
+    }
+
+    function applyLyricsManualDataToPayload(payload, jobKey, options = {}) {
+      const manualModeEnabled = lyricsMode() === LYRICS_MODE_MANUAL;
+      const manualSelections = manualModeEnabled ? manualLyricsSelectionsForJobKey(jobKey) : [];
+      const firstSelection = manualSelections[0] || null;
+      const allowGlobalHints = Boolean(options.allowGlobalHints) && manualModeEnabled;
+      const draft = allowGlobalHints ? lyricsDraftForJobKey(jobKey) : { trackName: "", artistName: "", albumName: "" };
+      return {
+        ...payload,
+        useCustomLyricsSearch: allowGlobalHints,
+        lyricsSearchTitle: allowGlobalHints ? (draft.trackName || null) : null,
+        lyricsSearchArtist: allowGlobalHints ? (draft.artistName || null) : null,
+        lyricsSearchAlbum: allowGlobalHints ? (draft.albumName || null) : null,
+        useManualLyricsSelection: manualSelections.length > 0,
+        manualLyricsSelections: manualSelections,
+        manualLyricsTrackName: firstSelection?.trackName || null,
+        manualLyricsArtistName: firstSelection?.artistName || null,
+        manualLyricsAlbumName: firstSelection?.albumName || null,
+        manualLyricsPlain: firstSelection?.plainLyrics || null,
+        manualLyricsSynced: firstSelection?.syncedLyrics || null,
+      };
+    }
+
+    function renderLRCLIBSearchResults() {
+      const openButton = $("openLyricsSelection");
+      const searchButton = $("searchLyricsResults");
+      const clearButton = $("clearSelectedLyricsResult");
+      const status = $("lyricsSearchManualStatus");
+      const modalCount = $("lyricsModalCount");
+      const modalQuery = $("lyricsModalQuery");
+      const targetField = $("lyricsTargetField");
+      const targetSelect = $("lyricsTargetSelect");
+      const targetSummary = $("lyricsTargetSummary");
+      const modalSummary = $("lyricsModalSelectionSummary");
+      const modalClear = $("lyricsModalClearSelection");
+      const modalApply = $("lyricsModalApply");
+      const body = $("lyricsResultsBody");
+      if (!openButton || !searchButton || !clearButton || !status || !modalCount || !modalQuery || !targetField || !targetSelect || !targetSummary || !modalSummary || !modalClear || !modalApply || !body) {
+        return;
+      }
+
+      const manualLookupAvailable = canManualLyricsLookup();
+      const activeLyricsMode = lyricsMode();
+      const customSearchEnabled = activeLyricsMode === LYRICS_MODE_MANUAL && manualLookupAvailable;
+      const targets = Array.isArray(state.lyricsSelectionTargets) ? state.lyricsSelectionTargets : [];
+      const target = currentLyricsTarget();
+      const savedSelections = lyricsManualSelectionsArray();
+      const currentSelection = currentLyricsManualSelection();
+      const trackSearchValue = inputValue("lyricsSearchTitle");
+      openButton.disabled = !customSearchEnabled || state.isPreparingLyricsTargets;
+      openButton.textContent = savedSelections.length > 0
+        ? `Configurer les lyrics manuels (${savedSelections.length})`
+        : "Ouvrir la recherche LRCLIB";
+      searchButton.disabled = state.isSearchingLRCLIB || state.isPreparingLyricsTargets || !customSearchEnabled || !trackSearchValue || (targets.length > 0 && !target);
+      searchButton.textContent = state.isSearchingLRCLIB ? "Recherche..." : "Rechercher dans LRCLIB";
+      clearButton.hidden = savedSelections.length === 0;
+      clearButton.disabled = state.isSearchingLRCLIB || savedSelections.length === 0;
+      modalClear.hidden = !currentSelection;
+      targetField.hidden = !customSearchEnabled || targets.length <= 1;
+      modalApply.disabled = false;
+      modalApply.textContent = "Fermer";
+
+      if (targets.length > 1) {
+        targetSelect.innerHTML = targets.map((entry) => {
+          const isConfigured = Boolean(state.manualLyricsSelectionsByTargetKey?.[entry.key]);
+          const prefix = isConfigured ? "● " : "○ ";
+          const meta = entry.displayMeta ? ` - ${entry.displayMeta}` : "";
+          return `<option value="${escapeHtml(entry.key)}">${escapeHtml(`${prefix}${entry.displayLabel}${meta}`)}</option>`;
+        }).join("");
+        targetSelect.value = target?.key || targets[0].key;
+        targetSummary.textContent = `${savedSelections.length}/${targets.length} morceau(x) configuré(s).`;
+      } else if (target) {
+        targetSummary.textContent = target.displayMeta || "Sélection manuelle pour ce job.";
+      } else {
+        targetSummary.textContent = "";
+      }
+
+      if (activeLyricsMode === LYRICS_MODE_DISABLED) {
+        status.textContent = "Les lyrics sont désactivés pour ce job.";
+        modalCount.textContent = "Lyrics désactivés";
+        modalQuery.textContent = "";
+        modalSummary.textContent = "Aucune recherche de lyrics ne sera lancée.";
+        modalClear.disabled = true;
+        body.innerHTML = `<div class="hint">Active un mode LRCLIB pour rechercher ou sélectionner des lyrics.</div>`;
+        return;
+      }
+      if (activeLyricsMode === LYRICS_MODE_YOUTUBE_DESCRIPTION) {
+        status.textContent = "La recherche de lyrics dans la description YouTube n'est pas encore implémentée.";
+        modalCount.textContent = "Mode non implémenté";
+        modalQuery.textContent = "";
+        modalSummary.textContent = "Choisis un mode LRCLIB pour lancer un job avec lyrics aujourd'hui.";
+        modalClear.disabled = true;
+        body.innerHTML = `<div class="hint">Ce mode est réservé à une implémentation future.</div>`;
+        return;
+      }
+      if (!manualLookupAvailable) {
+        status.textContent = "La sélection manuelle LRCLIB est disponible pour les jobs Music YouTube et Qobuz.";
+        modalCount.textContent = "0 résultat(s)";
+        modalQuery.textContent = "";
+        modalSummary.textContent = "Aucun résultat sélectionné.";
+        modalClear.disabled = true;
+        body.innerHTML = `<div class="hint">La sélection LRCLIB manuelle est disponible pour les jobs Music YouTube et Qobuz.</div>`;
+        return;
+      }
+      if (activeLyricsMode !== LYRICS_MODE_MANUAL) {
+        status.textContent = savedSelections.length > 0
+          ? "Le mode automatique LRCLIB est actif. Les sélections manuelles mémorisées restent inactives tant que ce mode n'est pas réactivé."
+          : "LRCLIB sera interrogé automatiquement pendant le job.";
+        modalCount.textContent = `${savedSelections.length} sélection(s) manuelle(s)`;
+        modalQuery.textContent = "";
+        modalSummary.textContent = savedSelections.length > 0
+          ? `${savedSelections.length} sélection(s) manuelle(s) sont enregistrée(s), mais non utilisées en mode automatique.`
+          : "Aucune sélection manuelle active.";
+        modalClear.disabled = true;
+        body.innerHTML = `<div class="hint">Passe en mode manuel pour choisir un résultat LRCLIB précis.</div>`;
+        return;
+      }
+      if (state.isPreparingLyricsTargets) {
+        status.textContent = "Préparation de la liste des morceaux à configurer...";
+        modalCount.textContent = `${savedSelections.length} sélection(s) manuelle(s)`;
+        modalQuery.textContent = "";
+        modalSummary.textContent = "Chargement des morceaux...";
+        modalClear.disabled = true;
+        body.innerHTML = `<div class="hint">Chargement des morceaux disponibles...</div>`;
+        return;
+      }
+      if (!targets.length) {
+        status.textContent = "Aucun morceau n'est disponible pour la sélection manuelle dans le contexte actuel.";
+        modalCount.textContent = "0 morceau à configurer";
+        modalQuery.textContent = "";
+        modalSummary.textContent = "Aucun résultat sélectionné.";
+        modalClear.disabled = true;
+        body.innerHTML = `<div class="hint">Sélectionne d'abord les vidéos ou albums concernés, puis rouvre ce panneau.</div>`;
+        return;
+      }
+      if (!trackSearchValue) {
+        status.textContent = "Ouvre le panneau LRCLIB et renseigne un titre pour lancer une recherche manuelle. Sans sélection, le mode automatique restera utilisé.";
+        modalCount.textContent = `${savedSelections.length}/${targets.length} morceau(x) configuré(s)`;
+        modalQuery.textContent = target ? `${target.displayLabel}${target.displayMeta ? ` • ${target.displayMeta}` : ""}` : "";
+        modalSummary.textContent = currentSelection
+          ? `Résultat retenu: ${[currentSelection.artistName || "", currentSelection.trackName || ""].filter(Boolean).join(" - ")}`
+          : "Aucun résultat sélectionné pour ce morceau.";
+        modalClear.disabled = !currentSelection;
+        body.innerHTML = `<div class="hint">Renseigne un titre puis clique sur "Rechercher dans LRCLIB".</div>`;
+        return;
+      }
+      if (state.isSearchingLRCLIB) {
+        status.textContent = "Recherche LRCLIB en cours...";
+      } else if (currentSelection) {
+        const label = [currentSelection.artistName || "", currentSelection.trackName || ""].filter(Boolean).join(" - ");
+        status.textContent = `Résultat manuel sélectionné pour "${target?.displayLabel || "ce morceau"}": ${label || "LRCLIB"}.`;
+      } else if (state.hasSearchedLRCLIB && state.lrclibSearchResults.length === 0) {
+        status.textContent = `Aucun résultat LRCLIB sélectionné pour "${target?.displayLabel || "ce morceau"}". Le mode automatique restera utilisé.`;
+      } else if (state.hasSearchedLRCLIB) {
+        status.textContent = `${state.lrclibSearchResults.length} résultat(s) LRCLIB trouvé(s). Choisis-en un pour "${target?.displayLabel || "ce morceau"}".`;
+      } else {
+        status.textContent = savedSelections.length > 0
+          ? `${savedSelections.length}/${targets.length} morceau(x) déjà configuré(s). Les autres resteront automatiques sans sélection manuelle.`
+          : "Ouvre le panneau LRCLIB pour lancer une recherche manuelle. Sans sélection, la recherche restera automatique au lancement du job.";
+      }
+
+      const queryParts = [trackSearchValue, inputValue("lyricsSearchArtist"), inputValue("lyricsSearchAlbum")].filter(Boolean);
+      modalCount.textContent = `${savedSelections.length}/${targets.length} morceau(x) configuré(s)`;
+      modalQuery.textContent = queryParts.length
+        ? `Recherche: ${queryParts.join(" • ")}`
+        : (target ? `${target.displayLabel}${target.displayMeta ? ` • ${target.displayMeta}` : ""}` : "");
+      modalSummary.textContent = currentSelection
+        ? `Résultat retenu: ${[currentSelection.artistName || "", currentSelection.trackName || ""].filter(Boolean).join(" - ")}`
+        : "Sélectionne un résultat ou ferme le panneau pour revenir au mode automatique.";
+      modalClear.disabled = !currentSelection;
+
+      if (state.lrclibSearchResults.length === 0) {
+        body.innerHTML = state.isSearchingLRCLIB
+          ? `<div class="hint">Recherche LRCLIB en cours...</div>`
+          : `<div class="hint">Aucun résultat LRCLIB à afficher pour cette recherche.</div>`;
+        return;
+      }
+
+      body.innerHTML = state.lrclibSearchResults.map((result) => {
+        const id = String(result?.id || "").trim();
+        const track = String(result?.trackName || "").trim() || "Résultat LRCLIB";
+        const artist = String(result?.artistName || "").trim();
+        const album = String(result?.albumName || "").trim();
+        const preview = String(result?.preview || "").trim();
+        const meta = [artist || "", album || "", `score ${Number(result?.score || 0)}`].filter(Boolean).join(" • ");
+        const selectedClass = currentSelection?.lrclibResultID === id ? "is-selected" : "";
+        const buttonLabel = currentSelection?.lrclibResultID === id ? "Sélectionné" : "Choisir";
+        const badgeLabel = result?.hasSynced ? "Synchronisé" : "Texte";
+        return `
+          <article class="lyrics-search-result ${selectedClass}">
+            <div class="lyrics-search-result-head">
+              <div>
+                <div class="lyrics-search-result-title">${escapeHtml(track)}</div>
+                <div class="lyrics-search-result-meta">${escapeHtml(meta)}</div>
+              </div>
+              <div class="mini-actions">
+                <span class="lyrics-search-result-badge">${escapeHtml(badgeLabel)}</span>
+                <button class="btn-ghost" type="button" data-lyrics-result-id="${escapeHtml(id)}">${escapeHtml(buttonLabel)}</button>
+              </div>
+            </div>
+            ${preview ? `<div class="lyrics-search-result-preview">${escapeHtml(preview)}</div>` : ""}
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function searchLRCLIBResults() {
+      if (!canManualLyricsLookup() || lyricsMode() !== LYRICS_MODE_MANUAL) {
+        return;
+      }
+      if (!state.lyricsSelectionTargets.length) {
+        await ensureLyricsSelectionTargetsPrepared();
+        renderLRCLIBSearchResults();
+      }
+      if (!state.lyricsSelectionTargets.length) {
+        setFlash("Aucun morceau disponible pour une sélection manuelle LRCLIB dans ce contexte.", true);
+        return;
+      }
+
+      const trackName = inputValue("lyricsSearchTitle");
+      if (!trackName) {
+        setFlash("Renseigne au moins un titre pour rechercher dans LRCLIB.", true);
+        return;
+      }
+
+      state.isSearchingLRCLIB = true;
+      state.hasSearchedLRCLIB = true;
+      state.selectedLRCLIBResultID = "";
+      openLyricsSelectionModal();
+      renderLRCLIBSearchResults();
+      try {
+        const response = await api("/api/lyrics/lrclib/search", {
+          method: "POST",
+          body: JSON.stringify({
+            trackName,
+            artistName: inputValue("lyricsSearchArtist") || "",
+            albumName: inputValue("lyricsSearchAlbum") || "",
+            limit: 8,
+          }),
+        });
+        state.lrclibSearchResults = Array.isArray(response?.results) ? response.results : [];
+        renderLRCLIBSearchResults();
+        if (state.lrclibSearchResults.length === 0) {
+          setFlash("Aucun résultat LRCLIB trouvé pour cette recherche.", true);
+        } else {
+          setFlash(`${state.lrclibSearchResults.length} résultat(s) LRCLIB trouvé(s).`);
+        }
+      } catch (error) {
+        state.lrclibSearchResults = [];
+        state.selectedLRCLIBResultID = "";
+        renderLRCLIBSearchResults();
+        setFlash(error.message, true);
+      } finally {
+        state.isSearchingLRCLIB = false;
+        renderLRCLIBSearchResults();
+      }
+    }
+
+    function selectLRCLIBSearchResult(resultID) {
+      const target = currentLyricsTarget();
+      const selected = state.lrclibSearchResults.find((result) => String(result?.id || "").trim() === String(resultID || "").trim());
+      if (!target || !selected) {
+        return;
+      }
+      state.selectedLRCLIBResultID = String(resultID || "").trim();
+      state.manualLyricsSelectionsByTargetKey[target.key] = {
+        targetKey: target.key,
+        jobKey: target.jobKey,
+        targetTrackName: target.targetTrackName || "",
+        targetArtistName: target.targetArtistName || "",
+        targetAlbumName: target.targetAlbumName || "",
+        lrclibResultID: String(selected.id || "").trim(),
+        trackName: String(selected.trackName || "").trim(),
+        artistName: String(selected.artistName || "").trim(),
+        albumName: String(selected.albumName || "").trim(),
+        plainLyrics: String(selected.plainLyrics || "").trim(),
+        syncedLyrics: String(selected.syncedLyrics || "").trim(),
+      };
+      renderLRCLIBSearchResults();
     }
 
     function qobuzArtistLookupMode() {
@@ -2810,8 +4275,7 @@
           body: JSON.stringify({
             query,
             limit: 20,
-            qobuzEmail: inputValue("qobuzEmail") || null,
-            qobuzPassword: $("qobuzPassword").value || null,
+            ...currentQobuzAuthPayload(),
           }),
         });
 
@@ -3013,8 +4477,7 @@
           method: "POST",
           body: JSON.stringify({
             albumID: normalizedAlbumID,
-            qobuzEmail: inputValue("qobuzEmail") || null,
-            qobuzPassword: $("qobuzPassword").value || null,
+            ...currentQobuzAuthPayload(),
           }),
         });
         state.qobuzTracksByAlbumID[normalizedAlbumID] = Array.isArray(response.tracks) ? response.tracks : [];
@@ -3053,6 +4516,7 @@
       modalCount.textContent = `${filteredCount} affiché(s) sur ${totalCount} album(s)`;
       modalArtist.textContent = state.qobuzCatalog?.artistName ? `${sourceLabel}: ${state.qobuzCatalog.artistName}` : "";
       modalApply.disabled = selectedCount === 0;
+      updateJobBuilderOverview();
 
       if (!state.qobuzCatalog) {
         if (isQobuzPlaylistContext()) {
@@ -3361,6 +4825,7 @@
       modalCount.textContent = `${filteredCount} affichée(s) sur ${totalCount} vidéo(s)`;
       modalSource.textContent = state.youtubeCatalog?.sourceTitle ? `Source: ${state.youtubeCatalog.sourceTitle}` : "";
       modalApply.disabled = selectedCount === 0;
+      updateJobBuilderOverview();
 
       if (!state.youtubeCatalog) {
         body.innerHTML = `<div class="hint">Renseigne une URL de chaîne/playlist YouTube puis clique sur "Lister les vidéos".</div>`;
@@ -3565,6 +5030,7 @@
       modalCount.textContent = `${filteredCount} affiché(s) sur ${totalCount} épisode(s)`;
       modalPodcast.textContent = state.rssCatalog?.podcastTitle ? `Podcast: ${state.rssCatalog.podcastTitle}` : "";
       modalApply.disabled = selectedCount === 0;
+      updateJobBuilderOverview();
 
       if (!state.rssCatalog) {
         body.innerHTML = `<div class="hint">Renseigne une URL RSS puis clique sur "Choisir épisodes".</div>`;
@@ -3834,6 +5300,7 @@
       updateRSSToolsVisibility();
       updateJobSelectionStepVisibility();
       updateQobuzSelectedArtistSummary();
+      updateJobBuilderOverview();
     }
 
     async function loadQobuzArtistAlbums() {
@@ -3871,8 +5338,7 @@
           method: "POST",
           body: JSON.stringify({
             artistURL,
-            qobuzEmail: inputValue("qobuzEmail") || null,
-            qobuzPassword: $("qobuzPassword").value || null,
+            ...currentQobuzAuthPayload(),
           }),
         });
 
@@ -4041,6 +5507,7 @@
       } else {
         openSelectionButton.textContent = "Charger albums artiste";
       }
+      updateJobBuilderOverview();
 
       if (!isPlaylistContext) {
         summary.textContent = "Renseigne une URL playlist Qobuz pour activer ce mode.";
@@ -4095,8 +5562,7 @@
           method: "POST",
           body: JSON.stringify({
             playlistURL,
-            qobuzEmail: inputValue("qobuzEmail") || null,
-            qobuzPassword: $("qobuzPassword").value || null,
+            ...currentQobuzAuthPayload(),
           }),
         });
 
@@ -4181,8 +5647,7 @@
           method: "POST",
           body: JSON.stringify({
             artistURL: selectedArtist.webpageURL,
-            qobuzEmail: inputValue("qobuzEmail") || null,
-            qobuzPassword: $("qobuzPassword").value || null,
+            ...currentQobuzAuthPayload(),
           }),
         });
         const albums = Array.isArray(artistCatalog?.albums) ? artistCatalog.albums : [];
@@ -4472,7 +5937,7 @@
         setFlash("Aucun job en erreur à afficher.", true);
         return;
       }
-      applyPage("downloads");
+      applyPage("jobs");
       setSelectedJobId(job.id);
       renderJobs(state.lastJobs || [], state.lastActiveJobId || null);
       refreshLogs().catch((error) => setFlash(error.message, true));
@@ -4524,6 +5989,7 @@
         if (inputID === "defaultOutputRoot" && !inputValue("outputRootPath")) {
           setInput("outputRootPath", selectedPath);
         }
+        updateJobBuilderOverview();
       } catch (error) {
         setFlash(`Impossible d'ouvrir le selecteur natif: ${error.message}`, true);
       } finally {
@@ -4592,6 +6058,10 @@
         setInput("defaultOutputRoot", s.defaultOutputRoot || "");
         setInput("qobuzEmail", s.qobuzEmail || "");
         setInput("qobuzPassword", s.qobuzPassword || "");
+        setChecked("qobuzUseTokenWorkaround", s.qobuzUseUserAuthToken);
+        setInput("qobuzUserAuthToken", s.qobuzUserAuthToken || "");
+        state.qobuzTokenWorkaroundAvailable = Boolean(s.qobuzUseUserAuthToken || s.qobuzUserAuthToken);
+        renderQobuzTokenWorkaround();
         setChecked("useFirefoxCookies", s.useFirefoxCookies);
         setChecked("keepTemporaryFilesOnFailure", s.keepTemporaryFilesOnFailure);
         if (!inputValue("outputRootPath") && s.defaultOutputRoot) {
@@ -4600,6 +6070,8 @@
         syncWhisperModelSelectors();
         state.settingsLoaded = true;
       }
+
+      updateJobBuilderOverview();
     }
 
     function statusClass(status) {
@@ -4610,6 +6082,7 @@
 
     function makeProgress(job) {
       const sourceKind = String(job.sourceKind || "").toLowerCase();
+      const status = String(job.status || "").toLowerCase();
       const step = job.currentStep ? ` (${job.currentStep})` : "";
       const currentStep = String(job.currentStep || "").toLowerCase();
       if (currentStep === "lyrics") {
@@ -4630,12 +6103,23 @@
         }
         return job.currentStep ? String(job.currentStep) : "-";
       }
+      if (currentStep === "transcription" && (status === "running" || status === "paused")) {
+        const rawStepPct = Number(job.currentStepProgress);
+        const pct = Number.isFinite(rawStepPct)
+          ? Math.max(0, Math.min(100, Math.round(rawStepPct * 100)))
+          : 0;
+        return `${pct}%${step}`;
+      }
       const pct = Number(job.progressPercent || 0);
       return `${pct}%${step}`;
     }
 
     function hasCompletedStep(job, step) {
       return (job.completedSteps || []).includes(step);
+    }
+
+    function hasReusedStep(job, step) {
+      return (job.reusedSteps || []).includes(step);
     }
 
     function firstIncompleteStep(job) {
@@ -4650,7 +6134,7 @@
     function stepStatusLabel(job, step) {
       const status = String(job.status || "").toLowerCase();
       const currentStep = String(job.currentStep || "").toLowerCase();
-      if (hasCompletedStep(job, step)) return "ok";
+      if (hasCompletedStep(job, step)) return hasReusedStep(job, step) ? "reutilise" : "ok";
       if (currentStep === step && (status === "running" || status === "paused")) {
         return status === "paused" ? "pause" : "en cours";
       }
@@ -4666,13 +6150,14 @@
     }
 
     function stepTimeLabel(statusLabel, elapsedSeconds) {
-      if (statusLabel === "-") return "-";
+      if (statusLabel === "-" || statusLabel === "reutilise") return "-";
       return formatElapsedDuration(elapsedSeconds || 0);
     }
 
     function translationStatusLabel(job) {
       const translation = String(job.translationStatus || "").toLowerCase();
       const jobStatus = String(job.status || "").toLowerCase();
+      if (job.translationReused) return "reutilise";
       if (translation === "completed") return "ok";
       if (translation === "failed") return "echec";
       if (translation === "cancelled") return "annule";
@@ -4686,10 +6171,17 @@
       const lines = [];
       const downloadTotal = Number(job.qobuzTracksTotal || 0);
       const downloadDone = Number(job.qobuzTracksDone || 0);
+      const unavailable = Math.max(0, Number(job.qobuzTracksUnavailable || 0));
       if (downloadTotal > 0) {
-        const safeDone = Math.max(0, Math.min(downloadTotal, downloadDone));
+        const availableTotal = Math.max(0, downloadTotal - unavailable);
+        const safeDone = Math.max(0, Math.min(availableTotal || downloadTotal, downloadDone));
         const status = stepStatusLabel(job, "download");
-        lines.push(`${safeDone}/${downloadTotal} telecharges • ${status} • temps ${stepTimeLabel(status, Number(job.downloadElapsedSeconds || 0))}`);
+        if (unavailable > 0 && (status === "ok" || status === "echec" || status === "annule")) {
+          const unavailableLabel = unavailable > 1 ? "non disponibles" : "non disponible";
+          lines.push(`${safeDone} morceaux telecharges • ${unavailable} ${unavailableLabel} • ${status} • temps ${stepTimeLabel(status, Number(job.downloadElapsedSeconds || 0))}`);
+        } else {
+          lines.push(`${safeDone}/${downloadTotal} telecharges • ${status} • temps ${stepTimeLabel(status, Number(job.downloadElapsedSeconds || 0))}`);
+        }
       }
 
       const lyricsTotal = Math.max(Number(job.lyricsFoundTotal || 0), Number(job.lyricsTracksTotal || 0));
@@ -4734,8 +6226,31 @@
         .join("<br />");
     }
 
+    function updateJobsDashboardSummary(jobs) {
+      const counts = {
+        active: 0,
+        queued: 0,
+        completed: 0,
+        failed: 0,
+      };
+
+      for (const job of jobs) {
+        const status = String(job?.status || "").toLowerCase();
+        if (status === "running" || status === "paused") counts.active += 1;
+        if (status === "queued") counts.queued += 1;
+        if (status === "completed") counts.completed += 1;
+        if (status === "failed") counts.failed += 1;
+      }
+
+      $("jobsDashboardActive").textContent = String(counts.active);
+      $("jobsDashboardQueued").textContent = String(counts.queued);
+      $("jobsDashboardCompleted").textContent = String(counts.completed);
+      $("jobsDashboardFailed").textContent = String(counts.failed);
+    }
+
     function renderJobs(jobs, activeJobID) {
       const body = $("jobsBody");
+      updateJobsDashboardSummary(jobs);
       if (!jobs.length) {
         body.innerHTML = `<tr><td colspan="6" class="hint">Aucun job.</td></tr>`;
         return;
@@ -4877,10 +6392,18 @@
       }
     }
 
+    function focusJobsPage(jobID = null) {
+      applyPage("jobs");
+      if (jobID) {
+        setSelectedJobId(jobID);
+      }
+    }
+
     async function createJob(event) {
       event.preventDefault();
       const sourceKind = inferredSourceKind(inputValue("inputURL"), inputValue("sourceKind"));
       const contentType = inferredContentType(sourceKind, inputValue("contentType"));
+      const activeLyricsMode = lyricsMode();
       const collisionPolicy = inputValue("collisionPolicy") || "rename";
       const payload = {
         inputURL: inputValue("inputURL"),
@@ -4894,12 +6417,24 @@
         enableTranslation: $("enableTranslation").checked,
         translationSourceLanguage: inputValue("translationSourceLanguage") || "en",
         translationTargetLanguage: inputValue("translationTargetLanguage") || "fr",
-        enableLyrics: $("enableLyrics").checked,
+        enableLyrics: activeLyricsMode !== LYRICS_MODE_DISABLED,
+        useCustomLyricsSearch: false,
+        lyricsSearchTitle: null,
+        lyricsSearchArtist: null,
+        lyricsSearchAlbum: null,
+        useManualLyricsSelection: false,
+        manualLyricsSelections: [],
+        manualLyricsTrackName: null,
+        manualLyricsArtistName: null,
+        manualLyricsAlbumName: null,
+        manualLyricsPlain: null,
+        manualLyricsSynced: null,
         whisperModelPath: inputValue("jobWhisperModelPath") || "",
         ytDlpExtraArguments: inputValue("ytDlpExtraArguments") || null,
         whisperExtraArguments: inputValue("whisperExtraArguments") || null,
         ffmpegExtraArguments: inputValue("ffmpegExtraArguments") || null,
         qobuzExtraArguments: inputValue("qobuzExtraArguments") || null,
+        ...currentQobuzAuthPayload(),
         qobuzArtistName: inputValue("qobuzArtistName") || null,
         qobuzPlaylistName: null,
         collisionPolicy,
@@ -4907,6 +6442,13 @@
       };
 
       try {
+        if (activeLyricsMode === LYRICS_MODE_YOUTUBE_DESCRIPTION) {
+          throw new Error("Le mode \"Rechercher lyrics dans la description de la vidéo\" n'est pas encore implémenté.");
+        }
+        if (activeLyricsMode === LYRICS_MODE_MANUAL && canManualLyricsLookup()) {
+          persistLyricsSearchDraftForCurrentTarget();
+          await ensureLyricsSelectionTargetsPrepared();
+        }
         if (sourceKind === "qobuz" && contentType === "music" && isQobuzArtistContext() && qobuzArtistLookupMode() === "search") {
           const selectedArtist = selectedQobuzArtistSearchResult();
           if (!selectedArtist?.webpageURL) {
@@ -4970,10 +6512,11 @@
             throw new Error("Aucun épisode RSS exploitable (mediaURL introuvable).");
           }
 
-          setSelectedJobId(firstCreatedId);
+          focusJobsPage(firstCreatedId);
           setFlash(`${episodes.length} job(s) ajouté(s) à la file.`);
           setInput("inputURL", "");
           setInput("customName", "");
+          resetLyricsSearchOverrides();
           resetRSSSelection();
           refreshNewJobFormContext();
           await refreshStatus();
@@ -4995,13 +6538,13 @@
               ? `${baseCustomName} - ${customSuffix}`
               : baseCustomName || null;
 
-            const videoPayload = {
+            const videoPayload = applyLyricsManualDataToPayload({
               ...payload,
               sourceKind: "youtube",
               inputURL: video.webpageURL,
               customName,
               displayName: video.title || null,
-            };
+            }, `youtube:${String(video?.id || "").trim()}`, { allowGlobalHints: false });
 
             const created = await api("/api/jobs", {
               method: "POST",
@@ -5017,10 +6560,11 @@
             throw new Error("Aucune vidéo exploitable n'a pu être créée.");
           }
 
-          setSelectedJobId(firstCreatedId);
+          focusJobsPage(firstCreatedId);
           setFlash(`${videos.length} job(s) ajouté(s) à la file.`);
           setInput("inputURL", "");
           setInput("customName", "");
+          resetLyricsSearchOverrides();
           resetYouTubeSelection();
           refreshNewJobFormContext();
           await refreshStatus();
@@ -5034,24 +6578,26 @@
           const baseCustomName = payload.customName || "";
 
           if (action === "tracks") {
-            const playlistPayload = {
+            const playlistJobKey = `qobuz-playlist:${String(playlistCatalog?.playlistID || qobuzResourceIdentifier(payload.inputURL) || normalizeArtistURL(payload.inputURL)).trim() || "playlist"}`;
+            const playlistPayload = applyLyricsManualDataToPayload({
               ...payload,
               sourceKind: "qobuz",
               contentType: "music",
               displayName: playlistName || null,
               qobuzArtistName: null,
               qobuzPlaylistName: playlistName || null,
-            };
+            }, playlistJobKey, { allowGlobalHints: false });
 
             const created = await api("/api/jobs", {
               method: "POST",
               body: JSON.stringify(playlistPayload),
             });
 
-            setSelectedJobId(created.id);
+            focusJobsPage(created.id);
             setFlash("Job playlist ajouté à la file.");
             setInput("inputURL", "");
             setInput("customName", "");
+            resetLyricsSearchOverrides();
             resetQobuzSelection();
             refreshNewJobFormContext();
             await refreshStatus();
@@ -5077,7 +6623,7 @@
                 ? `${baseCustomName} - ${customSuffix}`
                 : baseCustomName || null;
 
-              const albumPayload = {
+              const albumPayload = applyLyricsManualDataToPayload({
                 ...payload,
                 sourceKind: "qobuz",
                 contentType: "music",
@@ -5086,7 +6632,7 @@
                 displayName: album.title || null,
                 qobuzArtistName: album.artistName || null,
                 qobuzPlaylistName: null,
-              };
+              }, `qobuz-album:${String(album?.id || "").trim()}`, { allowGlobalHints: false });
 
               const created = await api("/api/jobs", {
                 method: "POST",
@@ -5103,10 +6649,11 @@
               throw new Error("Aucun album exploitable n'a pu être créé depuis la playlist.");
             }
 
-            setSelectedJobId(firstCreatedId);
+            focusJobsPage(firstCreatedId);
             setFlash(`${createdCount} job(s) album ajouté(s) depuis la playlist.`);
             setInput("inputURL", "");
             setInput("customName", "");
+            resetLyricsSearchOverrides();
             resetQobuzSelection();
             refreshNewJobFormContext();
             await refreshStatus();
@@ -5131,7 +6678,7 @@
               ? `${baseCustomName} - ${customSuffix}`
               : baseCustomName || null;
 
-            const albumPayload = {
+            const albumPayload = applyLyricsManualDataToPayload({
               ...payload,
               sourceKind: "qobuz",
               contentType: "music",
@@ -5140,7 +6687,7 @@
               displayName: album.title || null,
               qobuzArtistName: album.artistName || null,
               qobuzPlaylistName: null,
-            };
+            }, `qobuz-album:${String(album?.id || "").trim()}`, { allowGlobalHints: false });
 
             const created = await api("/api/jobs", {
               method: "POST",
@@ -5157,10 +6704,11 @@
             throw new Error("Aucun album exploitable n'a pu être créé avec la sélection par artiste.");
           }
 
-          setSelectedJobId(firstCreatedId);
+          focusJobsPage(firstCreatedId);
           setFlash(`${createdCount} job(s) album ajouté(s) depuis la sélection artistes.`);
           setInput("inputURL", "");
           setInput("customName", "");
+          resetLyricsSearchOverrides();
           resetQobuzSelection();
           refreshNewJobFormContext();
           await refreshStatus();
@@ -5183,7 +6731,7 @@
               ? `${baseCustomName} - ${customSuffix}`
               : baseCustomName || null;
 
-            const albumPayload = {
+            const albumPayload = applyLyricsManualDataToPayload({
               ...payload,
               sourceKind: "qobuz",
               contentType: "music",
@@ -5192,7 +6740,7 @@
               displayName: album.title || null,
               qobuzArtistName: fallbackArtistName || album.artistName || null,
               qobuzPlaylistName: null,
-            };
+            }, `qobuz-album:${String(album?.id || "").trim()}`, { allowGlobalHints: false });
 
             const created = await api("/api/jobs", {
               method: "POST",
@@ -5208,24 +6756,32 @@
             throw new Error("Aucun album exploitable n'a pu être créé.");
           }
 
-          setSelectedJobId(firstCreatedId);
+          focusJobsPage(firstCreatedId);
           setFlash(`${albums.length} job(s) ajouté(s) à la file.`);
           setInput("inputURL", "");
           setInput("customName", "");
+          resetLyricsSearchOverrides();
           resetQobuzSelection();
           refreshNewJobFormContext();
           await refreshStatus();
           return;
         }
 
+        const finalPayload = applyLyricsManualDataToPayload(
+          payload,
+          defaultLyricsJobKeyForPayload(sourceKind, payload.inputURL),
+          { allowGlobalHints: sourceKind === "youtube" && !isYouTubeCollectionContext() }
+        );
+
         const created = await api("/api/jobs", {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify(finalPayload),
         });
-        setSelectedJobId(created.id);
+        focusJobsPage(created.id);
         setFlash("Job ajouté à la file.");
         setInput("inputURL", "");
         setInput("customName", "");
+        resetLyricsSearchOverrides();
         refreshNewJobFormContext();
         await refreshStatus();
       } catch (error) {
@@ -5238,8 +6794,7 @@
       const payload = {
         whisperModelPath: inputValue("whisperModelPath"),
         defaultOutputRoot: inputValue("defaultOutputRoot"),
-        qobuzEmail: inputValue("qobuzEmail"),
-        qobuzPassword: $("qobuzPassword").value,
+        ...currentQobuzAuthPayload(),
         useFirefoxCookies: $("useFirefoxCookies").checked,
         keepTemporaryFilesOnFailure: $("keepTemporaryFilesOnFailure").checked,
       };
@@ -5250,6 +6805,8 @@
           body: JSON.stringify(payload),
         });
         state.settingsLoaded = true;
+        state.qobuzTokenWorkaroundAvailable = Boolean(saved.qobuzUseUserAuthToken || saved.qobuzUserAuthToken);
+        renderQobuzTokenWorkaround();
         setFlash("Réglages enregistrés.");
         if (!inputValue("outputRootPath") && saved.defaultOutputRoot) {
           setInput("outputRootPath", saved.defaultOutputRoot);
@@ -5257,6 +6814,82 @@
         await refreshWhisperModels({ silent: true });
       } catch (error) {
         setFlash(error.message, true);
+      }
+    }
+
+    function renderQobuzCredentialsCheckStatus() {
+      const button = $("verifyQobuzCredentials");
+      const hint = $("qobuzCredentialsCheckHint");
+      if (!button || !hint) return;
+
+      button.disabled = state.isVerifyingQobuzCredentials;
+      button.textContent = state.isVerifyingQobuzCredentials ? "Test..." : "Tester la connexion Qobuz";
+
+      if (state.isVerifyingQobuzCredentials) {
+        hint.textContent = "Vérification Qobuz en cours...";
+      } else {
+        hint.textContent = state.qobuzCredentialsCheckMessage || DEFAULT_QOBUZ_CREDENTIALS_CHECK_HINT;
+      }
+
+      hint.classList.toggle("is-error", state.qobuzCredentialsCheckTone === "error");
+      hint.classList.toggle("is-success", state.qobuzCredentialsCheckTone === "success");
+    }
+
+    function resetQobuzCredentialsCheckStatus() {
+      state.qobuzCredentialsCheckTone = "idle";
+      state.qobuzCredentialsCheckMessage = "";
+      renderQobuzCredentialsCheckStatus();
+    }
+
+    async function verifyQobuzCredentials() {
+      const useToken = qobuzUseTokenWorkaroundEnabled();
+      const email = inputValue("qobuzEmail");
+      const password = $("qobuzPassword").value;
+      const userAuthToken = $("qobuzUserAuthToken").value.trim();
+      if (useToken && !userAuthToken) {
+        state.qobuzCredentialsCheckTone = "error";
+        state.qobuzCredentialsCheckMessage = "Renseigne un token de session Qobuz pour activer le contournement.";
+        renderQobuzCredentialsCheckStatus();
+        renderQobuzTokenWorkaround();
+        setFlash(state.qobuzCredentialsCheckMessage, true);
+        return;
+      }
+      if (!useToken && (!email || !password)) {
+        state.qobuzCredentialsCheckTone = "error";
+        state.qobuzCredentialsCheckMessage = "Renseigne email/mot de passe Qobuz dans Reglages.";
+        renderQobuzCredentialsCheckStatus();
+        setFlash(state.qobuzCredentialsCheckMessage, true);
+        return;
+      }
+
+      state.isVerifyingQobuzCredentials = true;
+      renderQobuzCredentialsCheckStatus();
+
+      try {
+        const response = await api("/api/qobuz/verify-credentials", {
+          method: "POST",
+          body: JSON.stringify(currentQobuzAuthPayload()),
+        });
+        state.qobuzCredentialsCheckTone = "success";
+        state.qobuzCredentialsCheckMessage = response?.message || "Connexion Qobuz valide.";
+        if (response?.authMode === "token") {
+          state.qobuzTokenWorkaroundAvailable = true;
+          state.settingsLoaded = false;
+          await refreshStatus();
+        }
+        renderQobuzTokenWorkaround();
+        setFlash(state.qobuzCredentialsCheckMessage);
+      } catch (error) {
+        state.qobuzCredentialsCheckTone = "error";
+        state.qobuzCredentialsCheckMessage = error.message || "Impossible de tester la connexion Qobuz.";
+        if (!useToken) {
+          state.qobuzTokenWorkaroundAvailable = true;
+        }
+        renderQobuzTokenWorkaround();
+        setFlash(state.qobuzCredentialsCheckMessage, true);
+      } finally {
+        state.isVerifyingQobuzCredentials = false;
+        renderQobuzCredentialsCheckStatus();
       }
     }
 
@@ -6214,22 +7847,46 @@
       refreshWhisperModels({ silent: true });
       refreshTranslationLanguages({ silent: true });
       syncDetectedSourceAndTypeFromURL();
+      applyDefaultTranscriptionForSelectedContentType({ force: true });
       refreshNewJobFormContext();
       setInterval(() => {
         refreshStatus().catch((error) => setFlash(error.message, true));
       }, 2500);
     }
 
+    renderQobuzCredentialsCheckStatus();
+    renderQobuzTokenWorkaround();
     setupPageNavigation();
 
     $("jobForm").addEventListener("submit", createJob);
     $("settingsForm").addEventListener("submit", saveSettings);
+    $("openJobsPageFromBuilder").addEventListener("click", () => {
+      applyPage("jobs");
+    });
+    $("openAddJobPageFromJobs").addEventListener("click", () => {
+      applyPage("add-job");
+    });
+    $("verifyQobuzCredentials").addEventListener("click", verifyQobuzCredentials);
+    $("qobuzEmail").addEventListener("input", resetQobuzCredentialsCheckStatus);
+    $("qobuzPassword").addEventListener("input", resetQobuzCredentialsCheckStatus);
+    $("qobuzUseTokenWorkaround").addEventListener("change", () => {
+      state.qobuzTokenWorkaroundAvailable = state.qobuzTokenWorkaroundAvailable || $("qobuzUseTokenWorkaround").checked;
+      resetQobuzCredentialsCheckStatus();
+      renderQobuzTokenWorkaround();
+    });
+    $("qobuzUserAuthToken").addEventListener("input", () => {
+      resetQobuzCredentialsCheckStatus();
+      renderQobuzTokenWorkaround();
+    });
     $("pickOutputRootPath").addEventListener("click", () => {
       pickDirectoryForInput("outputRootPath", "pickOutputRootPath");
     });
     $("pickDefaultOutputRoot").addEventListener("click", () => {
       pickDirectoryForInput("defaultOutputRoot", "pickDefaultOutputRoot");
     });
+    $("outputRootPath").addEventListener("input", updateJobBuilderOverview);
+    $("customName").addEventListener("input", updateJobBuilderOverview);
+    $("collisionPolicy").addEventListener("change", updateJobBuilderOverview);
     $("pickAppUpdateFile").addEventListener("click", () => {
       pickFileForInput("appUpdateFilePath", "pickAppUpdateFile", {
         title: "Selectionner un package de mise a jour 21loader",
@@ -6252,9 +7909,15 @@
           setInput("contentType", defaultContentType);
         }
       }
+      applyDefaultTranscriptionForSelectedContentType();
+      resetLyricsManualSelections();
+      closeLyricsSelectionModal();
       refreshNewJobFormContext();
     });
     $("contentType").addEventListener("change", () => {
+      applyDefaultTranscriptionForSelectedContentType();
+      resetLyricsManualSelections();
+      closeLyricsSelectionModal();
       refreshNewJobFormContext();
     });
     $("enableTranscription").addEventListener("change", () => {
@@ -6262,6 +7925,61 @@
     });
     $("enableTranslation").addEventListener("change", () => {
       updateContentSpecificOptionsVisibility();
+    });
+    [
+      ["lyricsModeDisabled", LYRICS_MODE_DISABLED],
+      ["lyricsModeAutomatic", LYRICS_MODE_AUTOMATIC],
+      ["lyricsModeManual", LYRICS_MODE_MANUAL],
+      ["lyricsModeDescription", LYRICS_MODE_YOUTUBE_DESCRIPTION],
+    ].forEach(([id, mode]) => {
+      $(id).addEventListener("change", () => {
+        if ($(id).checked || lyricsMode() === mode) {
+          setLyricsMode(mode);
+        }
+        updateContentSpecificOptionsVisibility();
+      });
+    });
+    $("lyricsSearchTitle").addEventListener("input", invalidateLRCLIBSearchState);
+    $("lyricsSearchArtist").addEventListener("input", invalidateLRCLIBSearchState);
+    $("lyricsSearchAlbum").addEventListener("input", invalidateLRCLIBSearchState);
+    $("openLyricsSelection").addEventListener("click", async () => {
+      await openLyricsSelection();
+    });
+    $("lyricsTargetSelect").addEventListener("change", () => {
+      setCurrentLyricsTarget(inputValue("lyricsTargetSelect"));
+    });
+    ["lyricsSearchTitle", "lyricsSearchArtist", "lyricsSearchAlbum"].forEach((id) => {
+      $(id).addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          searchLRCLIBResults();
+        }
+      });
+    });
+    $("searchLyricsResults").addEventListener("click", () => {
+      searchLRCLIBResults();
+    });
+    $("clearSelectedLyricsResult").addEventListener("click", () => {
+      clearAllManualLyricsSelections();
+    });
+    $("lyricsResultsBody").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-lyrics-result-id]");
+      if (!button) {
+        return;
+      }
+      selectLRCLIBSearchResult(button.getAttribute("data-lyrics-result-id"));
+    });
+    $("lyricsModalClearSelection").addEventListener("click", () => {
+      clearCurrentManualLyricsSelection();
+    });
+    $("lyricsModalClose").addEventListener("click", closeLyricsSelectionModal);
+    $("lyricsModalCancel").addEventListener("click", closeLyricsSelectionModal);
+    $("lyricsModalApply").addEventListener("click", () => {
+      closeLyricsSelectionModal();
+      const count = lyricsManualSelectionsArray().length;
+      setFlash(count > 0
+        ? `${count} morceau(x) configure(s) manuellement pour LRCLIB.`
+        : "Aucune selection manuelle LRCLIB retenue.");
     });
     $("translationSourceLanguage").addEventListener("change", () => {
       updateTranslationPairStatus();
@@ -6280,6 +7998,8 @@
       syncWhisperModelSelectors();
     });
     $("inputURL").addEventListener("input", () => {
+      resetLyricsManualSelections();
+      closeLyricsSelectionModal();
       syncDetectedSourceAndTypeFromURL();
       refreshNewJobFormContext();
     });
@@ -6390,6 +8110,11 @@
         closeQobuzArtistSelectionModal();
       }
     });
+    $("lyricsSelectionModal").addEventListener("click", (event) => {
+      if (event.target === $("lyricsSelectionModal")) {
+        closeLyricsSelectionModal();
+      }
+    });
     $("rssSelectionModal").addEventListener("click", (event) => {
       if (event.target === $("rssSelectionModal")) {
         closeRSSSelectionModal();
@@ -6404,6 +8129,9 @@
       }
       if (event.key === "Escape" && !$("qobuzArtistSelectionModal").hidden) {
         closeQobuzArtistSelectionModal();
+      }
+      if (event.key === "Escape" && !$("lyricsSelectionModal").hidden) {
+        closeLyricsSelectionModal();
       }
       if (event.key === "Escape" && !$("rssSelectionModal").hidden) {
         closeRSSSelectionModal();

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -239,10 +240,15 @@ func (c *Coordinator) FetchQobuzArtistCatalog(ctx context.Context, payload core.
 		return core.QobuzArtistCatalogAPIResponse{}, fmt.Errorf("le champ artistURL est requis")
 	}
 	c.mu.Lock()
-	email := fallbackTrimmed(payload.QobuzEmail, c.settings.QobuzEmail)
-	password := fallbackRaw(payload.QobuzPassword, c.settings.QobuzPassword)
+	email, password, token, useToken := resolveQobuzAuth(
+		payload.QobuzEmail,
+		payload.QobuzPassword,
+		payload.QobuzUseUserAuthToken,
+		payload.QobuzUserAuthToken,
+		c.settings,
+	)
 	c.mu.Unlock()
-	return c.qobuz.FetchArtistCatalog(ctx, artistURL, email, password)
+	return c.qobuz.FetchArtistCatalog(ctx, artistURL, email, password, token, useToken)
 }
 
 func (c *Coordinator) SearchQobuzArtists(ctx context.Context, payload core.QobuzArtistSearchAPIRequest) (core.QobuzArtistSearchAPIResponse, error) {
@@ -255,10 +261,47 @@ func (c *Coordinator) SearchQobuzArtists(ctx context.Context, payload core.Qobuz
 		limit = 12
 	}
 	c.mu.Lock()
-	email := fallbackTrimmed(payload.QobuzEmail, c.settings.QobuzEmail)
-	password := fallbackRaw(payload.QobuzPassword, c.settings.QobuzPassword)
+	email, password, token, useToken := resolveQobuzAuth(
+		payload.QobuzEmail,
+		payload.QobuzPassword,
+		payload.QobuzUseUserAuthToken,
+		payload.QobuzUserAuthToken,
+		c.settings,
+	)
 	c.mu.Unlock()
-	return c.qobuz.SearchArtists(ctx, query, limit, email, password)
+	return c.qobuz.SearchArtists(ctx, query, limit, email, password, token, useToken)
+}
+
+func (c *Coordinator) VerifyQobuzCredentials(ctx context.Context, payload core.QobuzCredentialsCheckAPIRequest) (core.QobuzCredentialsCheckAPIResponse, error) {
+	c.mu.Lock()
+	email, password, token, useToken := resolveQobuzAuth(
+		payload.QobuzEmail,
+		payload.QobuzPassword,
+		payload.QobuzUseUserAuthToken,
+		payload.QobuzUserAuthToken,
+		c.settings,
+	)
+	c.mu.Unlock()
+
+	if useToken {
+		if strings.TrimSpace(token) == "" {
+			return core.QobuzCredentialsCheckAPIResponse{}, fmt.Errorf("renseigne un token de session Qobuz pour activer le contournement")
+		}
+	} else if strings.TrimSpace(email) == "" || strings.TrimSpace(password) == "" {
+		return core.QobuzCredentialsCheckAPIResponse{}, fmt.Errorf("renseigne email/mot de passe Qobuz dans Reglages")
+	}
+	resp, err := c.qobuz.VerifyCredentials(ctx, email, password, token, useToken)
+	if err != nil {
+		return core.QobuzCredentialsCheckAPIResponse{}, err
+	}
+	if useToken && strings.TrimSpace(resp.RefreshedUserAuthToken) != "" {
+		c.mu.Lock()
+		c.settings.QobuzUseUserAuthToken = true
+		c.settings.QobuzUserAuthToken = strings.TrimSpace(resp.RefreshedUserAuthToken)
+		c.persistSettingsLocked()
+		c.mu.Unlock()
+	}
+	return resp, nil
 }
 
 func (c *Coordinator) FetchQobuzAlbumTracks(ctx context.Context, payload core.QobuzAlbumTracksAPIRequest) (core.QobuzAlbumTracksAPIResponse, error) {
@@ -267,10 +310,15 @@ func (c *Coordinator) FetchQobuzAlbumTracks(ctx context.Context, payload core.Qo
 		return core.QobuzAlbumTracksAPIResponse{}, fmt.Errorf("le champ albumID est requis")
 	}
 	c.mu.Lock()
-	email := fallbackTrimmed(payload.QobuzEmail, c.settings.QobuzEmail)
-	password := fallbackRaw(payload.QobuzPassword, c.settings.QobuzPassword)
+	email, password, token, useToken := resolveQobuzAuth(
+		payload.QobuzEmail,
+		payload.QobuzPassword,
+		payload.QobuzUseUserAuthToken,
+		payload.QobuzUserAuthToken,
+		c.settings,
+	)
 	c.mu.Unlock()
-	return c.qobuz.FetchAlbumTracks(ctx, albumID, email, password)
+	return c.qobuz.FetchAlbumTracks(ctx, albumID, email, password, token, useToken)
 }
 
 func (c *Coordinator) FetchQobuzPlaylistCatalog(ctx context.Context, payload core.QobuzPlaylistCatalogAPIRequest) (core.QobuzPlaylistCatalogAPIResponse, error) {
@@ -279,10 +327,15 @@ func (c *Coordinator) FetchQobuzPlaylistCatalog(ctx context.Context, payload cor
 		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("le champ playlistURL est requis")
 	}
 	c.mu.Lock()
-	email := fallbackTrimmed(payload.QobuzEmail, c.settings.QobuzEmail)
-	password := fallbackRaw(payload.QobuzPassword, c.settings.QobuzPassword)
+	email, password, token, useToken := resolveQobuzAuth(
+		payload.QobuzEmail,
+		payload.QobuzPassword,
+		payload.QobuzUseUserAuthToken,
+		payload.QobuzUserAuthToken,
+		c.settings,
+	)
 	c.mu.Unlock()
-	return c.qobuz.FetchPlaylistCatalog(ctx, playlistURL, email, password)
+	return c.qobuz.FetchPlaylistCatalog(ctx, playlistURL, email, password, token, useToken)
 }
 
 func (c *Coordinator) FetchRSSEpisodes(ctx context.Context, payload core.RSSFeedEpisodesAPIRequest) (core.RSSFeedEpisodesAPIResponse, error) {
@@ -321,6 +374,27 @@ func (c *Coordinator) FetchYouTubeDates(ctx context.Context, payload core.YouTub
 	}
 }
 
+func (c *Coordinator) SearchLRCLIBLyrics(ctx context.Context, payload core.LRCLIBSearchAPIRequest) (core.LRCLIBSearchAPIResponse, error) {
+	trackName := strings.TrimSpace(payload.TrackName)
+	if trackName == "" {
+		return core.LRCLIBSearchAPIResponse{}, fmt.Errorf("le champ trackName est requis")
+	}
+	limit := payload.Limit
+	if limit <= 0 {
+		limit = 8
+	}
+	if limit > 12 {
+		limit = 12
+	}
+	return c.runner.SearchLRCLIBCandidates(
+		ctx,
+		trackName,
+		strings.TrimSpace(payload.ArtistName),
+		strings.TrimSpace(payload.AlbumName),
+		limit,
+	)
+}
+
 func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) core.WebSettings {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -339,6 +413,12 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) core
 	if payload.QobuzPassword != nil {
 		c.settings.QobuzPassword = *payload.QobuzPassword
 	}
+	if payload.QobuzUseUserAuthToken != nil {
+		c.settings.QobuzUseUserAuthToken = *payload.QobuzUseUserAuthToken
+	}
+	if payload.QobuzUserAuthToken != nil {
+		c.settings.QobuzUserAuthToken = strings.TrimSpace(*payload.QobuzUserAuthToken)
+	}
 	if payload.DefaultOutputRoot != nil {
 		if root := strings.TrimSpace(*payload.DefaultOutputRoot); root != "" {
 			c.settings.DefaultOutputRoot = root
@@ -356,6 +436,14 @@ func (c *Coordinator) Enqueue(ctx context.Context, payload core.CreateJobAPIRequ
 	built.DisplayName = c.resolveEnqueueDisplayName(ctx, built)
 
 	c.mu.Lock()
+	if existing := c.findEquivalentJobLocked(built); existing != nil {
+		label := strings.TrimSpace(c.resolvedDisplayNameLocked(*existing))
+		if label == "" {
+			label = strings.TrimSpace(existing.Request.InputURL)
+		}
+		c.mu.Unlock()
+		return core.JobSummaryDTO{}, fmt.Errorf("un job identique existe deja dans la liste (%s). Change la collision ou le nom personnalise si tu veux lancer une nouvelle copie", label)
+	}
 	c.optionsByJobID[built.Request.ID] = built.Options
 	record := core.NewJobRecord(built.Request)
 	c.jobs = append(c.jobs, record)
@@ -368,6 +456,143 @@ func (c *Coordinator) Enqueue(ctx context.Context, payload core.CreateJobAPIRequ
 
 	c.startNextJobIfNeeded()
 	return summary, nil
+}
+
+func (c *Coordinator) findEquivalentJobLocked(built builtJob) *core.JobRecord {
+	if built.Options.StandardCollision != core.CollisionComplete {
+		return nil
+	}
+	for i := range c.jobs {
+		rec := &c.jobs[i]
+		if rec.Status == core.StatusFailed || rec.Status == core.StatusCancelled {
+			continue
+		}
+		if sameJobConfiguration(rec.Request, built.Request) {
+			return rec
+		}
+	}
+	return nil
+}
+
+func sameJobConfiguration(left, right core.JobRequest) bool {
+	if left.SourceKind != right.SourceKind || left.ContentType != right.ContentType {
+		return false
+	}
+	if !sameJobInput(left, right) {
+		return false
+	}
+	if !sameJobOutputTarget(left, right) {
+		return false
+	}
+	if strings.TrimSpace(left.CustomName) != strings.TrimSpace(right.CustomName) {
+		return false
+	}
+	if left.EnableTranscription != right.EnableTranscription ||
+		left.EnableTranslation != right.EnableTranslation ||
+		left.EnableLyrics != right.EnableLyrics ||
+		left.UseCustomLyricsSearch != right.UseCustomLyricsSearch ||
+		left.UseManualLyricsSelection != right.UseManualLyricsSelection ||
+		left.UseFirefoxCookies != right.UseFirefoxCookies ||
+		left.QobuzUseUserAuthToken != right.QobuzUseUserAuthToken {
+		return false
+	}
+	if normalizeLanguageCode(left.TranscriptionLanguage, "auto") != normalizeLanguageCode(right.TranscriptionLanguage, "auto") ||
+		normalizeLanguageCode(left.TranslationSourceLanguage, "en") != normalizeLanguageCode(right.TranslationSourceLanguage, "en") ||
+		normalizeLanguageCode(left.TranslationTargetLanguage, "fr") != normalizeLanguageCode(right.TranslationTargetLanguage, "fr") {
+		return false
+	}
+	if strings.TrimSpace(left.LyricsSearchTitle) != strings.TrimSpace(right.LyricsSearchTitle) ||
+		strings.TrimSpace(left.LyricsSearchArtist) != strings.TrimSpace(right.LyricsSearchArtist) ||
+		strings.TrimSpace(left.LyricsSearchAlbum) != strings.TrimSpace(right.LyricsSearchAlbum) ||
+		strings.TrimSpace(left.ManualLyricsTrackName) != strings.TrimSpace(right.ManualLyricsTrackName) ||
+		strings.TrimSpace(left.ManualLyricsArtistName) != strings.TrimSpace(right.ManualLyricsArtistName) ||
+		strings.TrimSpace(left.ManualLyricsAlbumName) != strings.TrimSpace(right.ManualLyricsAlbumName) ||
+		strings.TrimSpace(left.ManualLyricsPlain) != strings.TrimSpace(right.ManualLyricsPlain) ||
+		strings.TrimSpace(left.ManualLyricsSynced) != strings.TrimSpace(right.ManualLyricsSynced) ||
+		!sameManualLyricsSelections(left.ManualLyricsSelections, right.ManualLyricsSelections) {
+		return false
+	}
+	if strings.TrimSpace(left.WhisperModelPath) != strings.TrimSpace(right.WhisperModelPath) ||
+		strings.TrimSpace(left.YtDlpExtraArguments) != strings.TrimSpace(right.YtDlpExtraArguments) ||
+		strings.TrimSpace(left.WhisperExtraArguments) != strings.TrimSpace(right.WhisperExtraArguments) ||
+		strings.TrimSpace(left.FfmpegExtraArguments) != strings.TrimSpace(right.FfmpegExtraArguments) ||
+		strings.TrimSpace(left.QobuzExtraArguments) != strings.TrimSpace(right.QobuzExtraArguments) {
+		return false
+	}
+	if strings.TrimSpace(left.QobuzEmail) != strings.TrimSpace(right.QobuzEmail) ||
+		left.QobuzPassword != right.QobuzPassword ||
+		strings.TrimSpace(left.QobuzUserAuthToken) != strings.TrimSpace(right.QobuzUserAuthToken) ||
+		strings.TrimSpace(left.QobuzArtistName) != strings.TrimSpace(right.QobuzArtistName) ||
+		strings.TrimSpace(left.QobuzPlaylistName) != strings.TrimSpace(right.QobuzPlaylistName) {
+		return false
+	}
+	return true
+}
+
+func sameJobInput(left, right core.JobRequest) bool {
+	switch left.SourceKind {
+	case core.SourceYouTube:
+		return youtubeInputURLsMatch(left.InputURL, right.InputURL)
+	case core.SourceRSS:
+		if !sameRSSEpisodeSelection(left.SelectedRSSEpisode, right.SelectedRSSEpisode) {
+			return false
+		}
+		return normalizeComparableURL(left.InputURL) == normalizeComparableURL(right.InputURL)
+	case core.SourceQobuz:
+		return sameQobuzInput(left.InputURL, right.InputURL)
+	default:
+		return normalizeComparableURL(left.InputURL) == normalizeComparableURL(right.InputURL)
+	}
+}
+
+func sameRSSEpisodeSelection(left, right *core.RSSEpisodeSelection) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	if normalizeComparableURL(left.MediaURL) != normalizeComparableURL(right.MediaURL) {
+		return false
+	}
+	if normalizeComparableText(left.Title) != normalizeComparableText(right.Title) ||
+		normalizeComparableText(left.PodcastTitle) != normalizeComparableText(right.PodcastTitle) ||
+		normalizeComparableURL(left.ArtworkURL) != normalizeComparableURL(right.ArtworkURL) ||
+		!sameOptionalTime(left.PublicationDate, right.PublicationDate) {
+		return false
+	}
+	return true
+}
+
+func sameManualLyricsSelections(left, right []core.ManualLyricsSelection) bool {
+	if len(left) == 0 && len(right) == 0 {
+		return true
+	}
+	return reflect.DeepEqual(left, right)
+}
+
+func sameOptionalTime(left, right *time.Time) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return left.UTC().Equal(right.UTC())
+}
+
+func sameQobuzInput(left, right string) bool {
+	leftType, leftTypeOK := util.QobuzResourceTypeFromURL(left)
+	rightType, rightTypeOK := util.QobuzResourceTypeFromURL(right)
+	leftID, leftIDOK := util.QobuzResourceIdentifier(left)
+	rightID, rightIDOK := util.QobuzResourceIdentifier(right)
+	if leftTypeOK && rightTypeOK && leftIDOK && rightIDOK {
+		return leftType == rightType && leftID == rightID
+	}
+	return normalizeComparableURL(left) == normalizeComparableURL(right)
+}
+
+func sameJobOutputTarget(left, right core.JobRequest) bool {
+	leftRoot := strings.TrimSpace(left.OutputRootPath)
+	rightRoot := strings.TrimSpace(right.OutputRootPath)
+	if leftRoot == "" || rightRoot == "" {
+		return leftRoot == rightRoot
+	}
+	return samePath(leftRoot, rightRoot)
 }
 
 func (c *Coordinator) resolveEnqueueDisplayName(ctx context.Context, built builtJob) string {
@@ -551,7 +776,9 @@ func (c *Coordinator) startNextJobIfNeeded() {
 	rec.TranslationEndedAt = nil
 	rec.CurrentStepProgress = 0
 	rec.CompletedSteps = map[core.JobStep]bool{}
+	rec.ReusedSteps = map[core.JobStep]bool{}
 	rec.IsPauseRequested = false
+	rec.TranslationReused = false
 
 	jobID := rec.ID
 	request := rec.Request
@@ -584,6 +811,12 @@ func (c *Coordinator) execute(ctx context.Context, request core.JobRequest, opti
 		},
 		OnLog: func(chunk string) {
 			c.appendLog(jobID, chunk)
+		},
+		OnStepReused: func(step core.JobStep) {
+			c.markStepReused(jobID, step)
+		},
+		OnTranslationReused: func() {
+			c.markTranslationReused(jobID)
 		},
 		OnDisplayName: func(name string) {
 			c.setRuntimeDisplayName(jobID, name)
@@ -626,13 +859,13 @@ func (c *Coordinator) preloadQobuzTrackTotal(ctx context.Context, request core.J
 		if !idOK || strings.TrimSpace(albumID) == "" {
 			return
 		}
-		resp, err := c.qobuz.FetchAlbumTracks(metaCtx, albumID, request.QobuzEmail, request.QobuzPassword)
+		resp, err := c.qobuz.FetchAlbumTracks(metaCtx, albumID, request.QobuzEmail, request.QobuzPassword, request.QobuzUserAuthToken, request.QobuzUseUserAuthToken)
 		if err != nil {
 			return
 		}
 		total = len(resp.Tracks)
 	case util.QobuzPlaylist:
-		resp, err := c.qobuz.FetchPlaylistCatalog(metaCtx, request.InputURL, request.QobuzEmail, request.QobuzPassword)
+		resp, err := c.qobuz.FetchPlaylistCatalog(metaCtx, request.InputURL, request.QobuzEmail, request.QobuzPassword, request.QobuzUserAuthToken, request.QobuzUseUserAuthToken)
 		if err != nil {
 			return
 		}
@@ -722,6 +955,38 @@ func (c *Coordinator) updateStepProgress(jobID xuuid.UUID, progress float64) {
 	}
 }
 
+func (c *Coordinator) markStepReused(jobID xuuid.UUID, step core.JobStep) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	idx := c.indexOfLocked(jobID)
+	if idx < 0 {
+		return
+	}
+	rec := &c.jobs[idx]
+	if rec.ReusedSteps == nil {
+		rec.ReusedSteps = map[core.JobStep]bool{}
+	}
+	rec.ReusedSteps[step] = true
+}
+
+func (c *Coordinator) markTranslationReused(jobID xuuid.UUID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	idx := c.indexOfLocked(jobID)
+	if idx < 0 {
+		return
+	}
+	rec := &c.jobs[idx]
+	rec.TranslationReused = true
+	now := time.Now().UTC()
+	if rec.TranslationStartedAt == nil {
+		rec.TranslationStartedAt = &now
+	}
+	if rec.TranslationEndedAt == nil {
+		rec.TranslationEndedAt = &now
+	}
+}
+
 func (c *Coordinator) updateLyricsTrackProgress(jobID xuuid.UUID, done, total int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -779,6 +1044,7 @@ func (c *Coordinator) markCompleted(jobID xuuid.UUID, result core.JobResult) {
 	rec.EndedAt = &now
 	rec.ErrorMessage = ""
 	rec.Result = &result
+	c.finalizeQobuzTrackCountersLocked(rec, result)
 	c.appendLogLocked(jobID, "[job] Termine avec succes.\n")
 }
 
@@ -859,6 +1125,34 @@ func (c *Coordinator) appendLogLocked(jobID xuuid.UUID, chunk string) {
 	if err == nil {
 		_, _ = f.WriteString(chunk)
 		_ = f.Close()
+	}
+}
+
+func (c *Coordinator) finalizeQobuzTrackCountersLocked(rec *core.JobRecord, result core.JobResult) {
+	if rec == nil || rec.Request.SourceKind != core.SourceQobuz {
+		return
+	}
+	mediaPath := strings.TrimSpace(result.MediaPath)
+	if mediaPath == "" {
+		return
+	}
+	audioCount := len(discoverAudioFiles(mediaPath))
+	if audioCount < 0 {
+		audioCount = 0
+	}
+	if rec.QobuzTracksTotal <= 0 {
+		rec.QobuzTracksDone = audioCount
+		rec.QobuzTracksTotal = audioCount
+		rec.QobuzTracksUnavailable = 0
+		return
+	}
+	if audioCount > rec.QobuzTracksTotal {
+		audioCount = rec.QobuzTracksTotal
+	}
+	rec.QobuzTracksDone = audioCount
+	rec.QobuzTracksUnavailable = rec.QobuzTracksTotal - audioCount
+	if rec.QobuzTracksUnavailable < 0 {
+		rec.QobuzTracksUnavailable = 0
 	}
 }
 
@@ -1079,6 +1373,12 @@ func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord, now time.Time) 
 			completed = append(completed, string(step))
 		}
 	}
+	reused := []string{}
+	for _, step := range core.AllSteps {
+		if record.ReusedSteps[step] {
+			reused = append(reused, string(step))
+		}
+	}
 	var result *core.JobResultDTO
 	if record.Result != nil {
 		result = &core.JobResultDTO{MediaPath: record.Result.MediaPath, SubtitlePath: record.Result.SubtitlePath, TranscriptPath: record.Result.TranscriptPath, MetadataPath: record.Result.MetadataPath}
@@ -1126,6 +1426,7 @@ func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord, now time.Time) 
 		ProgressFraction:            record.ProgressFraction(),
 		ProgressPercent:             record.ProgressPercent(),
 		CompletedSteps:              completed,
+		ReusedSteps:                 reused,
 		StartedAt:                   record.StartedAt,
 		EndedAt:                     record.EndedAt,
 		CurrentStepStartedAt:        record.CurrentStepStartedAt,
@@ -1135,6 +1436,7 @@ func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord, now time.Time) 
 		LyricsElapsedSeconds:        lyricsElapsedSeconds,
 		TranscriptionElapsedSeconds: transcriptionElapsedSeconds,
 		TranslationStatus:           record.TranslationStatus,
+		TranslationReused:           record.TranslationReused,
 		TranslationElapsedSeconds:   translationElapsedSeconds,
 		ErrorMessage:                record.ErrorMessage,
 		IsPauseRequested:            record.IsPauseRequested,
@@ -1142,6 +1444,7 @@ func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord, now time.Time) 
 		LogsSize:                    len(record.Logs),
 		QobuzTracksDone:             record.QobuzTracksDone,
 		QobuzTracksTotal:            record.QobuzTracksTotal,
+		QobuzTracksUnavailable:      record.QobuzTracksUnavailable,
 		LyricsTracksDone:            record.LyricsTracksDone,
 		LyricsTracksTotal:           record.LyricsTracksTotal,
 		LyricsFound:                 record.LyricsFound,
@@ -1235,7 +1538,7 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	}
 	enableTranscription := contentType != core.ContentMusic
 	if payload.EnableTranscription != nil {
-		enableTranscription = *payload.EnableTranscription && contentType != core.ContentMusic
+		enableTranscription = *payload.EnableTranscription
 	}
 	enableTranslation := false
 	if payload.EnableTranslation != nil {
@@ -1248,12 +1551,50 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	if payload.EnableLyrics != nil {
 		enableLyrics = *payload.EnableLyrics && contentType == core.ContentMusic
 	}
+	manualLyricsSourceAllowed := (sourceKind == core.SourceYouTube || sourceKind == core.SourceQobuz) && contentType == core.ContentMusic
+	useCustomLyricsSearch := false
+	if payload.UseCustomLyricsSearch != nil {
+		useCustomLyricsSearch = *payload.UseCustomLyricsSearch && manualLyricsSourceAllowed
+	}
+	manualLyricsSelections := make([]core.ManualLyricsSelection, 0, len(payload.ManualLyricsSelections))
+	if manualLyricsSourceAllowed {
+		for _, selection := range payload.ManualLyricsSelections {
+			entry := core.ManualLyricsSelection{
+				TargetTrackName:  strings.TrimSpace(selection.TargetTrackName),
+				TargetArtistName: strings.TrimSpace(selection.TargetArtistName),
+				TargetAlbumName:  strings.TrimSpace(selection.TargetAlbumName),
+				TrackName:        strings.TrimSpace(selection.TrackName),
+				ArtistName:       strings.TrimSpace(selection.ArtistName),
+				AlbumName:        strings.TrimSpace(selection.AlbumName),
+				PlainLyrics:      strings.TrimSpace(selection.PlainLyrics),
+				SyncedLyrics:     strings.TrimSpace(selection.SyncedLyrics),
+			}
+			if entry.PlainLyrics == "" && entry.SyncedLyrics == "" {
+				continue
+			}
+			manualLyricsSelections = append(manualLyricsSelections, entry)
+		}
+	}
+	useManualLyricsSelection := false
+	if payload.UseManualLyricsSelection != nil {
+		useManualLyricsSelection = *payload.UseManualLyricsSelection &&
+			manualLyricsSourceAllowed &&
+			(strings.TrimSpace(payload.ManualLyricsPlain) != "" || strings.TrimSpace(payload.ManualLyricsSynced) != "")
+	}
+	if len(manualLyricsSelections) > 0 {
+		useManualLyricsSelection = true
+	}
 	useFirefoxCookies := settings.UseFirefoxCookies
 	if payload.UseFirefoxCookies != nil {
 		useFirefoxCookies = *payload.UseFirefoxCookies
 	}
-	qobuzEmail := fallbackTrimmed(payload.QobuzEmail, settings.QobuzEmail)
-	qobuzPassword := fallbackRaw(payload.QobuzPassword, settings.QobuzPassword)
+	qobuzEmail, qobuzPassword, qobuzUserAuthToken, qobuzUseUserAuthToken := resolveQobuzAuth(
+		payload.QobuzEmail,
+		payload.QobuzPassword,
+		payload.QobuzUseUserAuthToken,
+		payload.QobuzUserAuthToken,
+		settings,
+	)
 
 	var selectedRSS *core.RSSEpisodeSelection
 	if sourceKind == core.SourceRSS {
@@ -1301,6 +1642,17 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		TranslationSourceLanguage: translationSourceLanguage,
 		TranslationTargetLanguage: translationTargetLanguage,
 		EnableLyrics:              enableLyrics,
+		UseCustomLyricsSearch:     useCustomLyricsSearch,
+		LyricsSearchTitle:         strings.TrimSpace(payload.LyricsSearchTitle),
+		LyricsSearchArtist:        strings.TrimSpace(payload.LyricsSearchArtist),
+		LyricsSearchAlbum:         strings.TrimSpace(payload.LyricsSearchAlbum),
+		UseManualLyricsSelection:  useManualLyricsSelection,
+		ManualLyricsTrackName:     strings.TrimSpace(payload.ManualLyricsTrackName),
+		ManualLyricsArtistName:    strings.TrimSpace(payload.ManualLyricsArtistName),
+		ManualLyricsAlbumName:     strings.TrimSpace(payload.ManualLyricsAlbumName),
+		ManualLyricsPlain:         strings.TrimSpace(payload.ManualLyricsPlain),
+		ManualLyricsSynced:        strings.TrimSpace(payload.ManualLyricsSynced),
+		ManualLyricsSelections:    manualLyricsSelections,
 		WhisperModelPath:          whisperModelPath,
 		YtDlpExtraArguments:       strings.TrimSpace(payload.YtDlpExtraArguments),
 		WhisperExtraArguments:     strings.TrimSpace(payload.WhisperExtraArguments),
@@ -1311,6 +1663,8 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		UseFirefoxCookies:         useFirefoxCookies,
 		QobuzEmail:                qobuzEmail,
 		QobuzPassword:             qobuzPassword,
+		QobuzUseUserAuthToken:     qobuzUseUserAuthToken,
+		QobuzUserAuthToken:        qobuzUserAuthToken,
 		QobuzArtistName:           strings.TrimSpace(payload.QobuzArtistName),
 		QobuzPlaylistName:         strings.TrimSpace(payload.QobuzPlaylistName),
 	}
@@ -1423,6 +1777,8 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 		KeepTemporaryFilesOnFailure: true,
 		QobuzEmail:                  "",
 		QobuzPassword:               "",
+		QobuzUseUserAuthToken:       false,
+		QobuzUserAuthToken:          "",
 		DefaultOutputRoot:           home,
 	}
 	if data, err := os.ReadFile(c.paths.WebSettingsFile); err == nil {
@@ -1461,6 +1817,17 @@ func fallbackRaw(raw, fallback string) string {
 		return raw
 	}
 	return fallback
+}
+
+func resolveQobuzAuth(email, password string, useToken *bool, token string, settings core.WebSettings) (string, string, string, bool) {
+	resolvedEmail := fallbackTrimmed(email, settings.QobuzEmail)
+	resolvedPassword := fallbackRaw(password, settings.QobuzPassword)
+	resolvedToken := fallbackTrimmed(token, settings.QobuzUserAuthToken)
+	resolvedUseToken := settings.QobuzUseUserAuthToken
+	if useToken != nil {
+		resolvedUseToken = *useToken
+	}
+	return resolvedEmail, resolvedPassword, resolvedToken, resolvedUseToken
 }
 
 func normalizeLanguageCode(raw, fallback string) string {
