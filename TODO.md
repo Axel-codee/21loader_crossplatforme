@@ -97,6 +97,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Ajouter dans `AGENTS.md` le rappel de proposer une mise a jour GitHub apres chaque modification projet terminee
 - [x] Ajouter un reglage de format audio YouTube par defaut et convertir l'audio via `yt-dlp`
 - [x] Arreter l'ancien serveur inactif apres update/lancement pour charger la nouvelle UI
+- [x] Afficher la release courante dans l'en-tete de la Web UI
 
 ## Notes
 

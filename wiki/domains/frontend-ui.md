@@ -30,6 +30,7 @@ Ce domaine couvre l'interface web locale de `21loader` et les connaissances util
 - le logo web runtime est servi depuis `icone.png`; `assets/ui/21loader-logo.png` reste un asset derive regenere depuis cette source
 - l'interface l'affiche en haut a gauche depuis `web/index.html`
 - le backend sert le logo via `/app-logo.png` et le favicon navigateur via `/favicon.ico` avec les octets de `icone.png`
+- l'en-tete affiche aussi la release courante via le champ `version` de `/api/status`, renseigne depuis `appVersion`
 
 ## Connaissance durable issue d'une conversation UI
 

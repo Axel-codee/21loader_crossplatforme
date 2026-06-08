@@ -502,6 +502,7 @@ type JobSummaryDTO struct {
 
 type DashboardResponseDTO struct {
 	ServerTime  time.Time       `json:"serverTime"`
+	Version     string          `json:"version,omitempty"`
 	ActiveJobID string          `json:"activeJobID,omitempty"`
 	Settings    WebSettings     `json:"settings"`
 	Jobs        []JobSummaryDTO `json:"jobs"`

@@ -1,5 +1,11 @@
 # Log du wiki
 
+## [2026-06-08] feat | release affichee dans la Web UI
+
+- `/api/status` expose maintenant la version applicative renseignee depuis `appVersion`.
+- L'en-tete de `web/index.html` affiche cette valeur sous forme de badge `Release ...`.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-24`.
+
 ## [2026-06-08] fix | serveur obsolet apres update
 
 - Le healthcheck expose maintenant la version et le PID du serveur local.

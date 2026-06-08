@@ -66,6 +66,20 @@
       box-shadow: 0 16px 34px rgba(18, 28, 45, 0.12);
     }
 
+    .app-version {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 10px;
+      border: 1px solid #d8e3ff;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: #27416f;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
     .view-nav {
       display: flex;
       flex-wrap: wrap;
@@ -1507,6 +1521,7 @@
       <div class="brand" aria-label="21loader">
         <img class="brand-logo" src="/app-logo.png" alt="Logo 21loader" loading="eager" decoding="async" />
       </div>
+      <span id="appVersion" class="app-version" aria-live="polite">Release ...</span>
       <nav class="view-nav" aria-label="Navigation principale">
         <button type="button" data-page-target="add-job">Ajouter un job</button>
         <button type="button" data-page-target="jobs">Jobs en cours</button>
@@ -7430,11 +7445,19 @@
       const currentJobs = status.jobs || [];
       state.lastJobs = currentJobs;
       state.lastActiveJobId = status.activeJobID || null;
+      renderAppVersion(status.version);
       renderStatus(status);
       renderJobs(currentJobs, state.lastActiveJobId);
       updateFailureAlert(previousJobs, currentJobs);
       await refreshLogs();
       $("lastRefresh").textContent = new Date().toLocaleTimeString();
+    }
+
+    function renderAppVersion(version) {
+      const badge = $("appVersion");
+      if (!badge) return;
+      const normalized = String(version || "").trim();
+      badge.textContent = normalized ? `Release ${normalized}` : "Release non disponible";
     }
 
     function renderStatus(status) {

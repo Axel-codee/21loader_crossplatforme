@@ -149,7 +149,9 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
 		return
 	}
-	writeJSON(w, http.StatusOK, s.coordinator.Dashboard())
+	status := s.coordinator.Dashboard()
+	status.Version = s.appVersion
+	writeJSON(w, http.StatusOK, status)
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
