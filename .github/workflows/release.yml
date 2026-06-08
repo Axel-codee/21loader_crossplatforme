@@ -27,15 +27,17 @@ jobs:
       - name: Build Windows amd64 installer
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          rm -rf dist/windows release-assets-windows
           scripts/windows/build-installer.sh --version "$VERSION" --arch amd64
+          mkdir -p release-assets-windows
+          cp "dist/windows/21loader-${VERSION}-amd64.zip" release-assets-windows/
+          cp "dist/windows/21loader-${VERSION}-amd64-setup.exe" release-assets-windows/
 
       - name: Upload Windows assets
         uses: actions/upload-artifact@v4
         with:
           name: windows-assets
-          path: |
-            dist/windows/*.zip
-            dist/windows/*-setup.exe
+          path: release-assets-windows/*
 
   macos:
     name: Build macOS package
@@ -55,13 +57,16 @@ jobs:
       - name: Build macOS dmg
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          rm -rf dist/macos release-assets-macos
           scripts/macos/build-dmg.sh --version "$VERSION"
+          mkdir -p release-assets-macos
+          cp "dist/macos/21loader-${VERSION}.dmg" release-assets-macos/
 
       - name: Upload macOS assets
         uses: actions/upload-artifact@v4
         with:
           name: macos-assets
-          path: dist/macos/*.dmg
+          path: release-assets-macos/*
 
   publish:
     name: Publish GitHub Release
