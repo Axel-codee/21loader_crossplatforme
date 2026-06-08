@@ -36,6 +36,7 @@
 | `BACKLOG-15` | Ajouter la commande terminal `21loader` et `21loader update` | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 | `BACKLOG-16` | Detecter les dependances Homebrew deja installees depuis l'app macOS | `done 2026-06-08` | packaging / diagnostics / services media | [../solutions/macos-runtime-path-homebrew.md](../solutions/macos-runtime-path-homebrew.md), [../domains/media-services.md](../domains/media-services.md) |
 | `BACKLOG-17` | Authentifier l'updater pour un repo GitHub prive | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
+| `BACKLOG-18` | Corriger le launcher macOS appele via symlink terminal | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 
 ## Zones de code probablement concernees
 
@@ -65,6 +66,7 @@
 - `BACKLOG-15` a ete traite le `2026-06-08`; l'app expose `21loader` et `21loader update`, avec un updater qui consomme les GitHub Releases produites par GitHub Actions.
 - `BACKLOG-16` a ete traite le `2026-06-08`; l'app enrichit son `PATH` au demarrage pour trouver Homebrew et les binaires utilisateur meme lorsqu'elle est lancee depuis Finder/Applications.
 - `BACKLOG-17` a ete traite le `2026-06-08`; l'updater sait utiliser un token GitHub explicite ou `gh auth token` pour acceder aux releases d'un repo prive.
+- `BACKLOG-18` a ete traite le `2026-06-08`; le launcher macOS resout maintenant le vrai chemin du bundle avant de chercher `Contents/Resources/app`, meme lorsqu'il est appele depuis `/usr/local/bin/21loader`.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

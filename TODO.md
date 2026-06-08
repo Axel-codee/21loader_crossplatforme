@@ -30,6 +30,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - La commande terminal `21loader` est exposee par les packages; `21loader update` consomme la derniere GitHub Release, pas le dernier commit brut de `main`.
 - Sur macOS, une app lancee depuis Finder n'herite pas toujours du `PATH` du terminal; 21loader enrichit maintenant son `PATH` avec les dossiers Homebrew/Python utilisateur usuels pour detecter les dependances deja installees.
 - Comme le repo GitHub est prive, `21loader update` doit s'authentifier via `LOADER21_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` ou `gh auth token`.
+- Le launcher macOS doit resoudre les symlinks (`/usr/local/bin/21loader`, `~/.local/bin/21loader`) avant de chercher `Contents/Resources/app`.
 
 ## Zones de code probablement concernees par les prochains sujets
 
@@ -83,6 +84,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Ajouter la commande terminal `21loader` et `21loader update` base sur GitHub Releases
 - [x] Detecter les dependances Homebrew deja installees quand 21loader est lance depuis Applications/Finder
 - [x] Authentifier `21loader update` pour les GitHub Releases d'un repo prive
+- [x] Corriger `21loader update` lance via symlink macOS `/usr/local/bin/21loader`
 
 ## Notes
 

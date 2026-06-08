@@ -12,6 +12,12 @@
 - Le telechargement authentifie utilise l'URL API de l'asset GitHub avec `Accept: application/octet-stream`.
 - Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-17`.
 
+## [2026-06-08] fix | launcher macOS via symlink
+
+- Correction du launcher macOS genere par `scripts/macos/build-dmg.sh`: il resout maintenant les symlinks avant de calculer `Contents/Resources/app`.
+- Correction du cas `/usr/local/bin/21loader update` qui cherchait a tort `/usr/local/bin/../Resources/app`.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-18`.
+
 ## [2026-06-08] feat | commande terminal et updater GitHub Releases
 
 - Ajout d'une CLI `21loader` avec sous-commande `21loader update`.

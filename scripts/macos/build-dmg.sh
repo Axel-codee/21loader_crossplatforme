@@ -108,7 +108,17 @@ cat > "$MACOS_DIR/$LAUNCHER_NAME" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SOURCE="${BASH_SOURCE[0]:-$0}"
+while [[ -L "$SOURCE" ]]; do
+  SOURCE_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  LINK_TARGET="$(readlink "$SOURCE")"
+  if [[ "$LINK_TARGET" == /* ]]; then
+    SOURCE="$LINK_TARGET"
+  else
+    SOURCE="$SOURCE_DIR/$LINK_TARGET"
+  fi
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 APP_PAYLOAD_DIR="$(cd "$SCRIPT_DIR/../Resources/app" && pwd)"
 SERVER_BIN="$SCRIPT_DIR/21loader-server"
 

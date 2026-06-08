@@ -27,6 +27,7 @@
 - `scripts/windows/launch-21loader.cmd` transmet `update` au binaire et utilise `--open` pour le lancement normal.
 - L'installateur Windows ajoute le dossier d'installation au `PATH` utilisateur.
 - `scripts/macos/build-dmg.sh` injecte la version, transmet `update` depuis le launcher `.app`, cree un lien utilisateur `~/.local/bin/21loader` au lancement et ajoute un script `Install Terminal Command.command` dans le DMG pour installer `/usr/local/bin/21loader`.
+- Le launcher macOS resout les symlinks avant de calculer `Contents/Resources/app`, afin que `/usr/local/bin/21loader update` et `~/.local/bin/21loader update` fonctionnent comme le lancement direct du bundle.
 
 ## Publication
 
