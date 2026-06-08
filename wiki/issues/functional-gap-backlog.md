@@ -37,6 +37,7 @@
 | `BACKLOG-16` | Detecter les dependances Homebrew deja installees depuis l'app macOS | `done 2026-06-08` | packaging / diagnostics / services media | [../solutions/macos-runtime-path-homebrew.md](../solutions/macos-runtime-path-homebrew.md), [../domains/media-services.md](../domains/media-services.md) |
 | `BACKLOG-17` | Authentifier l'updater pour un repo GitHub prive | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 | `BACKLOG-18` | Corriger le launcher macOS appele via symlink terminal | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
+| `BACKLOG-19` | Executer `yt-dlp` via resolution absolue pour les jobs YouTube | `done 2026-06-08` | services media / jobs-pipeline / diagnostics | [../solutions/macos-runtime-path-homebrew.md](../solutions/macos-runtime-path-homebrew.md), [../domains/media-services.md](../domains/media-services.md) |
 
 ## Zones de code probablement concernees
 
@@ -53,6 +54,7 @@
 - `scripts/macos/`
 - `.github/workflows/release.yml`
 - `internal/util/pathenv.go`
+- `internal/util/binresolve.go`
 
 ## Notes
 
@@ -67,6 +69,7 @@
 - `BACKLOG-16` a ete traite le `2026-06-08`; l'app enrichit son `PATH` au demarrage pour trouver Homebrew et les binaires utilisateur meme lorsqu'elle est lancee depuis Finder/Applications.
 - `BACKLOG-17` a ete traite le `2026-06-08`; l'updater sait utiliser un token GitHub explicite ou `gh auth token` pour acceder aux releases d'un repo prive.
 - `BACKLOG-18` a ete traite le `2026-06-08`; le launcher macOS resout maintenant le vrai chemin du bundle avant de chercher `Contents/Resources/app`, meme lorsqu'il est appele depuis `/usr/local/bin/21loader`.
+- `BACKLOG-19` a ete traite le `2026-06-08`; les jobs YouTube et les helpers de catalogue/titre/dates utilisent maintenant un chemin resolu pour `yt-dlp` au lieu de dependre d'un nom brut dans le `PATH`.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

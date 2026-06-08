@@ -53,6 +53,19 @@ func resolveExecutableCandidates(candidates []string) (path string, resolvedName
 		}
 	}
 
+	if runtime.GOOS == "darwin" {
+		for _, candidate := range ordered {
+			for _, dir := range RuntimeSearchDirs() {
+				for _, fileName := range candidateFileNames(candidate) {
+					p := filepath.Join(dir, fileName)
+					if isExecutableFile(p) {
+						return p, candidate, nil
+					}
+				}
+			}
+		}
+	}
+
 	// Windows users frequently install qobuz-dl with pipx without adding
 	// pipx app directories to PATH. Probe common user-level locations.
 	if runtime.GOOS == "windows" {

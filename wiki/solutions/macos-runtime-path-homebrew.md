@@ -26,6 +26,7 @@
 
 - Les diagnostics detectent les dependances deja installees.
 - Les executions directes de `yt-dlp`, Qobuz, Whisper et autres CLI profitent du meme `PATH` enrichi.
+- Les jobs YouTube resolvent aussi `yt-dlp` en chemin absolu via `util.ResolveToolExecutable`, avec fallback explicite vers les dossiers Homebrew macOS.
 
 ## Notes
 

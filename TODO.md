@@ -31,6 +31,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Sur macOS, une app lancee depuis Finder n'herite pas toujours du `PATH` du terminal; 21loader enrichit maintenant son `PATH` avec les dossiers Homebrew/Python utilisateur usuels pour detecter les dependances deja installees.
 - Comme le repo GitHub est prive, `21loader update` doit s'authentifier via `LOADER21_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` ou `gh auth token`.
 - Le launcher macOS doit resoudre les symlinks (`/usr/local/bin/21loader`, `~/.local/bin/21loader`) avant de chercher `Contents/Resources/app`.
+- Les jobs YouTube doivent resoudre `yt-dlp` via le resolver commun, pas l'executer en nom brut, pour couvrir Homebrew quand le `PATH` applicatif est incomplet.
 
 ## Zones de code probablement concernees par les prochains sujets
 
@@ -85,6 +86,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Detecter les dependances Homebrew deja installees quand 21loader est lance depuis Applications/Finder
 - [x] Authentifier `21loader update` pour les GitHub Releases d'un repo prive
 - [x] Corriger `21loader update` lance via symlink macOS `/usr/local/bin/21loader`
+- [x] Executer `yt-dlp` via resolution absolue pour les jobs YouTube sur macOS/Homebrew
 
 ## Notes
 

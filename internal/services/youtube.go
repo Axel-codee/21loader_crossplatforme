@@ -282,8 +282,12 @@ func (s *YouTubeService) FetchCatalog(ctx context.Context, url string, useFirefo
 	if useFirefoxCookies {
 		args = append([]string{"--cookies-from-browser", "firefox"}, args...)
 	}
+	ytDlpExec, _, err := util.ResolveToolExecutable("yt-dlp")
+	if err != nil {
+		return core.YouTubeCatalogAPIResponse{}, err
+	}
 	output, err := s.runner.Run(ctx, sys.RunOptions{
-		Executable:    "yt-dlp",
+		Executable:    ytDlpExec,
 		Args:          args,
 		CaptureOutput: true,
 	})
@@ -399,8 +403,12 @@ func (s *YouTubeService) ResolveVideoTitle(ctx context.Context, url string, useF
 	if useFirefoxCookies {
 		args = append([]string{"--cookies-from-browser", "firefox"}, args...)
 	}
+	ytDlpExec, _, err := util.ResolveToolExecutable("yt-dlp")
+	if err != nil {
+		return "", err
+	}
 	output, err := s.runner.Run(ctx, sys.RunOptions{
-		Executable:    "yt-dlp",
+		Executable:    ytDlpExec,
 		Args:          args,
 		CaptureOutput: true,
 	})
@@ -470,7 +478,11 @@ func (s *YouTubeService) ResolveDates(ctx context.Context, videoIDs []string, us
 		<-s.resolveDatesSemaphore
 	}()
 
-	data, err := s.runner.Run(ctx, sys.RunOptions{Executable: "yt-dlp", Args: args, CaptureOutput: true})
+	ytDlpExec, _, err := util.ResolveToolExecutable("yt-dlp")
+	if err != nil {
+		return datesByVideoID, durationsByVideoID
+	}
+	data, err := s.runner.Run(ctx, sys.RunOptions{Executable: ytDlpExec, Args: args, CaptureOutput: true})
 	if err != nil {
 		return datesByVideoID, durationsByVideoID
 	}

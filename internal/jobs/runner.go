@@ -710,8 +710,12 @@ func (r *Runner) downloadWithYtDlp(
 }
 
 func (r *Runner) runYtDlpDownload(ctx context.Context, workspace string, args []string, cb RunCallbacks) (string, error) {
+	ytDlpExec, _, err := util.ResolveToolExecutable("yt-dlp")
+	if err != nil {
+		return "", err
+	}
 	return r.processRunner.Run(ctx, sys.RunOptions{
-		Executable: "yt-dlp",
+		Executable: ytDlpExec,
 		Args:       args,
 		WorkingDir: workspace,
 		OnOutput: func(line string) {

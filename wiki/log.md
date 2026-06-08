@@ -18,6 +18,12 @@
 - Correction du cas `/usr/local/bin/21loader update` qui cherchait a tort `/usr/local/bin/../Resources/app`.
 - Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-18`.
 
+## [2026-06-08] fix | execution yt-dlp Homebrew
+
+- Les jobs YouTube resolvent maintenant `yt-dlp` via `util.ResolveToolExecutable` avant execution.
+- Le resolver de binaires teste explicitement les dossiers runtime macOS, dont Homebrew, si `exec.LookPath` ne suffit pas.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-19`.
+
 ## [2026-06-08] feat | commande terminal et updater GitHub Releases
 
 - Ajout d'une CLI `21loader` avec sous-commande `21loader update`.
