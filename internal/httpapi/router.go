@@ -22,7 +22,6 @@ type Server struct {
 	artworkThumbnails *services.ArtworkThumbnailService
 	indexHTML         []byte
 	appLogoPNG        []byte
-	faviconICO        []byte
 	mux               *http.ServeMux
 }
 
@@ -32,13 +31,8 @@ func NewServer(coordinator *jobs.Coordinator, artworkThumbnails *services.Artwor
 	if err != nil {
 		return nil, err
 	}
-	logoPath := filepath.Join(baseDir, "assets", "ui", "21loader-logo.png")
+	logoPath := filepath.Join(baseDir, "icone.png")
 	logoPNG, err := os.ReadFile(logoPath)
-	if err != nil {
-		return nil, err
-	}
-	faviconPath := filepath.Join(baseDir, "assets", "windows", "21loader.ico")
-	faviconICO, err := os.ReadFile(faviconPath)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +41,6 @@ func NewServer(coordinator *jobs.Coordinator, artworkThumbnails *services.Artwor
 		artworkThumbnails: artworkThumbnails,
 		indexHTML:         data,
 		appLogoPNG:        logoPNG,
-		faviconICO:        faviconICO,
 		mux:               http.NewServeMux(),
 	}
 	s.registerRoutes()
@@ -134,11 +127,11 @@ func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	w.Header().Set("Content-Type", "image/x-icon")
+	w.Header().Set("Content-Type", "image/png")
 	if r.Method == http.MethodHead {
 		return
 	}
-	_, _ = w.Write(s.faviconICO)
+	_, _ = w.Write(s.appLogoPNG)
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {

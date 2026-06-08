@@ -38,6 +38,7 @@ Routes notables relevees dans `internal/httpapi/router.go`:
 - gestion de modeles VAD Silero compatibles `whisper.cpp`
 - runtime Python dedie pour `pyannote.audio`, verification d'acces au pipeline `community-1` et installation automatique du venv applicatif associe
 - diagnostics et installation de dependances
+- reglage global du format audio YouTube pour les jobs Music/Audio (`mp3` par defaut, puis `m4a`, `opus`, `flac`, `wav`, `aac` disponibles)
 
 ## Connaissance durable
 
@@ -47,11 +48,12 @@ Routes notables relevees dans `internal/httpapi/router.go`:
 - VAD et tinydiarize sont deux fonctions differentes dans l'app: le VAD sert a detecter les segments de parole pour accelerer/fiabiliser la transcription, tandis que tinydiarize sert a marquer les tours de parole et exige un modele Whisper `*-tdrz`
 - `pyannote` est maintenant un troisieme etat de diarisation, additif par rapport a `tinydiarize`: il s'appuie sur un venv Python dedie, charge localement `pyannote/speaker-diarization-community-1`, garde la telemetrie desactivee et ne pousse pas l'audio vers un service cloud
 - le diagnostic `pyannote` distingue runtime Python absent, module `pyannote.audio` absent, token/acces modele manquant, et runtime completement pret; l'installation auto ne couvre que le runtime local, pas l'acceptation manuelle du modele Hugging Face
+- les jobs YouTube Music/Audio doivent demander a `yt-dlp` une extraction audio explicite (`--extract-audio --audio-format <format>`) pour eviter de livrer un `.webm` quand l'utilisateur attend un fichier audio standard
 
 ## Limites / sujets ouverts
 
 - mode `youtube_description` mentionne comme prepare cote UI mais encore non executable selon le scan initial
-- choix explicite `mp3` / `mp4` / les deux pour YouTube non encore expose clairement comme fonctionnalite finalisee
+- choix explicite d'une sortie video `mp4` ou d'une double sortie audio/video YouTube non encore expose clairement comme fonctionnalite finalisee
 - telechargement uniquement des sous-titres encore attendu
 
 ## Pages liees

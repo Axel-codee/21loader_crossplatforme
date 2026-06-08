@@ -564,6 +564,18 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) (cor
 	if payload.UseFirefoxCookies != nil {
 		c.settings.UseFirefoxCookies = *payload.UseFirefoxCookies
 	}
+	if payload.YouTubeAudioFormat != nil {
+		format, err := normalizeYouTubeAudioFormat(*payload.YouTubeAudioFormat)
+		if err != nil {
+			return core.WebSettings{}, err
+		}
+		c.settings.YouTubeAudioFormat = format
+	}
+	if format, err := normalizeYouTubeAudioFormat(c.settings.YouTubeAudioFormat); err == nil {
+		c.settings.YouTubeAudioFormat = format
+	} else {
+		c.settings.YouTubeAudioFormat = "mp3"
+	}
 	if payload.KeepTemporaryFilesOnFailure != nil {
 		c.settings.KeepTemporaryFilesOnFailure = *payload.KeepTemporaryFilesOnFailure
 	}
@@ -657,6 +669,9 @@ func sameJobConfiguration(left, right core.JobRequest) bool {
 		left.UseManualLyricsSelection != right.UseManualLyricsSelection ||
 		left.UseFirefoxCookies != right.UseFirefoxCookies ||
 		left.QobuzUseUserAuthToken != right.QobuzUseUserAuthToken {
+		return false
+	}
+	if left.SourceKind != core.SourceQobuz && normalizedJobYouTubeAudioFormat(left.YouTubeAudioFormat) != normalizedJobYouTubeAudioFormat(right.YouTubeAudioFormat) {
 		return false
 	}
 	if normalizeLanguageCode(left.TranscriptionLanguage, "auto") != normalizeLanguageCode(right.TranscriptionLanguage, "auto") ||
@@ -1831,6 +1846,10 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	if payload.UseFirefoxCookies != nil {
 		useFirefoxCookies = *payload.UseFirefoxCookies
 	}
+	youtubeAudioFormat, err := normalizeYouTubeAudioFormat(fallbackTrimmed(payload.YouTubeAudioFormat, settings.YouTubeAudioFormat))
+	if err != nil {
+		return builtJob{}, err
+	}
 	qobuzEmail, qobuzPassword, qobuzUserAuthToken, qobuzUseUserAuthToken := resolveQobuzAuth(
 		payload.QobuzEmail,
 		payload.QobuzPassword,
@@ -1941,6 +1960,7 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		PyannoteOutputTXT:            pyannoteOutputTXT,
 		PyannoteOutputSRT:            pyannoteOutputSRT,
 		YtDlpExtraArguments:          strings.TrimSpace(payload.YtDlpExtraArguments),
+		YouTubeAudioFormat:           youtubeAudioFormat,
 		WhisperExtraArguments:        strings.TrimSpace(payload.WhisperExtraArguments),
 		FfmpegExtraArguments:         strings.TrimSpace(payload.FfmpegExtraArguments),
 		QobuzExtraArguments:          strings.TrimSpace(payload.QobuzExtraArguments),
@@ -2080,6 +2100,7 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 		PyannoteOutputTXT:            true,
 		PyannoteOutputSRT:            true,
 		UseFirefoxCookies:            false,
+		YouTubeAudioFormat:           "mp3",
 		KeepTemporaryFilesOnFailure:  true,
 		QobuzEmail:                   "",
 		QobuzPassword:                "",
@@ -2094,6 +2115,11 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 			s.DiarizationProvider = resolvedSettingsDiarizationProvider(s)
 			if strings.TrimSpace(s.DefaultOutputRoot) == "" {
 				s.DefaultOutputRoot = home
+			}
+			if format, err := normalizeYouTubeAudioFormat(s.YouTubeAudioFormat); err == nil {
+				s.YouTubeAudioFormat = format
+			} else {
+				s.YouTubeAudioFormat = "mp3"
 			}
 			s.FavoriteRSSPodcasts = normalizeFavoriteRSSPodcasts(s.FavoriteRSSPodcasts)
 			if !s.WhisperTinydiarizeOutputTXT {
@@ -2146,6 +2172,25 @@ func resolvePayloadDiarizationProvider(raw string) (core.DiarizationProvider, er
 		return "", fmt.Errorf("diarizationProvider invalide. Valeurs: none, tinydiarize, pyannote")
 	}
 	return provider, nil
+}
+
+func normalizeYouTubeAudioFormat(raw string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "default":
+		return "mp3", nil
+	case "mp3", "m4a", "opus", "flac", "wav", "aac":
+		return strings.ToLower(strings.TrimSpace(raw)), nil
+	default:
+		return "", fmt.Errorf("youtubeAudioFormat invalide. Valeurs: mp3, m4a, opus, flac, wav, aac")
+	}
+}
+
+func normalizedJobYouTubeAudioFormat(raw string) string {
+	format, err := normalizeYouTubeAudioFormat(raw)
+	if err != nil {
+		return strings.ToLower(strings.TrimSpace(raw))
+	}
+	return format
 }
 
 func resolveDiarizationProviderFromLegacy(enabled bool) core.DiarizationProvider {

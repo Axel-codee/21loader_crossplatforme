@@ -487,7 +487,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 func (r *Runner) download(ctx context.Context, job core.JobRequest, outputRoot, workspace string, cb RunCallbacks) (downloadArtifact, error) {
 	switch job.SourceKind {
 	case core.SourceYouTube:
-		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, "", "", nil, cb)
+		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YouTubeAudioFormat, "", "", nil, cb)
 	case core.SourceRSS:
 		if job.SelectedRSSEpisode == nil {
 			return downloadArtifact{}, fmt.Errorf("aucun episode RSS selectionne")
@@ -540,7 +540,7 @@ func (r *Runner) downloadRSS(ctx context.Context, selection core.RSSEpisodeSelec
 		if cb.OnLog != nil {
 			cb.OnLog("[rss] URL non directe, fallback via yt-dlp\n")
 		}
-		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
+		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YouTubeAudioFormat, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
 		if err != nil {
 			return downloadArtifact{}, err
 		}
@@ -561,15 +561,7 @@ func (r *Runner) downloadRSS(ctx context.Context, selection core.RSSEpisodeSelec
 	return artifact, nil
 }
 
-func (r *Runner) downloadWithYtDlp(
-	ctx context.Context,
-	sourceURL, workspace string,
-	mode core.JobContentType,
-	useFirefoxCookies bool,
-	extraArguments, forcedSourceName, forcedTitle string,
-	forcedDate *time.Time,
-	cb RunCallbacks,
-) (downloadArtifact, error) {
+func buildYtDlpBaseArgs(workspace string, mode core.JobContentType, audioFormat string) []string {
 	baseArgs := []string{
 		"--no-playlist",
 		"--newline",
@@ -577,10 +569,31 @@ func (r *Runner) downloadWithYtDlp(
 		"--print", "after_move:filepath",
 		"-o", filepath.Join(workspace, "%(title)s [%(id)s].%(ext)s"),
 	}
+	resolvedAudioFormat := strings.ToLower(strings.TrimSpace(audioFormat))
+	if resolvedAudioFormat == "" {
+		resolvedAudioFormat = "mp3"
+	}
 	if mode == core.ContentVideo {
 		baseArgs = append(baseArgs, "-f", "bv*+ba/b", "--merge-output-format", "mkv")
 	} else {
-		baseArgs = append(baseArgs, "-f", "bestaudio/b")
+		baseArgs = append(baseArgs, "-f", "bestaudio/b", "--extract-audio", "--audio-format", resolvedAudioFormat)
+	}
+	return baseArgs
+}
+
+func (r *Runner) downloadWithYtDlp(
+	ctx context.Context,
+	sourceURL, workspace string,
+	mode core.JobContentType,
+	useFirefoxCookies bool,
+	extraArguments, audioFormat, forcedSourceName, forcedTitle string,
+	forcedDate *time.Time,
+	cb RunCallbacks,
+) (downloadArtifact, error) {
+	baseArgs := buildYtDlpBaseArgs(workspace, mode, audioFormat)
+	resolvedAudioFormat := strings.ToLower(strings.TrimSpace(audioFormat))
+	if resolvedAudioFormat == "" {
+		resolvedAudioFormat = "mp3"
 	}
 	extraArgsList := util.ParseArgumentString(extraArguments)
 	cookiesConfiguredInArgs := hasYtDlpCookieArgs(extraArgsList)
@@ -592,6 +605,9 @@ func (r *Runner) downloadWithYtDlp(
 	args = append(args, "--no-quiet", "--progress", "--newline", sourceURL)
 	if cb.OnLog != nil {
 		cb.OnLog("[download] Demarrage du telechargement YouTube...\n")
+		if mode != core.ContentVideo {
+			cb.OnLog("[download] Format audio cible: " + resolvedAudioFormat + "\n")
+		}
 	}
 
 	output, err := r.runYtDlpDownload(ctx, workspace, args, cb)

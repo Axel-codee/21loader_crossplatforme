@@ -3,6 +3,7 @@ package jobs
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"21loader-cross/internal/core"
@@ -114,6 +115,33 @@ func TestUpdateSettingsNormalizesFavoriteRSSPodcasts(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsNormalizesYouTubeAudioFormat(t *testing.T) {
+	c := &Coordinator{}
+	format := " OPUS "
+
+	saved, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
+		YouTubeAudioFormat: &format,
+	})
+	if err != nil {
+		t.Fatalf("UpdateSettings failed: %v", err)
+	}
+	if saved.YouTubeAudioFormat != "opus" {
+		t.Fatalf("expected normalized opus format, got %q", saved.YouTubeAudioFormat)
+	}
+}
+
+func TestUpdateSettingsRejectsInvalidYouTubeAudioFormat(t *testing.T) {
+	c := &Coordinator{}
+	format := "webm"
+
+	_, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
+		YouTubeAudioFormat: &format,
+	})
+	if err == nil || !strings.Contains(err.Error(), "youtubeAudioFormat invalide") {
+		t.Fatalf("expected invalid format error, got %v", err)
+	}
+}
+
 func TestLoadSettingsMigratesLegacyTinydiarizeToProvider(t *testing.T) {
 	tmp := t.TempDir()
 	settingsPath := filepath.Join(tmp, "web-settings.json")
@@ -132,5 +160,8 @@ func TestLoadSettingsMigratesLegacyTinydiarizeToProvider(t *testing.T) {
 	}
 	if !loaded.PyannoteOutputTXT || !loaded.PyannoteOutputSRT {
 		t.Fatalf("expected pyannote output defaults to be enabled, got txt=%v srt=%v", loaded.PyannoteOutputTXT, loaded.PyannoteOutputSRT)
+	}
+	if loaded.YouTubeAudioFormat != "mp3" {
+		t.Fatalf("expected youtube audio format default mp3, got %q", loaded.YouTubeAudioFormat)
 	}
 }

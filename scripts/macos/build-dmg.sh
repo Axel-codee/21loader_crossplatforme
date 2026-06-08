@@ -10,13 +10,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_NAME="21loader"
 BUNDLE_ID="com.21loader.desktop"
 
-DEFAULT_ICON_ICNS="$ROOT_DIR/assets/macos/AppIcon.icns"
-DEFAULT_ICON_PNG="$ROOT_DIR/Gemini_Generated_Image_xbr0naxbr0naxbr0.png"
-if [[ -f "$DEFAULT_ICON_ICNS" ]]; then
-  DEFAULT_ICON="$DEFAULT_ICON_ICNS"
-else
-  DEFAULT_ICON="$DEFAULT_ICON_PNG"
-fi
+DEFAULT_ICON="$ROOT_DIR/icone.png"
 ICON_SOURCE="${LOADER21_ICON:-$DEFAULT_ICON}"
 VERSION="${LOADER21_VERSION:-$(date +%Y.%m.%d)}"
 
@@ -103,6 +97,7 @@ chmod +x "$MACOS_DIR/$SERVER_BIN_NAME"
 echo "Copying runtime assets..."
 cp -R "$ROOT_DIR/web" "$PAYLOAD_DIR/"
 cp -R "$ROOT_DIR/assets" "$PAYLOAD_DIR/"
+cp "$ROOT_DIR/icone.png" "$PAYLOAD_DIR/icone.png"
 
 cat > "$MACOS_DIR/$LAUNCHER_NAME" <<'EOF'
 #!/usr/bin/env bash

@@ -322,12 +322,12 @@ func TestBuildJobAcceptsPyannoteProviderFromPayload(t *testing.T) {
 	}
 
 	built, err := c.buildJob(core.CreateJobAPIRequest{
-		InputURL:                 "https://www.youtube.com/watch?v=86aHZNYEUjw",
-		SourceKind:               "youtube",
-		ContentType:              "audio",
-		DiarizationProvider:      "pyannote",
-		PyannoteOutputTXT:        boolPtrBuild(true),
-		PyannoteOutputSRT:        boolPtrBuild(false),
+		InputURL:                  "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:                "youtube",
+		ContentType:               "audio",
+		DiarizationProvider:       "pyannote",
+		PyannoteOutputTXT:         boolPtrBuild(true),
+		PyannoteOutputSRT:         boolPtrBuild(false),
 		PyannoteLocalPipelinePath: "/tmp/pyannote-community-1",
 	})
 	if err != nil {
@@ -360,6 +360,68 @@ func TestBuildJobRejectsPyannoteWhenTranscriptionDisabled(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "diarisation exige une transcription") {
 		t.Fatalf("expected explicit pyannote validation error, got=%v", err)
+	}
+}
+
+func TestBuildJobUsesDefaultYouTubeAudioFormat(t *testing.T) {
+	c := &Coordinator{}
+
+	built, err := c.buildJob(core.CreateJobAPIRequest{
+		InputURL:    "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:  "youtube",
+		ContentType: "audio",
+	})
+	if err != nil {
+		t.Fatalf("buildJob returned error: %v", err)
+	}
+	if built.Request.YouTubeAudioFormat != "mp3" {
+		t.Fatalf("expected mp3 default, got %q", built.Request.YouTubeAudioFormat)
+	}
+}
+
+func TestBuildJobUsesYouTubeAudioFormatFromSettingsAndPayload(t *testing.T) {
+	payloadFormat := "opus"
+	c := &Coordinator{
+		settings: core.WebSettings{YouTubeAudioFormat: "m4a"},
+	}
+
+	built, err := c.buildJob(core.CreateJobAPIRequest{
+		InputURL:    "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:  "youtube",
+		ContentType: "audio",
+	})
+	if err != nil {
+		t.Fatalf("buildJob returned error: %v", err)
+	}
+	if built.Request.YouTubeAudioFormat != "m4a" {
+		t.Fatalf("expected settings format m4a, got %q", built.Request.YouTubeAudioFormat)
+	}
+
+	built, err = c.buildJob(core.CreateJobAPIRequest{
+		InputURL:           "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:         "youtube",
+		ContentType:        "audio",
+		YouTubeAudioFormat: payloadFormat,
+	})
+	if err != nil {
+		t.Fatalf("buildJob returned error: %v", err)
+	}
+	if built.Request.YouTubeAudioFormat != "opus" {
+		t.Fatalf("expected payload format opus, got %q", built.Request.YouTubeAudioFormat)
+	}
+}
+
+func TestBuildJobRejectsInvalidYouTubeAudioFormat(t *testing.T) {
+	c := &Coordinator{}
+
+	_, err := c.buildJob(core.CreateJobAPIRequest{
+		InputURL:           "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:         "youtube",
+		ContentType:        "audio",
+		YouTubeAudioFormat: "webm",
+	})
+	if err == nil || !strings.Contains(err.Error(), "youtubeAudioFormat invalide") {
+		t.Fatalf("expected invalid format error, got %v", err)
 	}
 }
 

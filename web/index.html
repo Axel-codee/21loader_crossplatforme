@@ -2133,6 +2133,28 @@
                 </label>
                 <p class="hint">Ajoute automatiquement <code>--cookies-from-browser firefox</code> a <code>yt-dlp</code>. Sert aux telechargements YouTube, pas a Qobuz.</p>
               </section>
+              <section class="whisper-job-card whisper-job-card--wide">
+                <div class="whisper-job-card-head">
+                  <div class="whisper-job-card-title-row">
+                    <h6 class="whisper-job-card-title">Format audio YouTube</h6>
+                    <span class="whisper-job-card-badge">music</span>
+                  </div>
+                  <p class="whisper-job-card-copy">Format utilisé par défaut pour les prochains jobs YouTube Music/Audio.</p>
+                </div>
+                <div class="whisper-job-card-divider"></div>
+                <div class="field">
+                  <label for="youtubeAudioFormat">Format audio par défaut</label>
+                  <select id="youtubeAudioFormat">
+                    <option value="mp3">MP3 - compatible partout</option>
+                    <option value="m4a">M4A - Apple / bonne qualité</option>
+                    <option value="opus">Opus - efficace</option>
+                    <option value="flac">FLAC - sans perte</option>
+                    <option value="wav">WAV - non compressé</option>
+                    <option value="aac">AAC</option>
+                  </select>
+                </div>
+                <p class="hint">Par défaut: MP3. La conversion utilise <code>ffmpeg</code> via <code>yt-dlp</code>.</p>
+              </section>
             </div>
           </section>
 
@@ -7454,6 +7476,7 @@
         state.qobuzTokenWorkaroundAvailable = Boolean(s.qobuzUseUserAuthToken || s.qobuzUserAuthToken);
         renderQobuzTokenWorkaround();
         setChecked("useFirefoxCookies", s.useFirefoxCookies);
+        setInput("youtubeAudioFormat", s.youtubeAudioFormat || "mp3");
         setChecked("keepTemporaryFilesOnFailure", s.keepTemporaryFilesOnFailure);
         setFavoriteRSSPodcasts(s.favoriteRSSPodcasts || []);
 	        setChecked("jobWhisperVADEnabled", s.whisperVADEnabled);
@@ -8267,6 +8290,7 @@
         defaultOutputRoot: inputValue("defaultOutputRoot"),
         ...currentQobuzAuthPayload(),
         useFirefoxCookies: $("useFirefoxCookies").checked,
+        youtubeAudioFormat: inputValue("youtubeAudioFormat") || "mp3",
         keepTemporaryFilesOnFailure: $("keepTemporaryFilesOnFailure").checked,
       };
 

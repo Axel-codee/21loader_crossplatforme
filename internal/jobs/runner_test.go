@@ -25,6 +25,38 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 const qobuzRunnerHelperFlag = "--qobuz-runner-helper"
 
+func TestBuildYtDlpBaseArgsExtractsAudioWithSelectedFormat(t *testing.T) {
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentMusic, "opus")
+
+	if !containsString(args, "--extract-audio") {
+		t.Fatalf("expected --extract-audio in args: %v", args)
+	}
+	formatIndex := indexOfString(args, "--audio-format")
+	if formatIndex < 0 || formatIndex+1 >= len(args) || args[formatIndex+1] != "opus" {
+		t.Fatalf("expected --audio-format opus in args: %v", args)
+	}
+}
+
+func TestBuildYtDlpBaseArgsDefaultsAudioFormatToMP3(t *testing.T) {
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentAudio, "")
+
+	formatIndex := indexOfString(args, "--audio-format")
+	if formatIndex < 0 || formatIndex+1 >= len(args) || args[formatIndex+1] != "mp3" {
+		t.Fatalf("expected --audio-format mp3 in args: %v", args)
+	}
+}
+
+func TestBuildYtDlpBaseArgsKeepsVideoMergeWithoutAudioExtraction(t *testing.T) {
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentVideo, "opus")
+
+	if containsString(args, "--extract-audio") || containsString(args, "--audio-format") {
+		t.Fatalf("video args should not extract audio: %v", args)
+	}
+	if !containsString(args, "--merge-output-format") {
+		t.Fatalf("expected video merge args: %v", args)
+	}
+}
+
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
@@ -1417,6 +1449,15 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func indexOfString(values []string, target string) int {
+	for i, value := range values {
+		if value == target {
+			return i
+		}
+	}
+	return -1
 }
 
 func TestQobuzRunnerHelperProcess(t *testing.T) {

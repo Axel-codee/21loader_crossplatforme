@@ -27,7 +27,7 @@
 | `BACKLOG-06` | Refonte graphique de l'interface 21loader | `open` | frontend/ui | [../domains/frontend-ui.md](../domains/frontend-ui.md), [../sources/source-2026-04-07-session-ui-briefing.md](../sources/source-2026-04-07-session-ui-briefing.md) |
 | `BACKLOG-07` | Recuperation des paroles dans la description des videos YouTube | `open` | services media | [../domains/media-services.md](../domains/media-services.md) |
 | `BACKLOG-08` | Gerer directement depuis l'app la tete des ramifications dossiers crees | `open` | jobs/pipeline | [../domains/jobs-pipeline.md](../domains/jobs-pipeline.md) |
-| `BACKLOG-09` | Choisir `mp3` / `mp4` ou les deux pour les musiques YouTube | `open` | services media | [../domains/media-services.md](../domains/media-services.md) |
+| `BACKLOG-09` | Choisir une sortie video `mp4` ou une double sortie audio/video pour YouTube | `open` | services media | [../domains/media-services.md](../domains/media-services.md) |
 | `BACKLOG-10` | Obtenir les lyrics sur les musiques YouTube | `open` | services media | [../domains/media-services.md](../domains/media-services.md) |
 | `BACKLOG-11` | Empecher l'ajout d'un job identique deja present en mode `completer` | `done 2026-04-12` | jobs/pipeline | [../domains/jobs-pipeline.md](../domains/jobs-pipeline.md) |
 | `BACKLOG-12` | Ajouter des podcasts RSS favoris selectionnables depuis `Ajouter un job` | `done 2026-04-17` | frontend/ui | [../domains/frontend-ui.md](../domains/frontend-ui.md), [../domains/media-services.md](../domains/media-services.md) |
@@ -38,6 +38,9 @@
 | `BACKLOG-17` | Authentifier l'updater pour un repo GitHub prive | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 | `BACKLOG-18` | Corriger le launcher macOS appele via symlink terminal | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 | `BACKLOG-19` | Executer `yt-dlp` via resolution absolue pour les jobs YouTube | `done 2026-06-08` | services media / jobs-pipeline / diagnostics | [../solutions/macos-runtime-path-homebrew.md](../solutions/macos-runtime-path-homebrew.md), [../domains/media-services.md](../domains/media-services.md) |
+| `BACKLOG-20` | Faire de `icone.png` la source canonique des icones | `done 2026-06-08` | frontend/ui / packaging | [../sources/source-2026-04-09-session-logo-web.md](../sources/source-2026-04-09-session-logo-web.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
+| `BACKLOG-21` | Rappeler de proposer une mise a jour GitHub apres modification projet | `done 2026-06-08` | collaboration / release | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
+| `BACKLOG-22` | Ajouter un reglage de format audio YouTube par defaut | `done 2026-06-08` | services media / frontend-ui | [../domains/media-services.md](../domains/media-services.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 
 ## Zones de code probablement concernees
 
@@ -55,6 +58,7 @@
 - `.github/workflows/release.yml`
 - `internal/util/pathenv.go`
 - `internal/util/binresolve.go`
+- `AGENTS.md`
 
 ## Notes
 
@@ -70,6 +74,9 @@
 - `BACKLOG-17` a ete traite le `2026-06-08`; l'updater sait utiliser un token GitHub explicite ou `gh auth token` pour acceder aux releases d'un repo prive.
 - `BACKLOG-18` a ete traite le `2026-06-08`; le launcher macOS resout maintenant le vrai chemin du bundle avant de chercher `Contents/Resources/app`, meme lorsqu'il est appele depuis `/usr/local/bin/21loader`.
 - `BACKLOG-19` a ete traite le `2026-06-08`; les jobs YouTube et les helpers de catalogue/titre/dates utilisent maintenant un chemin resolu pour `yt-dlp` au lieu de dependre d'un nom brut dans le `PATH`.
+- `BACKLOG-20` a ete traite le `2026-06-08`; `icone.png` est desormais documente comme source canonique et les assets derives ont ete regeneres depuis cette image.
+- `BACKLOG-21` a ete traite le `2026-06-08`; `AGENTS.md` contient maintenant le rappel de proposer une mise a jour des releases GitHub apres modification projet terminee.
+- `BACKLOG-22` a ete traite le `2026-06-08`; les reglages exposent un format audio YouTube par defaut (`mp3`, `m4a`, `opus`, `flac`, `wav`, `aac`) et les jobs audio/music demandent a `yt-dlp` d'extraire/convertir l'audio au lieu de conserver un `.webm`.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

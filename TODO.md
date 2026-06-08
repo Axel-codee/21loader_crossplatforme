@@ -13,6 +13,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - `web/index.html` contient toute l'interface frontend sans framework: formulaire de job, modales de selection, polling de statut, tableau des jobs, logs et reglages.
 - `assets/scripts/` contient les scripts Python utilises par Qobuz et Argos Translate.
 - `assets/macos/`, `assets/windows/`, `scripts/macos/` et `scripts/windows/` couvrent les icones et le packaging desktop.
+- `icone.png` a la racine est la source canonique pour toutes les icones; les assets derives (`assets/ui/21loader-logo.png`, `assets/macos/AppIcon.icns`, `assets/windows/21loader.ico`) doivent etre regeneres depuis cette image.
 - `.github/workflows/release.yml` construit les assets de release Windows/macOS quand un tag `v*` est pousse.
 - `dist/` contient des sorties de build/de packaging deja generees.
 
@@ -23,8 +24,10 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Le suivi de progression existe deja partiellement: pourcentage de telechargement YouTube, compteurs `done/total` pour Qobuz et lyrics, temps total et temps par etape.
 - Le mode `youtube_description` apparait deja dans l'UI, mais le code signale explicitement qu'il n'est pas encore implemente.
 - Le logo web est maintenant branche via un asset runtime dedie et un favicon navigateur servi par le backend local.
+- Le backend sert directement `icone.png` pour `/app-logo.png` et `/favicon.ico`; les packages copient aussi `icone.png` dans le runtime.
 - L'interface telechargement est maintenant separee entre une vue `Ajouter un job` et une vue `Jobs en cours`, avec suivi de file et logs isoles du formulaire.
 - Le choix explicite `mp3/mp4/les deux` pour YouTube ne ressort pas dans l'UI actuelle; le backend choisit surtout selon le type de contenu (`audio` ou `video`).
+- Les jobs YouTube Music/Audio peuvent maintenant utiliser un format audio par defaut reglable (`mp3`, `m4a`, `opus`, `flac`, `wav`, `aac`) et extraient l'audio via `yt-dlp` au lieu de garder le conteneur natif `.webm`.
 - Je n'ai pas repere de mode dedie pour `telecharger uniquement les sous-titres`; aujourd'hui les sous-titres sont produits via la transcription.
 - Le mode de collision `completer` doit comparer un job RSS a l'URL exacte de l'episode, pas seulement au podcast, sinon un episode peut etre reutilise a la place d'un autre.
 - La commande terminal `21loader` est exposee par les packages; `21loader update` consomme la derniere GitHub Release, pas le dernier commit brut de `main`.
@@ -40,6 +43,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Lyrics LRCLIB et futur fallback description YouTube: `internal/jobs/runner.go`, `internal/httpapi/router.go`, `web/index.html`
 - Organisation des dossiers de sortie: `internal/jobs/organizer.go`, `internal/util/paths.go`, `web/index.html`
 - Branding web et packaging d'icones: `web/index.html`, `internal/httpapi/router.go`, `assets/ui/`, `assets/macos/`, `assets/windows/`, scripts de packaging
+- Instructions projet persistantes: `AGENTS.md`
 - Commande terminal et updater applicatif: `cmd/server/main.go`, `internal/updater/`, scripts de packaging, `.github/workflows/release.yml`
 - Resolution des dependances CLI: `internal/util/pathenv.go`, `internal/util/binresolve.go`, `internal/services/diagnostics.go`, `internal/jobs/runner.go`, `internal/services/youtube.go`
 
@@ -53,7 +57,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [ ] Poursuivre la refonte graphique de l'interface 21loader au-dela du split `Ajouter un job` / `Jobs en cours`
 - [ ] Recuperation des paroles dans la description des videos YouTube
 - [ ] Pouvoir gerer directement depuis l'app la tete des ramifications dossiers creees (ex: sur le NAS)
-- [ ] Pouvoir choisir `mp3` / `mp4` ou les deux pour les musiques YouTube
+- [ ] Pouvoir choisir une sortie video `mp4` ou une double sortie audio/video pour YouTube
 - [ ] Pouvoir obtenir les lyrics sur les musiques YouTube
 - [ ] Pouvoir regler le nombre de threads utilises par Whisper
 
@@ -87,6 +91,9 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Authentifier `21loader update` pour les GitHub Releases d'un repo prive
 - [x] Corriger `21loader update` lance via symlink macOS `/usr/local/bin/21loader`
 - [x] Executer `yt-dlp` via resolution absolue pour les jobs YouTube sur macOS/Homebrew
+- [x] Faire de `icone.png` la source canonique des icones web/macOS/Windows
+- [x] Ajouter dans `AGENTS.md` le rappel de proposer une mise a jour GitHub apres chaque modification projet terminee
+- [x] Ajouter un reglage de format audio YouTube par defaut et convertir l'audio via `yt-dlp`
 
 ## Notes
 

@@ -1,5 +1,11 @@
 # Log du wiki
 
+## [2026-06-08] feat | format audio YouTube par defaut
+
+- Ajout d'un reglage global `youtubeAudioFormat` pour les jobs YouTube Music/Audio.
+- Les telechargements audio YouTube utilisent maintenant `yt-dlp --extract-audio --audio-format <format>` avec `mp3` par defaut pour eviter les sorties `.webm` peu lisibles.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-22`.
+
 ## [2026-06-08] fix | detection Homebrew depuis app macOS
 
 - Ajout d'une initialisation du `PATH` applicatif au demarrage pour couvrir `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` et les dossiers Python utilisateur.
@@ -23,6 +29,13 @@
 - Les jobs YouTube resolvent maintenant `yt-dlp` via `util.ResolveToolExecutable` avant execution.
 - Le resolver de binaires teste explicitement les dossiers runtime macOS, dont Homebrew, si `exec.LookPath` ne suffit pas.
 - Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-19`.
+
+## [2026-06-08] chore | icone canonique et rappel release
+
+- `icone.png` a la racine est confirme comme source canonique des icones web/macOS/Windows.
+- Regeneration des assets derives `assets/ui/21loader-logo.png`, `assets/macos/AppIcon.icns` et `assets/windows/21loader.ico` depuis `icone.png`.
+- Ajout dans `AGENTS.md` du rappel de proposer une mise a jour des releases GitHub apres chaque modification projet terminee.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-20` et `BACKLOG-21`.
 
 ## [2026-06-08] feat | commande terminal et updater GitHub Releases
 

@@ -78,6 +78,7 @@ GOCACHE="$GOCACHE_DIR" GO111MODULE=on CGO_ENABLED=0 GOOS=windows GOARCH="$ARCH" 
 echo "Copying runtime assets..."
 cp -R "$ROOT_DIR/web" "$APP_DIR/"
 cp -R "$ROOT_DIR/assets" "$APP_DIR/"
+cp "$ROOT_DIR/icone.png" "$APP_DIR/icone.png"
 cp "$LAUNCHER_SRC" "$LAUNCHER_DST"
 
 cat > "$README_DST" <<EOF

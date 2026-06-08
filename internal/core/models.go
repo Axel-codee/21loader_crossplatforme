@@ -92,6 +92,7 @@ type WebSettings struct {
 	PyannoteOutputTXT            bool                 `json:"pyannoteOutputTXT"`
 	PyannoteOutputSRT            bool                 `json:"pyannoteOutputSRT"`
 	UseFirefoxCookies            bool                 `json:"useFirefoxCookies"`
+	YouTubeAudioFormat           string               `json:"youtubeAudioFormat"`
 	KeepTemporaryFilesOnFailure  bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   string               `json:"qobuzEmail"`
 	QobuzPassword                string               `json:"qobuzPassword"`
@@ -267,6 +268,7 @@ type CreateJobAPIRequest struct {
 	PyannoteOutputTXT            *bool                        `json:"pyannoteOutputTXT"`
 	PyannoteOutputSRT            *bool                        `json:"pyannoteOutputSRT"`
 	YtDlpExtraArguments          string                       `json:"ytDlpExtraArguments"`
+	YouTubeAudioFormat           string                       `json:"youtubeAudioFormat"`
 	WhisperExtraArguments        string                       `json:"whisperExtraArguments"`
 	FfmpegExtraArguments         string                       `json:"ffmpegExtraArguments"`
 	QobuzExtraArguments          string                       `json:"qobuzExtraArguments"`
@@ -305,6 +307,7 @@ type UpdateSettingsAPIRequest struct {
 	PyannoteOutputTXT            *bool                 `json:"pyannoteOutputTXT"`
 	PyannoteOutputSRT            *bool                 `json:"pyannoteOutputSRT"`
 	UseFirefoxCookies            *bool                 `json:"useFirefoxCookies"`
+	YouTubeAudioFormat           *string               `json:"youtubeAudioFormat"`
 	KeepTemporaryFilesOnFailure  *bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   *string               `json:"qobuzEmail"`
 	QobuzPassword                *string               `json:"qobuzPassword"`
@@ -797,6 +800,7 @@ type JobRequest struct {
 	PyannoteOutputTXT            bool
 	PyannoteOutputSRT            bool
 	YtDlpExtraArguments          string
+	YouTubeAudioFormat           string
 	WhisperExtraArguments        string
 	FfmpegExtraArguments         string
 	QobuzExtraArguments          string

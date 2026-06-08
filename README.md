@@ -307,7 +307,7 @@ Options utiles:
 ./scripts/macos/build-dmg.sh --icon /chemin/vers/icone.png
 ```
 
-Par defaut, le script utilise `assets/macos/AppIcon.icns`.
+Par defaut, le script utilise `icone.png` a la racine du projet et genere l'ICNS du bundle depuis cette image.
 
 ### Export Windows (.exe portable)
 
