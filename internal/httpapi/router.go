@@ -21,6 +21,8 @@ type Server struct {
 	coordinator       *jobs.Coordinator
 	artworkThumbnails *services.ArtworkThumbnailService
 	indexHTML         []byte
+	appLogoPNG        []byte
+	faviconICO        []byte
 	mux               *http.ServeMux
 }
 
@@ -30,10 +32,22 @@ func NewServer(coordinator *jobs.Coordinator, artworkThumbnails *services.Artwor
 	if err != nil {
 		return nil, err
 	}
+	logoPath := filepath.Join(baseDir, "assets", "ui", "21loader-logo.png")
+	logoPNG, err := os.ReadFile(logoPath)
+	if err != nil {
+		return nil, err
+	}
+	faviconPath := filepath.Join(baseDir, "assets", "windows", "21loader.ico")
+	faviconICO, err := os.ReadFile(faviconPath)
+	if err != nil {
+		return nil, err
+	}
 	s := &Server{
 		coordinator:       coordinator,
 		artworkThumbnails: artworkThumbnails,
 		indexHTML:         data,
+		appLogoPNG:        logoPNG,
+		faviconICO:        faviconICO,
 		mux:               http.NewServeMux(),
 	}
 	s.registerRoutes()
@@ -55,6 +69,8 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/", s.handleRoot)
+	s.mux.HandleFunc("/app-logo.png", s.handleAppLogo)
+	s.mux.HandleFunc("/favicon.ico", s.handleFavicon)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/api/status", s.handleStatus)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
@@ -70,13 +86,20 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/whisper/models/install-progress", s.handleWhisperModelInstallProgress)
 	s.mux.HandleFunc("/api/whisper/models/install", s.handleInstallWhisperModel)
 	s.mux.HandleFunc("/api/whisper/models/uninstall", s.handleUninstallWhisperModel)
+	s.mux.HandleFunc("/api/whisper/vad-models", s.handleVADModels)
+	s.mux.HandleFunc("/api/whisper/vad-models/install-progress", s.handleVADModelInstallProgress)
+	s.mux.HandleFunc("/api/whisper/vad-models/install", s.handleInstallVADModel)
+	s.mux.HandleFunc("/api/whisper/vad-models/uninstall", s.handleUninstallVADModel)
+	s.mux.HandleFunc("/api/pyannote/verify-access", s.handlePyannoteAccessCheck)
 	s.mux.HandleFunc("/api/qobuz/search-artists", s.handleQobuzArtistSearch)
+	s.mux.HandleFunc("/api/qobuz/verify-credentials", s.handleQobuzCredentialsCheck)
 	s.mux.HandleFunc("/api/qobuz/artist-catalog", s.handleQobuzArtistCatalog)
 	s.mux.HandleFunc("/api/qobuz/album-tracks", s.handleQobuzAlbumTracks)
 	s.mux.HandleFunc("/api/qobuz/playlist-catalog", s.handleQobuzPlaylistCatalog)
 	s.mux.HandleFunc("/api/rss/episodes", s.handleRSSEpisodes)
 	s.mux.HandleFunc("/api/youtube/catalog", s.handleYouTubeCatalog)
 	s.mux.HandleFunc("/api/youtube/dates", s.handleYouTubeDates)
+	s.mux.HandleFunc("/api/lyrics/lrclib/search", s.handleLRCLIBSearch)
 	s.mux.HandleFunc("/api/artwork", s.handleArtwork)
 	s.mux.HandleFunc("/api/rss/artwork", s.handleArtwork)
 	s.mux.HandleFunc("/api/jobs", s.handleJobs)
@@ -90,6 +113,32 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(s.indexHTML)
+}
+
+func (s *Server) handleAppLogo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Header().Set("Content-Type", "image/png")
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = w.Write(s.appLogoPNG)
+}
+
+func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Header().Set("Content-Type", "image/x-icon")
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = w.Write(s.faviconICO)
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +167,12 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, s.coordinator.UpdateSettings(payload))
+		saved, err := s.coordinator.UpdateSettings(payload)
+		if err != nil {
+			errorJSON(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
 	default:
 		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
 	}
@@ -273,6 +327,87 @@ func (s *Server) handleUninstallWhisperModel(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) handleVADModels(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	resp, err := s.coordinator.VADModels(r.Context())
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleVADModelInstallProgress(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	modelID := strings.TrimSpace(r.URL.Query().Get("modelID"))
+	resp, err := s.coordinator.VADModelInstallProgress(r.Context(), core.VADModelInstallProgressRequest{ModelID: modelID})
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleInstallVADModel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	var payload core.VADModelInstallRequest
+	if err := decodeJSON(r, &payload); err != nil {
+		errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
+		return
+	}
+	resp, err := s.coordinator.InstallVADModel(r.Context(), payload)
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleUninstallVADModel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	var payload core.VADModelUninstallRequest
+	if err := decodeJSON(r, &payload); err != nil {
+		errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
+		return
+	}
+	resp, err := s.coordinator.UninstallVADModel(r.Context(), payload)
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handlePyannoteAccessCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	var payload core.PyannoteAccessCheckRequest
+	if err := decodeJSON(r, &payload); err != nil {
+		errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
+		return
+	}
+	resp, err := s.coordinator.VerifyPyannoteAccess(r.Context(), payload)
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) handleQobuzArtistCatalog(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
@@ -307,6 +442,24 @@ func (s *Server) handleQobuzArtistSearch(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, artists)
+}
+
+func (s *Server) handleQobuzCredentialsCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	var payload core.QobuzCredentialsCheckAPIRequest
+	if err := decodeJSON(r, &payload); err != nil {
+		errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
+		return
+	}
+	result, err := s.coordinator.VerifyQobuzCredentials(r.Context(), payload)
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleQobuzAlbumTracks(w http.ResponseWriter, r *http.Request) {
@@ -392,6 +545,24 @@ func (s *Server) handleYouTubeDates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.coordinator.FetchYouTubeDates(r.Context(), payload))
+}
+
+func (s *Server) handleLRCLIBSearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+	var payload core.LRCLIBSearchAPIRequest
+	if err := decodeJSON(r, &payload); err != nil {
+		errorJSON(w, http.StatusBadRequest, "JSON invalide: "+err.Error())
+		return
+	}
+	resp, err := s.coordinator.SearchLRCLIBLyrics(r.Context(), payload)
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleArtwork(w http.ResponseWriter, r *http.Request) {

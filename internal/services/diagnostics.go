@@ -17,7 +17,7 @@ import (
 	"21loader-cross/internal/util"
 )
 
-var dependencyTools = []string{"yt-dlp", "ffmpeg", "qobuz-dl", "whisper-cli", "argostranslate"}
+var dependencyTools = []string{"yt-dlp", "ffmpeg", "qobuz-dl", "whisper-cli", "argostranslate", "pyannote"}
 
 const dependencyInstallProgressLogsLimit = 96 * 1024
 
@@ -41,7 +41,7 @@ func NewDiagnosticsService(r *sys.Runner) *DiagnosticsService {
 	}
 }
 
-func (s *DiagnosticsService) CollectReport(ctx context.Context) core.WebDiagnosticsReport {
+func (s *DiagnosticsService) CollectReport(ctx context.Context, settings core.WebSettings) core.WebDiagnosticsReport {
 	pm := detectPackageManager()
 	brew := inspectBinary(ctx, s.runner, "brew", []string{"--version"})
 	ytDlp := inspectBinary(ctx, s.runner, "yt-dlp", []string{"--version"})
@@ -49,8 +49,9 @@ func (s *DiagnosticsService) CollectReport(ctx context.Context) core.WebDiagnost
 	whisper := inspectBinary(ctx, s.runner, "whisper-cli", []string{"--version"})
 	qobuz := inspectBinary(ctx, s.runner, "qobuz-dl", []string{"--help"})
 	argos := inspectArgosTranslate(ctx, s.runner)
+	pyannote := inspectPyannote(ctx, s.runner, settings)
 
-	tools := []core.WebBinaryDiagnostic{ytDlp, ffmpeg, whisper, qobuz, argos}
+	tools := []core.WebBinaryDiagnostic{ytDlp, ffmpeg, whisper, qobuz, argos, pyannote}
 	outdated := s.detectOutdatedTools(ctx, pm)
 	for i := range tools {
 		if tools[i].Available && outdated[tools[i].Name] {
@@ -69,6 +70,32 @@ func (s *DiagnosticsService) CollectReport(ctx context.Context) core.WebDiagnost
 		Brew:           brew,
 		Tools:          tools,
 	}
+}
+
+func (s *DiagnosticsService) VerifyPyannoteAccess(ctx context.Context, settings core.WebSettings, payload core.PyannoteAccessCheckRequest) (core.PyannoteAccessCheckResponse, error) {
+	token := strings.TrimSpace(payload.Token)
+	if token == "" {
+		token = strings.TrimSpace(settings.PyannoteHuggingFaceToken)
+	}
+	localPipelinePath := strings.TrimSpace(payload.LocalPipelinePath)
+	if localPipelinePath == "" {
+		localPipelinePath = strings.TrimSpace(settings.PyannoteLocalPipelinePath)
+	}
+
+	diagnostic := inspectPyannoteWithOverrides(ctx, s.runner, token, localPipelinePath)
+	message := strings.TrimSpace(diagnostic.Notes)
+	if message == "" {
+		if diagnostic.Available {
+			message = "Acces pyannote verifie."
+		} else {
+			message = "Pyannote indisponible."
+		}
+	}
+	return core.PyannoteAccessCheckResponse{
+		OK:         diagnostic.Available,
+		Message:    message,
+		Diagnostic: diagnostic,
+	}, nil
 }
 
 func (s *DiagnosticsService) InstallProgress() core.DependencyInstallProgressResponse {
@@ -292,7 +319,180 @@ func inspectArgosTranslate(ctx context.Context, runner *sys.Runner) core.WebBina
 	}
 }
 
+type pythonModuleProbe struct {
+	candidate pythonCommandCandidate
+	version   string
+	note      string
+}
+
+func inspectPyannote(ctx context.Context, runner *sys.Runner, settings core.WebSettings) core.WebBinaryDiagnostic {
+	return inspectPyannoteWithOverrides(ctx, runner, strings.TrimSpace(settings.PyannoteHuggingFaceToken), strings.TrimSpace(settings.PyannoteLocalPipelinePath))
+}
+
+func inspectPyannoteWithOverrides(ctx context.Context, runner *sys.Runner, token, localPipelinePath string) core.WebBinaryDiagnostic {
+	probe, diagnostic, ok := inspectPyannoteRuntime(ctx, runner)
+	if !ok {
+		return diagnostic
+	}
+
+	if localPipelinePath != "" {
+		if _, err := os.Stat(localPipelinePath); err != nil {
+			return core.WebBinaryDiagnostic{
+				Name:      "pyannote",
+				Path:      resolvedProbePath(probe.candidate),
+				Version:   probe.version,
+				Available: false,
+				State:     "error",
+				Notes:     "Chemin de pipeline local pyannote introuvable ou invalide.",
+			}
+		}
+	} else if token == "" {
+		return core.WebBinaryDiagnostic{
+			Name:      "pyannote",
+			Path:      resolvedProbePath(probe.candidate),
+			Version:   probe.version,
+			Available: false,
+			State:     "token_required",
+			Notes:     "Runtime pyannote pret. Accepte le modele community-1 puis renseigne un token Hugging Face, ou configure un pipeline local.",
+		}
+	}
+
+	accessOK, accessMessage := verifyPyannoteModelAccess(ctx, runner, probe.candidate, token, localPipelinePath)
+	if accessOK {
+		note := probe.note
+		if localPipelinePath != "" {
+			note += " | Pipeline local pret: " + localPipelinePath
+		} else {
+			note += " | Modele community-1 accessible"
+		}
+		return core.WebBinaryDiagnostic{
+			Name:      "pyannote",
+			Path:      resolvedProbePath(probe.candidate),
+			Version:   probe.version,
+			Available: true,
+			State:     "ready",
+			Notes:     note,
+		}
+	}
+
+	state := "error"
+	lower := strings.ToLower(accessMessage)
+	if localPipelinePath == "" && (strings.Contains(lower, "token") || strings.Contains(lower, "401") || strings.Contains(lower, "403") || strings.Contains(lower, "gated") || strings.Contains(lower, "accept")) {
+		state = "token_required"
+	}
+	return core.WebBinaryDiagnostic{
+		Name:      "pyannote",
+		Path:      resolvedProbePath(probe.candidate),
+		Version:   probe.version,
+		Available: false,
+		State:     state,
+		Notes:     "Runtime pyannote detecte mais acces modele indisponible: " + lastNonEmptyLine(accessMessage),
+	}
+}
+
+func inspectPyannoteRuntime(ctx context.Context, runner *sys.Runner) (pythonModuleProbe, core.WebBinaryDiagnostic, bool) {
+	const moduleName = "pyannote"
+	probeScript := "import importlib.metadata; print(importlib.metadata.version('pyannote.audio'))"
+
+	pythonDetected := false
+	moduleMissing := false
+	moduleError := ""
+
+	for _, candidate := range pyannotePythonProbeCandidates() {
+		_, version, note, available, pyFound, missing, errText := probeArgosWithPython(ctx, runner, candidate, probeScript)
+		if pyFound {
+			pythonDetected = true
+		}
+		if available {
+			return pythonModuleProbe{candidate: candidate, version: version, note: note}, core.WebBinaryDiagnostic{}, true
+		}
+		if missing {
+			moduleMissing = true
+			continue
+		}
+		if strings.TrimSpace(errText) != "" {
+			moduleError = strings.TrimSpace(errText)
+		}
+	}
+
+	if !pythonDetected {
+		return pythonModuleProbe{}, core.WebBinaryDiagnostic{
+			Name:      moduleName,
+			Available: false,
+			State:     "missing_runtime",
+			Notes:     "Python introuvable pour le runtime pyannote (python3/python).",
+		}, false
+	}
+	if moduleMissing {
+		return pythonModuleProbe{}, core.WebBinaryDiagnostic{
+			Name:      moduleName,
+			Available: false,
+			State:     "missing_module",
+			Notes:     "Module pyannote.audio introuvable. Utilise le bouton Installer pour creer le venv dedie et installer pyannote.audio.",
+		}, false
+	}
+	return pythonModuleProbe{}, core.WebBinaryDiagnostic{
+		Name:      moduleName,
+		Available: false,
+		State:     "error",
+		Notes:     "Runtime pyannote incompatible: " + lastNonEmptyLine(moduleError),
+	}, false
+}
+
+func pyannotePythonProbeCandidates() []pythonCommandCandidate {
+	candidates := make([]pythonCommandCandidate, 0, 8)
+	for _, venvPython := range util.PyannoteVenvPythonCandidates("") {
+		if strings.TrimSpace(venvPython) == "" {
+			continue
+		}
+		candidates = append(candidates, pythonCommandCandidate{Exec: venvPython})
+	}
+	candidates = append(candidates, pythonCommandCandidates()...)
+	return candidates
+}
+
+func verifyPyannoteModelAccess(ctx context.Context, runner *sys.Runner, candidate pythonCommandCandidate, token, localPipelinePath string) (bool, string) {
+	source := strings.TrimSpace(localPipelinePath)
+	if source == "" {
+		source = "pyannote/speaker-diarization-community-1"
+	}
+	verifyScript := `import os
+os.environ['PYANNOTE_METRICS_ENABLED'] = '0'
+os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
+os.environ['DO_NOT_TRACK'] = '1'
+from pyannote.audio import Pipeline
+try:
+    from pyannote.audio.telemetry import set_telemetry_metrics
+    set_telemetry_metrics(False)
+except Exception:
+    pass
+source = os.environ.get('PYANNOTE_PIPELINE_SOURCE', '').strip() or 'pyannote/speaker-diarization-community-1'
+token = os.environ.get('PYANNOTE_HF_TOKEN', '').strip()
+kwargs = {}
+if token:
+    kwargs['token'] = token
+Pipeline.from_pretrained(source, **kwargs)
+print('ready')
+`
+	env := map[string]string{"PYANNOTE_PIPELINE_SOURCE": source}
+	if strings.TrimSpace(localPipelinePath) == "" {
+		env["PYANNOTE_HF_TOKEN"] = strings.TrimSpace(token)
+	}
+	output, _, _, available, _, _, errText := probeArgosWithPythonEnv(ctx, runner, candidate, verifyScript, env)
+	if available {
+		return true, output
+	}
+	if strings.TrimSpace(errText) != "" {
+		return false, errText
+	}
+	return false, output
+}
+
 func probeArgosWithPython(ctx context.Context, runner *sys.Runner, candidate pythonCommandCandidate, probeScript string) (rawOutput, version, note string, available bool, pythonFound bool, moduleMissing bool, errText string) {
+	return probeArgosWithPythonEnv(ctx, runner, candidate, probeScript, nil)
+}
+
+func probeArgosWithPythonEnv(ctx context.Context, runner *sys.Runner, candidate pythonCommandCandidate, probeScript string, env map[string]string) (rawOutput, version, note string, available bool, pythonFound bool, moduleMissing bool, errText string) {
 	if strings.Contains(candidate.Exec, string(filepath.Separator)) {
 		info, err := os.Stat(candidate.Exec)
 		if err != nil || info.IsDir() {
@@ -310,6 +510,7 @@ func probeArgosWithPython(ctx context.Context, runner *sys.Runner, candidate pyt
 	output, runErr := runner.Run(ctx, sys.RunOptions{
 		Executable:    candidate.Exec,
 		Args:          args,
+		Environment:   env,
 		CaptureOutput: true,
 	})
 	if runErr == nil {
@@ -452,6 +653,9 @@ func (s *DiagnosticsService) toolAvailable(ctx context.Context, tool string) boo
 	switch strings.ToLower(strings.TrimSpace(tool)) {
 	case "argostranslate":
 		return inspectArgosTranslate(ctx, s.runner).Available
+	case "pyannote":
+		_, _, ok := inspectPyannoteRuntime(ctx, s.runner)
+		return ok
 	default:
 		_, _, err := util.ResolveToolExecutable(tool)
 		return err == nil
@@ -567,6 +771,9 @@ func (s *DiagnosticsService) detectOutdatedTools(ctx context.Context, pm package
 		if outdatedPythonPackages["argostranslate"] {
 			outdatedTools["argostranslate"] = true
 		}
+		if outdatedPythonPackages["pyannote.audio"] {
+			outdatedTools["pyannote"] = true
+		}
 		return outdatedTools
 	}
 
@@ -582,6 +789,9 @@ func (s *DiagnosticsService) detectOutdatedTools(ctx context.Context, pm package
 	if outdatedPythonPackages["argostranslate"] {
 		outdatedTools["argostranslate"] = true
 	}
+	if outdatedPythonPackages["pyannote.audio"] {
+		outdatedTools["pyannote"] = true
+	}
 	return outdatedTools
 }
 
@@ -590,6 +800,12 @@ func (s *DiagnosticsService) collectOutdatedPythonPackages(ctx context.Context) 
 
 	candidates := make([]pythonCommandCandidate, 0, 8)
 	for _, venvPython := range util.ArgosVenvPythonCandidates("") {
+		if strings.TrimSpace(venvPython) == "" {
+			continue
+		}
+		candidates = append(candidates, pythonCommandCandidate{Exec: venvPython})
+	}
+	for _, venvPython := range util.PyannoteVenvPythonCandidates("") {
 		if strings.TrimSpace(venvPython) == "" {
 			continue
 		}
@@ -790,6 +1006,11 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 				{Exec: "brew", Args: []string{"install", "python@3.12"}},
 				{Exec: "brew", Args: []string{"install", "python"}},
 			})
+		case "pyannote":
+			return pyannoteManagedInstallCommands([]commandSpec{
+				{Exec: "brew", Args: []string{"install", "python@3.12"}},
+				{Exec: "brew", Args: []string{"install", "python"}},
+			})
 		}
 	case "winget":
 		switch tool {
@@ -813,6 +1034,10 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 			return argosManagedInstallCommands([]commandSpec{
 				{Exec: "winget", Args: []string{"install", "--id", "Python.Python.3.12", "-e"}},
 			})
+		case "pyannote":
+			return pyannoteManagedInstallCommands([]commandSpec{
+				{Exec: "winget", Args: []string{"install", "--id", "Python.Python.3.12", "-e"}},
+			})
 		}
 	case "choco":
 		switch tool {
@@ -824,6 +1049,8 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 			return argosManagedInstallCommands([]commandSpec{
 				{Exec: "choco", Args: []string{"install", "-y", "python"}},
 			})
+		case "pyannote":
+			return pyannoteManagedInstallCommands([]commandSpec{{Exec: "choco", Args: []string{"install", "-y", "python"}}})
 		}
 	case "scoop":
 		switch tool {
@@ -835,6 +1062,8 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 			return argosManagedInstallCommands([]commandSpec{
 				{Exec: "scoop", Args: []string{"install", "python"}},
 			})
+		case "pyannote":
+			return pyannoteManagedInstallCommands([]commandSpec{{Exec: "scoop", Args: []string{"install", "python"}}})
 		}
 	case "apt-get":
 		switch tool {
@@ -848,6 +1077,8 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 			return argosManagedInstallCommands([]commandSpec{
 				{Exec: "sudo", Args: []string{"apt-get", "install", "-y", "python3", "python3-venv"}},
 			})
+		case "pyannote":
+			return pyannoteManagedInstallCommands([]commandSpec{{Exec: "sudo", Args: []string{"apt-get", "install", "-y", "python3", "python3-venv"}}})
 		}
 	case "dnf":
 		switch tool {
@@ -861,6 +1092,8 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 			return argosManagedInstallCommands([]commandSpec{
 				{Exec: "sudo", Args: []string{"dnf", "install", "-y", "python3"}},
 			})
+		case "pyannote":
+			return pyannoteManagedInstallCommands([]commandSpec{{Exec: "sudo", Args: []string{"dnf", "install", "-y", "python3"}}})
 		}
 	case "pacman":
 		switch tool {
@@ -874,10 +1107,15 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 			return argosManagedInstallCommands([]commandSpec{
 				{Exec: "sudo", Args: []string{"pacman", "-Sy", "--noconfirm", "python"}},
 			})
+		case "pyannote":
+			return pyannoteManagedInstallCommands([]commandSpec{{Exec: "sudo", Args: []string{"pacman", "-Sy", "--noconfirm", "python"}}})
 		}
 	}
 	if tool == "argostranslate" {
 		return argosManagedInstallCommands(nil)
+	}
+	if tool == "pyannote" {
+		return pyannoteManagedInstallCommands(nil)
 	}
 	return nil
 }
@@ -885,6 +1123,9 @@ func commandsForTool(pm packageManager, tool string) []commandSpec {
 func updateCommandsForTool(pm packageManager, tool string) []commandSpec {
 	if tool == "argostranslate" {
 		return argosManagedInstallCommands(nil)
+	}
+	if tool == "pyannote" {
+		return pyannoteManagedInstallCommands(nil)
 	}
 
 	switch pm.Name {
@@ -991,6 +1232,44 @@ func argosManagedInstallCommands(prefix []commandSpec) []commandSpec {
 				continue
 			}
 			commands = append(commands, commandSpec{Exec: pythonExec, Args: []string{"-m", "pip", "install", "--upgrade", "argostranslate"}})
+		}
+	}
+
+	return uniqueCommandSpecs(commands)
+}
+
+func pyannoteManagedInstallCommands(prefix []commandSpec) []commandSpec {
+	commands := make([]commandSpec, 0, len(prefix)+48)
+	commands = append(commands, prefix...)
+
+	venvDir := strings.TrimSpace(util.PyannoteVenvDirectory())
+	if venvDir == "" {
+		return commands
+	}
+
+	for _, creator := range pythonCommandCandidates() {
+		venvArgs := append(append([]string{}, creator.PrefixArgs...), "-m", "venv", "--clear", venvDir)
+		commands = append(commands, commandSpec{Exec: creator.Exec, Args: venvArgs})
+
+		for _, venvPython := range util.PyannoteVenvPythonCandidates(venvDir) {
+			pythonExec := strings.TrimSpace(venvPython)
+			if pythonExec == "" {
+				continue
+			}
+			commands = append(commands,
+				commandSpec{Exec: pythonExec, Args: []string{"-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"}},
+				commandSpec{Exec: pythonExec, Args: []string{"-m", "pip", "install", "--upgrade", "pyannote.audio"}},
+			)
+		}
+	}
+
+	if len(commands) == len(prefix) {
+		for _, venvPython := range util.PyannoteVenvPythonCandidates(venvDir) {
+			pythonExec := strings.TrimSpace(venvPython)
+			if pythonExec == "" {
+				continue
+			}
+			commands = append(commands, commandSpec{Exec: pythonExec, Args: []string{"-m", "pip", "install", "--upgrade", "pyannote.audio"}})
 		}
 	}
 

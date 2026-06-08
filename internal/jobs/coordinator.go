@@ -51,6 +51,7 @@ type Coordinator struct {
 	diagnostics *services.DiagnosticsService
 	translation *services.TranslationLanguageService
 	whisper     *services.WhisperModelService
+	vad         *services.VADModelService
 	qobuz       *services.QobuzService
 	rss         *services.RSSService
 	youtube     *services.YouTubeService
@@ -64,7 +65,7 @@ var lyricsGeneratedLineRe = regexp.MustCompile(`(?m)^\[lyrics\]\s+(Sous-titres s
 var lyricsAlreadyPresentLineRe = regexp.MustCompile(`(?m)^\[lyrics\]\s+Deja present, piste ignoree\.\s*$`)
 var lyricsFailureLineRe = regexp.MustCompile(`(?m)^\[lyrics\]\s+Echec\s+.*$`)
 
-func NewCoordinator(paths util.AppPaths, runner *Runner, diagnostics *services.DiagnosticsService, translation *services.TranslationLanguageService, whisper *services.WhisperModelService, qobuz *services.QobuzService, rss *services.RSSService, youtube *services.YouTubeService) (*Coordinator, error) {
+func NewCoordinator(paths util.AppPaths, runner *Runner, diagnostics *services.DiagnosticsService, translation *services.TranslationLanguageService, whisper *services.WhisperModelService, vad *services.VADModelService, qobuz *services.QobuzService, rss *services.RSSService, youtube *services.YouTubeService) (*Coordinator, error) {
 	if err := paths.Ensure(); err != nil {
 		return nil, err
 	}
@@ -74,6 +75,7 @@ func NewCoordinator(paths util.AppPaths, runner *Runner, diagnostics *services.D
 		diagnostics:        diagnostics,
 		translation:        translation,
 		whisper:            whisper,
+		vad:                vad,
 		qobuz:              qobuz,
 		rss:                rss,
 		youtube:            youtube,
@@ -138,7 +140,17 @@ func (c *Coordinator) CurrentSettings() core.WebSettings {
 }
 
 func (c *Coordinator) Diagnostics(ctx context.Context) core.WebDiagnosticsReport {
-	return c.diagnostics.CollectReport(ctx)
+	c.mu.Lock()
+	settings := c.settings
+	c.mu.Unlock()
+	return c.diagnostics.CollectReport(ctx, settings)
+}
+
+func (c *Coordinator) VerifyPyannoteAccess(ctx context.Context, payload core.PyannoteAccessCheckRequest) (core.PyannoteAccessCheckResponse, error) {
+	c.mu.Lock()
+	settings := c.settings
+	c.mu.Unlock()
+	return c.diagnostics.VerifyPyannoteAccess(ctx, settings, payload)
 }
 
 func (c *Coordinator) InstallDependencies(ctx context.Context, payload core.DependencyInstallRequest) (core.DependencyInstallResponse, error) {
@@ -217,15 +229,88 @@ func (c *Coordinator) UninstallWhisperModel(ctx context.Context, payload core.Wh
 	clearedDefaultSelection := false
 	if strings.TrimSpace(removedPath) != "" {
 		c.mu.Lock()
+		settingsChanged := false
 		if sameFilePath(c.settings.WhisperModelPath, removedPath) {
 			c.settings.WhisperModelPath = ""
+			clearedDefaultSelection = true
+			settingsChanged = true
+		}
+		if sameFilePath(c.settings.WhisperTinydiarizeModelPath, removedPath) {
+			c.settings.WhisperTinydiarizeModelPath = ""
+			settingsChanged = true
+		}
+		if settingsChanged {
+			c.persistSettingsLocked()
+		}
+		c.mu.Unlock()
+	}
+
+	return core.WhisperModelUninstallResponse{
+		OK:                      true,
+		Message:                 message,
+		Model:                   model,
+		RemovedPath:             removedPath,
+		ClearedDefaultSelection: clearedDefaultSelection,
+	}, nil
+}
+
+func (c *Coordinator) VADModels(ctx context.Context) (core.VADModelsResponse, error) {
+	c.mu.Lock()
+	selectedPath := strings.TrimSpace(c.settings.WhisperVADModelPath)
+	c.mu.Unlock()
+
+	if c.vad == nil {
+		return core.VADModelsResponse{}, fmt.Errorf("service VAD indisponible")
+	}
+	_ = ctx
+	return c.vad.ListModels(selectedPath)
+}
+
+func (c *Coordinator) VADModelInstallProgress(ctx context.Context, payload core.VADModelInstallProgressRequest) (core.VADModelInstallProgressResponse, error) {
+	_ = ctx
+	if c.vad == nil {
+		return core.VADModelInstallProgressResponse{}, fmt.Errorf("service VAD indisponible")
+	}
+	return c.vad.InstallProgress(payload.ModelID), nil
+}
+
+func (c *Coordinator) InstallVADModel(ctx context.Context, payload core.VADModelInstallRequest) (core.VADModelInstallResponse, error) {
+	if c.vad == nil {
+		return core.VADModelInstallResponse{}, fmt.Errorf("service VAD indisponible")
+	}
+	model, message, err := c.vad.InstallModel(ctx, payload.ModelID)
+	if err != nil {
+		return core.VADModelInstallResponse{}, err
+	}
+	return core.VADModelInstallResponse{
+		OK:      true,
+		Message: message,
+		Model:   model,
+	}, nil
+}
+
+func (c *Coordinator) UninstallVADModel(ctx context.Context, payload core.VADModelUninstallRequest) (core.VADModelUninstallResponse, error) {
+	if c.vad == nil {
+		return core.VADModelUninstallResponse{}, fmt.Errorf("service VAD indisponible")
+	}
+
+	model, message, removedPath, err := c.vad.UninstallModel(ctx, payload.ModelID)
+	if err != nil {
+		return core.VADModelUninstallResponse{}, err
+	}
+
+	clearedDefaultSelection := false
+	if strings.TrimSpace(removedPath) != "" {
+		c.mu.Lock()
+		if sameFilePath(c.settings.WhisperVADModelPath, removedPath) {
+			c.settings.WhisperVADModelPath = ""
 			c.persistSettingsLocked()
 			clearedDefaultSelection = true
 		}
 		c.mu.Unlock()
 	}
 
-	return core.WhisperModelUninstallResponse{
+	return core.VADModelUninstallResponse{
 		OK:                      true,
 		Message:                 message,
 		Model:                   model,
@@ -395,11 +480,86 @@ func (c *Coordinator) SearchLRCLIBLyrics(ctx context.Context, payload core.LRCLI
 	)
 }
 
-func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) core.WebSettings {
+func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) (core.WebSettings, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if payload.DiarizationProvider != nil {
+		provider, err := resolvePayloadDiarizationProvider(*payload.DiarizationProvider)
+		if err != nil {
+			return core.WebSettings{}, err
+		}
+		if provider != "" {
+			c.settings.DiarizationProvider = provider
+		}
+	}
 	if payload.WhisperModelPath != nil {
 		c.settings.WhisperModelPath = strings.TrimSpace(*payload.WhisperModelPath)
+	}
+	if payload.WhisperVADEnabled != nil {
+		c.settings.WhisperVADEnabled = *payload.WhisperVADEnabled
+	}
+	if payload.WhisperVADModelPath != nil {
+		c.settings.WhisperVADModelPath = strings.TrimSpace(*payload.WhisperVADModelPath)
+	}
+	if payload.WhisperVADThreshold != nil {
+		c.settings.WhisperVADThreshold = *payload.WhisperVADThreshold
+	}
+	if payload.WhisperVADMinSpeechDuration != nil {
+		c.settings.WhisperVADMinSpeechDuration = *payload.WhisperVADMinSpeechDuration
+	}
+	if payload.WhisperVADMinSilenceDuration != nil {
+		c.settings.WhisperVADMinSilenceDuration = *payload.WhisperVADMinSilenceDuration
+	}
+	if payload.WhisperVADSpeechPad != nil {
+		c.settings.WhisperVADSpeechPad = *payload.WhisperVADSpeechPad
+	}
+	if payload.WhisperMaxSegmentLength != nil {
+		c.settings.WhisperMaxSegmentLength = *payload.WhisperMaxSegmentLength
+	}
+	if payload.WhisperSplitOnWord != nil {
+		c.settings.WhisperSplitOnWord = *payload.WhisperSplitOnWord
+	}
+	if payload.WhisperInitialPrompt != nil {
+		c.settings.WhisperInitialPrompt = strings.TrimSpace(*payload.WhisperInitialPrompt)
+	}
+	if payload.WhisperCarryInitialPrompt != nil {
+		c.settings.WhisperCarryInitialPrompt = *payload.WhisperCarryInitialPrompt
+	}
+	if payload.WhisperOutputJSONFull != nil {
+		c.settings.WhisperOutputJSONFull = *payload.WhisperOutputJSONFull
+	}
+	if payload.WhisperTinydiarizeEnabled != nil {
+		c.settings.WhisperTinydiarizeEnabled = *payload.WhisperTinydiarizeEnabled
+	}
+	if payload.WhisperTinydiarizeModelPath != nil {
+		c.settings.WhisperTinydiarizeModelPath = strings.TrimSpace(*payload.WhisperTinydiarizeModelPath)
+	}
+	if payload.WhisperTinydiarizeOutputTXT != nil {
+		c.settings.WhisperTinydiarizeOutputTXT = *payload.WhisperTinydiarizeOutputTXT
+	}
+	if payload.WhisperTinydiarizeOutputSRT != nil {
+		c.settings.WhisperTinydiarizeOutputSRT = *payload.WhisperTinydiarizeOutputSRT
+	}
+	if payload.PyannoteHuggingFaceToken != nil {
+		c.settings.PyannoteHuggingFaceToken = strings.TrimSpace(*payload.PyannoteHuggingFaceToken)
+	}
+	if payload.PyannoteLocalPipelinePath != nil {
+		c.settings.PyannoteLocalPipelinePath = strings.TrimSpace(*payload.PyannoteLocalPipelinePath)
+	}
+	if payload.PyannoteOutputTXT != nil {
+		c.settings.PyannoteOutputTXT = *payload.PyannoteOutputTXT
+	}
+	if payload.PyannoteOutputSRT != nil {
+		c.settings.PyannoteOutputSRT = *payload.PyannoteOutputSRT
+	}
+	if payload.DiarizationProvider != nil {
+		c.settings.WhisperTinydiarizeEnabled = c.settings.DiarizationProvider == core.DiarizationProviderTinydiarize
+	} else if payload.WhisperTinydiarizeEnabled != nil {
+		if *payload.WhisperTinydiarizeEnabled {
+			c.settings.DiarizationProvider = core.DiarizationProviderTinydiarize
+		} else if resolvedSettingsDiarizationProvider(c.settings) != core.DiarizationProviderPyannote {
+			c.settings.DiarizationProvider = core.DiarizationProviderNone
+		}
 	}
 	if payload.UseFirefoxCookies != nil {
 		c.settings.UseFirefoxCookies = *payload.UseFirefoxCookies
@@ -424,8 +584,11 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) core
 			c.settings.DefaultOutputRoot = root
 		}
 	}
+	if payload.FavoriteRSSPodcasts != nil {
+		c.settings.FavoriteRSSPodcasts = normalizeFavoriteRSSPodcasts(*payload.FavoriteRSSPodcasts)
+	}
 	c.persistSettingsLocked()
-	return c.settings
+	return c.settings, nil
 }
 
 func (c *Coordinator) Enqueue(ctx context.Context, payload core.CreateJobAPIRequest) (core.JobSummaryDTO, error) {
@@ -513,6 +676,25 @@ func sameJobConfiguration(left, right core.JobRequest) bool {
 		return false
 	}
 	if strings.TrimSpace(left.WhisperModelPath) != strings.TrimSpace(right.WhisperModelPath) ||
+		resolvedJobDiarizationProvider(left) != resolvedJobDiarizationProvider(right) ||
+		left.WhisperVADEnabled != right.WhisperVADEnabled ||
+		strings.TrimSpace(left.WhisperVADModelPath) != strings.TrimSpace(right.WhisperVADModelPath) ||
+		left.WhisperVADThreshold != right.WhisperVADThreshold ||
+		left.WhisperVADMinSpeechDuration != right.WhisperVADMinSpeechDuration ||
+		left.WhisperVADMinSilenceDuration != right.WhisperVADMinSilenceDuration ||
+		left.WhisperVADSpeechPad != right.WhisperVADSpeechPad ||
+		left.WhisperMaxSegmentLength != right.WhisperMaxSegmentLength ||
+		left.WhisperSplitOnWord != right.WhisperSplitOnWord ||
+		strings.TrimSpace(left.WhisperInitialPrompt) != strings.TrimSpace(right.WhisperInitialPrompt) ||
+		left.WhisperCarryInitialPrompt != right.WhisperCarryInitialPrompt ||
+		left.WhisperOutputJSONFull != right.WhisperOutputJSONFull ||
+		strings.TrimSpace(left.WhisperTinydiarizeModelPath) != strings.TrimSpace(right.WhisperTinydiarizeModelPath) ||
+		left.WhisperTinydiarizeOutputTXT != right.WhisperTinydiarizeOutputTXT ||
+		left.WhisperTinydiarizeOutputSRT != right.WhisperTinydiarizeOutputSRT ||
+		strings.TrimSpace(left.PyannoteHuggingFaceToken) != strings.TrimSpace(right.PyannoteHuggingFaceToken) ||
+		strings.TrimSpace(left.PyannoteLocalPipelinePath) != strings.TrimSpace(right.PyannoteLocalPipelinePath) ||
+		left.PyannoteOutputTXT != right.PyannoteOutputTXT ||
+		left.PyannoteOutputSRT != right.PyannoteOutputSRT ||
 		strings.TrimSpace(left.YtDlpExtraArguments) != strings.TrimSpace(right.YtDlpExtraArguments) ||
 		strings.TrimSpace(left.WhisperExtraArguments) != strings.TrimSpace(right.WhisperExtraArguments) ||
 		strings.TrimSpace(left.FfmpegExtraArguments) != strings.TrimSpace(right.FfmpegExtraArguments) ||
@@ -553,6 +735,7 @@ func sameRSSEpisodeSelection(left, right *core.RSSEpisodeSelection) bool {
 		return false
 	}
 	if normalizeComparableText(left.Title) != normalizeComparableText(right.Title) ||
+		normalizeComparableURL(left.FeedURL) != normalizeComparableURL(right.FeedURL) ||
 		normalizeComparableText(left.PodcastTitle) != normalizeComparableText(right.PodcastTitle) ||
 		normalizeComparableURL(left.ArtworkURL) != normalizeComparableURL(right.ArtworkURL) ||
 		!sameOptionalTime(left.PublicationDate, right.PublicationDate) {
@@ -1381,7 +1564,19 @@ func (c *Coordinator) dtoFromRecordLocked(record core.JobRecord, now time.Time) 
 	}
 	var result *core.JobResultDTO
 	if record.Result != nil {
-		result = &core.JobResultDTO{MediaPath: record.Result.MediaPath, SubtitlePath: record.Result.SubtitlePath, TranscriptPath: record.Result.TranscriptPath, MetadataPath: record.Result.MetadataPath}
+		result = &core.JobResultDTO{
+			MediaPath:                 record.Result.MediaPath,
+			SubtitlePath:              record.Result.SubtitlePath,
+			TranscriptPath:            record.Result.TranscriptPath,
+			JSONPath:                  record.Result.JSONPath,
+			TinydiarizeJSONPath:       record.Result.TinydiarizeJSONPath,
+			TinydiarizeTranscriptPath: record.Result.TinydiarizeTranscriptPath,
+			TinydiarizeSubtitlePath:   record.Result.TinydiarizeSubtitlePath,
+			PyannoteJSONPath:          record.Result.PyannoteJSONPath,
+			PyannoteTranscriptPath:    record.Result.PyannoteTranscriptPath,
+			PyannoteSubtitlePath:      record.Result.PyannoteSubtitlePath,
+			MetadataPath:              record.Result.MetadataPath,
+		}
 	}
 	currentStep := ""
 	if record.CurrentStep != nil {
@@ -1532,6 +1727,51 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	if whisperModelPath == "" {
 		whisperModelPath = settings.WhisperModelPath
 	}
+	whisperVADEnabled := resolveOptionalBool(payload.WhisperVADEnabled, settings.WhisperVADEnabled)
+	whisperVADModelPath := strings.TrimSpace(payload.WhisperVADModelPath)
+	if whisperVADModelPath == "" {
+		whisperVADModelPath = strings.TrimSpace(settings.WhisperVADModelPath)
+	}
+	whisperVADThreshold := resolveOptionalFloat64(payload.WhisperVADThreshold, settings.WhisperVADThreshold)
+	whisperVADMinSpeechDuration := resolveOptionalInt(payload.WhisperVADMinSpeechDuration, settings.WhisperVADMinSpeechDuration)
+	whisperVADMinSilenceDuration := resolveOptionalInt(payload.WhisperVADMinSilenceDuration, settings.WhisperVADMinSilenceDuration)
+	whisperVADSpeechPad := resolveOptionalInt(payload.WhisperVADSpeechPad, settings.WhisperVADSpeechPad)
+	whisperMaxSegmentLength := resolveOptionalInt(payload.WhisperMaxSegmentLength, settings.WhisperMaxSegmentLength)
+	whisperSplitOnWord := resolveOptionalBool(payload.WhisperSplitOnWord, settings.WhisperSplitOnWord)
+	whisperPromptEnabled := resolveOptionalBool(payload.WhisperPromptEnabled, true)
+	whisperOutputJSONFull := resolveOptionalBool(payload.WhisperOutputJSONFull, settings.WhisperOutputJSONFull)
+	settingsDiarizationProvider := resolvedSettingsDiarizationProvider(settings)
+	diarizationProvider, err := resolvePayloadDiarizationProvider(payload.DiarizationProvider)
+	if err != nil {
+		return builtJob{}, err
+	}
+	if diarizationProvider == "" {
+		if payload.WhisperTinydiarizeEnabled != nil {
+			diarizationProvider = resolveDiarizationProviderFromLegacy(*payload.WhisperTinydiarizeEnabled)
+		} else {
+			diarizationProvider = settingsDiarizationProvider
+		}
+	}
+	whisperTinydiarizeEnabled := diarizationProvider == core.DiarizationProviderTinydiarize
+	whisperTinydiarizeModelPath := strings.TrimSpace(payload.WhisperTinydiarizeModelPath)
+	if whisperTinydiarizeModelPath == "" {
+		whisperTinydiarizeModelPath = strings.TrimSpace(settings.WhisperTinydiarizeModelPath)
+	}
+	if whisperTinydiarizeModelPath == "" {
+		whisperTinydiarizeModelPath = whisperModelPath
+	}
+	whisperTinydiarizeOutputTXT := resolveOptionalBool(payload.WhisperTinydiarizeOutputTXT, settings.WhisperTinydiarizeOutputTXT)
+	whisperTinydiarizeOutputSRT := resolveOptionalBool(payload.WhisperTinydiarizeOutputSRT, settings.WhisperTinydiarizeOutputSRT)
+	pyannoteHuggingFaceToken := strings.TrimSpace(payload.PyannoteHuggingFaceToken)
+	if pyannoteHuggingFaceToken == "" {
+		pyannoteHuggingFaceToken = strings.TrimSpace(settings.PyannoteHuggingFaceToken)
+	}
+	pyannoteLocalPipelinePath := strings.TrimSpace(payload.PyannoteLocalPipelinePath)
+	if pyannoteLocalPipelinePath == "" {
+		pyannoteLocalPipelinePath = strings.TrimSpace(settings.PyannoteLocalPipelinePath)
+	}
+	pyannoteOutputTXT := resolveOptionalBool(payload.PyannoteOutputTXT, settings.PyannoteOutputTXT)
+	pyannoteOutputSRT := resolveOptionalBool(payload.PyannoteOutputSRT, settings.PyannoteOutputSRT)
 	transcriptionLanguage := strings.TrimSpace(payload.TranscriptionLanguage)
 	if transcriptionLanguage == "" {
 		transcriptionLanguage = "auto"
@@ -1545,6 +1785,9 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		enableTranslation = *payload.EnableTranslation
 	}
 	enableTranslation = enableTranslation && enableTranscription
+	if diarizationProvider != core.DiarizationProviderNone && !enableTranscription {
+		return builtJob{}, fmt.Errorf("la diarisation exige une transcription Whisper active")
+	}
 	translationSourceLanguage := normalizeLanguageCode(payload.TranslationSourceLanguage, "en")
 	translationTargetLanguage := normalizeLanguageCode(payload.TranslationTargetLanguage, "fr")
 	enableLyrics := contentType == core.ContentMusic
@@ -1614,9 +1857,31 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		if podcastTitle == "" {
 			return builtJob{}, fmt.Errorf("rssEpisode.podcastTitle est requis")
 		}
-		selectedRSS = &core.RSSEpisodeSelection{Title: title, MediaURL: mediaURL, PodcastTitle: podcastTitle, ArtworkURL: strings.TrimSpace(ep.ArtworkURL)}
+		selectedRSS = &core.RSSEpisodeSelection{Title: title, MediaURL: mediaURL, FeedURL: normalizeFavoriteRSSFeedURL(ep.FeedURL), PodcastTitle: podcastTitle, ArtworkURL: strings.TrimSpace(ep.ArtworkURL)}
 		if pub, ok := parseOptionalDate(ep.PublicationDate); ok {
 			selectedRSS.PublicationDate = &pub
+		}
+	}
+
+	whisperInitialPrompt := strings.TrimSpace(payload.WhisperInitialPrompt)
+	whisperCarryInitialPrompt := false
+	if payload.WhisperCarryInitialPrompt != nil {
+		whisperCarryInitialPrompt = *payload.WhisperCarryInitialPrompt
+	}
+	if !whisperPromptEnabled {
+		whisperInitialPrompt = ""
+		whisperCarryInitialPrompt = false
+	} else if whisperInitialPrompt == "" {
+		if favorite, ok := c.favoriteRSSPodcastForJob(settings, sourceKind, selectedRSS); ok && strings.TrimSpace(favorite.WhisperInitialPrompt) != "" {
+			whisperInitialPrompt = strings.TrimSpace(favorite.WhisperInitialPrompt)
+			if payload.WhisperCarryInitialPrompt == nil {
+				whisperCarryInitialPrompt = favorite.WhisperCarryInitialPrompt
+			}
+		} else {
+			whisperInitialPrompt = strings.TrimSpace(settings.WhisperInitialPrompt)
+			if payload.WhisperCarryInitialPrompt == nil {
+				whisperCarryInitialPrompt = settings.WhisperCarryInitialPrompt
+			}
 		}
 	}
 
@@ -1630,43 +1895,64 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	}
 
 	req := core.JobRequest{
-		ID:                        xuuid.New(),
-		CreatedAt:                 time.Now().UTC(),
-		SourceKind:                sourceKind,
-		ContentType:               contentType,
-		InputURL:                  inputURL,
-		SelectedRSSEpisode:        selectedRSS,
-		TranscriptionLanguage:     transcriptionLanguage,
-		EnableTranscription:       enableTranscription,
-		EnableTranslation:         enableTranslation,
-		TranslationSourceLanguage: translationSourceLanguage,
-		TranslationTargetLanguage: translationTargetLanguage,
-		EnableLyrics:              enableLyrics,
-		UseCustomLyricsSearch:     useCustomLyricsSearch,
-		LyricsSearchTitle:         strings.TrimSpace(payload.LyricsSearchTitle),
-		LyricsSearchArtist:        strings.TrimSpace(payload.LyricsSearchArtist),
-		LyricsSearchAlbum:         strings.TrimSpace(payload.LyricsSearchAlbum),
-		UseManualLyricsSelection:  useManualLyricsSelection,
-		ManualLyricsTrackName:     strings.TrimSpace(payload.ManualLyricsTrackName),
-		ManualLyricsArtistName:    strings.TrimSpace(payload.ManualLyricsArtistName),
-		ManualLyricsAlbumName:     strings.TrimSpace(payload.ManualLyricsAlbumName),
-		ManualLyricsPlain:         strings.TrimSpace(payload.ManualLyricsPlain),
-		ManualLyricsSynced:        strings.TrimSpace(payload.ManualLyricsSynced),
-		ManualLyricsSelections:    manualLyricsSelections,
-		WhisperModelPath:          whisperModelPath,
-		YtDlpExtraArguments:       strings.TrimSpace(payload.YtDlpExtraArguments),
-		WhisperExtraArguments:     strings.TrimSpace(payload.WhisperExtraArguments),
-		FfmpegExtraArguments:      strings.TrimSpace(payload.FfmpegExtraArguments),
-		QobuzExtraArguments:       strings.TrimSpace(payload.QobuzExtraArguments),
-		OutputRootPath:            outputRoot,
-		CustomName:                strings.TrimSpace(payload.CustomName),
-		UseFirefoxCookies:         useFirefoxCookies,
-		QobuzEmail:                qobuzEmail,
-		QobuzPassword:             qobuzPassword,
-		QobuzUseUserAuthToken:     qobuzUseUserAuthToken,
-		QobuzUserAuthToken:        qobuzUserAuthToken,
-		QobuzArtistName:           strings.TrimSpace(payload.QobuzArtistName),
-		QobuzPlaylistName:         strings.TrimSpace(payload.QobuzPlaylistName),
+		ID:                           xuuid.New(),
+		CreatedAt:                    time.Now().UTC(),
+		SourceKind:                   sourceKind,
+		ContentType:                  contentType,
+		InputURL:                     inputURL,
+		SelectedRSSEpisode:           selectedRSS,
+		TranscriptionLanguage:        transcriptionLanguage,
+		EnableTranscription:          enableTranscription,
+		EnableTranslation:            enableTranslation,
+		TranslationSourceLanguage:    translationSourceLanguage,
+		TranslationTargetLanguage:    translationTargetLanguage,
+		EnableLyrics:                 enableLyrics,
+		UseCustomLyricsSearch:        useCustomLyricsSearch,
+		LyricsSearchTitle:            strings.TrimSpace(payload.LyricsSearchTitle),
+		LyricsSearchArtist:           strings.TrimSpace(payload.LyricsSearchArtist),
+		LyricsSearchAlbum:            strings.TrimSpace(payload.LyricsSearchAlbum),
+		UseManualLyricsSelection:     useManualLyricsSelection,
+		ManualLyricsTrackName:        strings.TrimSpace(payload.ManualLyricsTrackName),
+		ManualLyricsArtistName:       strings.TrimSpace(payload.ManualLyricsArtistName),
+		ManualLyricsAlbumName:        strings.TrimSpace(payload.ManualLyricsAlbumName),
+		ManualLyricsPlain:            strings.TrimSpace(payload.ManualLyricsPlain),
+		ManualLyricsSynced:           strings.TrimSpace(payload.ManualLyricsSynced),
+		ManualLyricsSelections:       manualLyricsSelections,
+		WhisperModelPath:             whisperModelPath,
+		WhisperVADEnabled:            whisperVADEnabled,
+		WhisperVADModelPath:          whisperVADModelPath,
+		WhisperVADThreshold:          whisperVADThreshold,
+		WhisperVADMinSpeechDuration:  whisperVADMinSpeechDuration,
+		WhisperVADMinSilenceDuration: whisperVADMinSilenceDuration,
+		WhisperVADSpeechPad:          whisperVADSpeechPad,
+		WhisperMaxSegmentLength:      whisperMaxSegmentLength,
+		WhisperSplitOnWord:           whisperSplitOnWord,
+		WhisperPromptEnabled:         whisperPromptEnabled,
+		WhisperInitialPrompt:         whisperInitialPrompt,
+		WhisperCarryInitialPrompt:    whisperCarryInitialPrompt,
+		WhisperOutputJSONFull:        whisperOutputJSONFull,
+		DiarizationProvider:          diarizationProvider,
+		WhisperTinydiarizeEnabled:    whisperTinydiarizeEnabled,
+		WhisperTinydiarizeModelPath:  whisperTinydiarizeModelPath,
+		WhisperTinydiarizeOutputTXT:  whisperTinydiarizeOutputTXT,
+		WhisperTinydiarizeOutputSRT:  whisperTinydiarizeOutputSRT,
+		PyannoteHuggingFaceToken:     pyannoteHuggingFaceToken,
+		PyannoteLocalPipelinePath:    pyannoteLocalPipelinePath,
+		PyannoteOutputTXT:            pyannoteOutputTXT,
+		PyannoteOutputSRT:            pyannoteOutputSRT,
+		YtDlpExtraArguments:          strings.TrimSpace(payload.YtDlpExtraArguments),
+		WhisperExtraArguments:        strings.TrimSpace(payload.WhisperExtraArguments),
+		FfmpegExtraArguments:         strings.TrimSpace(payload.FfmpegExtraArguments),
+		QobuzExtraArguments:          strings.TrimSpace(payload.QobuzExtraArguments),
+		OutputRootPath:               outputRoot,
+		CustomName:                   strings.TrimSpace(payload.CustomName),
+		UseFirefoxCookies:            useFirefoxCookies,
+		QobuzEmail:                   qobuzEmail,
+		QobuzPassword:                qobuzPassword,
+		QobuzUseUserAuthToken:        qobuzUseUserAuthToken,
+		QobuzUserAuthToken:           qobuzUserAuthToken,
+		QobuzArtistName:              strings.TrimSpace(payload.QobuzArtistName),
+		QobuzPlaylistName:            strings.TrimSpace(payload.QobuzPlaylistName),
 	}
 	displayName := strings.TrimSpace(payload.DisplayName)
 	if displayName == "" && selectedRSS != nil {
@@ -1772,28 +2058,117 @@ func parseOptionalDate(raw string) (time.Time, bool) {
 func (c *Coordinator) loadSettings() core.WebSettings {
 	home, _ := os.UserHomeDir()
 	fallback := core.WebSettings{
-		WhisperModelPath:            "",
-		UseFirefoxCookies:           false,
-		KeepTemporaryFilesOnFailure: true,
-		QobuzEmail:                  "",
-		QobuzPassword:               "",
-		QobuzUseUserAuthToken:       false,
-		QobuzUserAuthToken:          "",
-		DefaultOutputRoot:           home,
+		WhisperModelPath:             "",
+		WhisperVADEnabled:            false,
+		WhisperVADModelPath:          "",
+		WhisperVADThreshold:          0,
+		WhisperVADMinSpeechDuration:  0,
+		WhisperVADMinSilenceDuration: 0,
+		WhisperVADSpeechPad:          0,
+		WhisperMaxSegmentLength:      0,
+		WhisperSplitOnWord:           false,
+		WhisperInitialPrompt:         "",
+		WhisperCarryInitialPrompt:    false,
+		WhisperOutputJSONFull:        false,
+		DiarizationProvider:          core.DiarizationProviderNone,
+		WhisperTinydiarizeEnabled:    false,
+		WhisperTinydiarizeModelPath:  "",
+		WhisperTinydiarizeOutputTXT:  true,
+		WhisperTinydiarizeOutputSRT:  false,
+		PyannoteHuggingFaceToken:     "",
+		PyannoteLocalPipelinePath:    "",
+		PyannoteOutputTXT:            true,
+		PyannoteOutputSRT:            true,
+		UseFirefoxCookies:            false,
+		KeepTemporaryFilesOnFailure:  true,
+		QobuzEmail:                   "",
+		QobuzPassword:                "",
+		QobuzUseUserAuthToken:        false,
+		QobuzUserAuthToken:           "",
+		DefaultOutputRoot:            home,
+		FavoriteRSSPodcasts:          nil,
 	}
 	if data, err := os.ReadFile(c.paths.WebSettingsFile); err == nil {
 		var s core.WebSettings
 		if err := json.Unmarshal(data, &s); err == nil {
+			s.DiarizationProvider = resolvedSettingsDiarizationProvider(s)
 			if strings.TrimSpace(s.DefaultOutputRoot) == "" {
 				s.DefaultOutputRoot = home
+			}
+			s.FavoriteRSSPodcasts = normalizeFavoriteRSSPodcasts(s.FavoriteRSSPodcasts)
+			if !s.WhisperTinydiarizeOutputTXT {
+				// keep false if explicit value false in file. no-op.
 			}
 			if !s.KeepTemporaryFilesOnFailure {
 				// keep false if explicit value false in file. no-op.
 			}
+			if len(s.FavoriteRSSPodcasts) > 0 {
+				// normalized above.
+			}
+			if !fieldPresentInJSON(data, "whisperTinydiarizeOutputTXT") {
+				s.WhisperTinydiarizeOutputTXT = true
+			}
+			if !fieldPresentInJSON(data, "pyannoteOutputTXT") {
+				s.PyannoteOutputTXT = true
+			}
+			if !fieldPresentInJSON(data, "pyannoteOutputSRT") {
+				s.PyannoteOutputSRT = true
+			}
+			s.WhisperTinydiarizeEnabled = s.DiarizationProvider == core.DiarizationProviderTinydiarize
 			return s
 		}
 	}
 	return fallback
+}
+
+func normalizeDiarizationProvider(raw string) core.DiarizationProvider {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "default":
+		return ""
+	case string(core.DiarizationProviderNone):
+		return core.DiarizationProviderNone
+	case string(core.DiarizationProviderTinydiarize):
+		return core.DiarizationProviderTinydiarize
+	case string(core.DiarizationProviderPyannote):
+		return core.DiarizationProviderPyannote
+	default:
+		return ""
+	}
+}
+
+func resolvePayloadDiarizationProvider(raw string) (core.DiarizationProvider, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+	provider := normalizeDiarizationProvider(trimmed)
+	if provider == "" {
+		return "", fmt.Errorf("diarizationProvider invalide. Valeurs: none, tinydiarize, pyannote")
+	}
+	return provider, nil
+}
+
+func resolveDiarizationProviderFromLegacy(enabled bool) core.DiarizationProvider {
+	if enabled {
+		return core.DiarizationProviderTinydiarize
+	}
+	return core.DiarizationProviderNone
+}
+
+func resolvedSettingsDiarizationProvider(settings core.WebSettings) core.DiarizationProvider {
+	provider := normalizeDiarizationProvider(string(settings.DiarizationProvider))
+	if provider != "" {
+		return provider
+	}
+	return resolveDiarizationProviderFromLegacy(settings.WhisperTinydiarizeEnabled)
+}
+
+func resolvedJobDiarizationProvider(job core.JobRequest) core.DiarizationProvider {
+	provider := normalizeDiarizationProvider(string(job.DiarizationProvider))
+	if provider != "" {
+		return provider
+	}
+	return resolveDiarizationProviderFromLegacy(job.WhisperTinydiarizeEnabled)
 }
 
 func (c *Coordinator) persistSettingsLocked() {
@@ -1812,11 +2187,118 @@ func fallbackTrimmed(raw, fallback string) string {
 	return strings.TrimSpace(fallback)
 }
 
+func normalizeFavoriteRSSPodcasts(podcasts []core.FavoriteRSSPodcast) []core.FavoriteRSSPodcast {
+	if len(podcasts) == 0 {
+		return nil
+	}
+	normalized := make([]core.FavoriteRSSPodcast, 0, len(podcasts))
+	seen := make(map[string]struct{}, len(podcasts))
+	for _, podcast := range podcasts {
+		feedURL := normalizeFavoriteRSSFeedURL(podcast.FeedURL)
+		if feedURL == "" {
+			continue
+		}
+		if _, ok := seen[feedURL]; ok {
+			continue
+		}
+		seen[feedURL] = struct{}{}
+		title := strings.TrimSpace(podcast.PodcastTitle)
+		if title == "" {
+			title = feedURL
+		}
+		normalized = append(normalized, core.FavoriteRSSPodcast{
+			FeedURL:                   feedURL,
+			PodcastTitle:              title,
+			PodcastArtworkURL:         strings.TrimSpace(podcast.PodcastArtworkURL),
+			WhisperInitialPrompt:      strings.TrimSpace(podcast.WhisperInitialPrompt),
+			WhisperCarryInitialPrompt: podcast.WhisperCarryInitialPrompt,
+		})
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	sort.SliceStable(normalized, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(normalized[i].PodcastTitle))
+		right := strings.ToLower(strings.TrimSpace(normalized[j].PodcastTitle))
+		if left == right {
+			return normalized[i].FeedURL < normalized[j].FeedURL
+		}
+		return left < right
+	})
+	return normalized
+}
+
+func normalizeFavoriteRSSFeedURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return trimmed
+	}
+	parsed.Fragment = ""
+	parsed.Host = strings.ToLower(parsed.Host)
+	if (parsed.Scheme == "https" && parsed.Port() == "443") || (parsed.Scheme == "http" && parsed.Port() == "80") {
+		parsed.Host = parsed.Hostname()
+	}
+	return parsed.String()
+}
+
+func fieldPresentInJSON(data []byte, key string) bool {
+	if len(data) == 0 || strings.TrimSpace(key) == "" {
+		return false
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return false
+	}
+	_, ok := raw[key]
+	return ok
+}
+
 func fallbackRaw(raw, fallback string) string {
 	if strings.TrimSpace(raw) != "" {
 		return raw
 	}
 	return fallback
+}
+
+func resolveOptionalBool(value *bool, fallback bool) bool {
+	if value != nil {
+		return *value
+	}
+	return fallback
+}
+
+func resolveOptionalInt(value *int, fallback int) int {
+	if value != nil {
+		return *value
+	}
+	return fallback
+}
+
+func resolveOptionalFloat64(value *float64, fallback float64) float64 {
+	if value != nil {
+		return *value
+	}
+	return fallback
+}
+
+func (c *Coordinator) favoriteRSSPodcastForJob(settings core.WebSettings, sourceKind core.JobSourceKind, selectedRSS *core.RSSEpisodeSelection) (core.FavoriteRSSPodcast, bool) {
+	if sourceKind != core.SourceRSS || selectedRSS == nil {
+		return core.FavoriteRSSPodcast{}, false
+	}
+	feedURL := normalizeFavoriteRSSFeedURL(selectedRSS.FeedURL)
+	if feedURL == "" {
+		return core.FavoriteRSSPodcast{}, false
+	}
+	for _, podcast := range settings.FavoriteRSSPodcasts {
+		if normalizeFavoriteRSSFeedURL(podcast.FeedURL) == feedURL {
+			return podcast, true
+		}
+	}
+	return core.FavoriteRSSPodcast{}, false
 }
 
 func resolveQobuzAuth(email, password string, useToken *bool, token string, settings core.WebSettings) (string, string, string, bool) {

@@ -149,6 +149,9 @@ func ensureShellIntegration(installDir string) error {
 	if err := createWindowsShortcut(shortcutPath, launcherPath, installDir, iconPath, appName); err != nil {
 		return err
 	}
+	if err := ensureUserPathContains(installDir); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -189,6 +192,33 @@ func createWindowsShortcut(shortcutPath, targetPath, workingDir, iconPath, descr
 			detail = err.Error()
 		}
 		return fmt.Errorf("cannot create Start Menu shortcut: %s", detail)
+	}
+	return nil
+}
+
+func ensureUserPathContains(installDir string) error {
+	script := strings.Join([]string{
+		"$ErrorActionPreference='Stop'",
+		fmt.Sprintf("$install = %s", singleQuotedPowerShell(installDir)),
+		"$current = [Environment]::GetEnvironmentVariable('Path', 'User')",
+		"if ($null -eq $current) { $current = '' }",
+		"$parts = $current -split ';' | Where-Object { $_ -ne '' }",
+		"$already = $false",
+		"foreach ($part in $parts) { if ([string]::Equals($part.TrimEnd('\\'), $install.TrimEnd('\\'), [System.StringComparison]::OrdinalIgnoreCase)) { $already = $true } }",
+		"if (-not $already) {",
+		"  $next = if ($current.Trim() -eq '') { $install } else { $current.TrimEnd(';') + ';' + $install }",
+		"  [Environment]::SetEnvironmentVariable('Path', $next, 'User')",
+		"}",
+	}, "; ")
+
+	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		detail := strings.TrimSpace(string(output))
+		if detail == "" {
+			detail = err.Error()
+		}
+		return fmt.Errorf("cannot update user PATH: %s", detail)
 	}
 	return nil
 }

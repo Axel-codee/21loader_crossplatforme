@@ -1,39 +1,15 @@
 #!/usr/bin/env python3
-import configparser
-import json
-import os
-import re
-import sys
 import ast
 import html
+import json
+import re
+import sys
 
-from qobuz_dl.qopy import Client
+sys.dont_write_bytecode = True
+
+from qobuz_common import load_client, run_with_qobuz_error_handling
 
 JSON_MARKER = "__LOADER21_QOBUZ_JSON__"
-
-
-def qobuz_config_path():
-    if os.name == "nt":
-        appdata = str(os.environ.get("APPDATA", "")).strip()
-        if appdata:
-            return os.path.join(appdata, "qobuz-dl", "config.ini")
-    return os.path.join(os.path.expanduser("~"), ".config", "qobuz-dl", "config.ini")
-
-
-def load_client():
-    config_path = qobuz_config_path()
-    config = configparser.ConfigParser()
-    if not config.read(config_path):
-        raise SystemExit(10)
-
-    default = config["DEFAULT"]
-    email = default.get("email", "").strip()
-    password = default.get("password", "").strip()
-    app_id = default.get("app_id", "").strip()
-    secrets = [secret for secret in default.get("secrets", "").split(",") if secret]
-    if not email or not password or not app_id or not secrets:
-        raise SystemExit(11)
-    return Client(email, password, app_id, secrets)
 
 
 def parse_limit(raw_value):
@@ -372,4 +348,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_with_qobuz_error_handling(main)

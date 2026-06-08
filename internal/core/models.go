@@ -14,6 +14,8 @@ type JobStatus string
 
 type JobStep string
 
+type DiarizationProvider string
+
 type CollisionDecision string
 
 const (
@@ -45,6 +47,12 @@ const (
 	StepOrganization  JobStep = "organization"
 )
 
+const (
+	DiarizationProviderNone        DiarizationProvider = "none"
+	DiarizationProviderTinydiarize DiarizationProvider = "tinydiarize"
+	DiarizationProviderPyannote    DiarizationProvider = "pyannote"
+)
+
 var AllSteps = []JobStep{
 	StepDownload,
 	StepLyrics,
@@ -62,18 +70,50 @@ const (
 )
 
 type WebSettings struct {
-	WhisperModelPath            string `json:"whisperModelPath"`
-	UseFirefoxCookies           bool   `json:"useFirefoxCookies"`
-	KeepTemporaryFilesOnFailure bool   `json:"keepTemporaryFilesOnFailure"`
-	QobuzEmail                  string `json:"qobuzEmail"`
-	QobuzPassword               string `json:"qobuzPassword"`
-	DefaultOutputRoot           string `json:"defaultOutputRoot"`
+	WhisperModelPath             string               `json:"whisperModelPath"`
+	WhisperVADEnabled            bool                 `json:"whisperVADEnabled"`
+	WhisperVADModelPath          string               `json:"whisperVADModelPath"`
+	WhisperVADThreshold          float64              `json:"whisperVADThreshold"`
+	WhisperVADMinSpeechDuration  int                  `json:"whisperVADMinSpeechDuration"`
+	WhisperVADMinSilenceDuration int                  `json:"whisperVADMinSilenceDuration"`
+	WhisperVADSpeechPad          int                  `json:"whisperVADSpeechPad"`
+	WhisperMaxSegmentLength      int                  `json:"whisperMaxSegmentLength"`
+	WhisperSplitOnWord           bool                 `json:"whisperSplitOnWord"`
+	WhisperInitialPrompt         string               `json:"whisperInitialPrompt"`
+	WhisperCarryInitialPrompt    bool                 `json:"whisperCarryInitialPrompt"`
+	WhisperOutputJSONFull        bool                 `json:"whisperOutputJSONFull"`
+	DiarizationProvider          DiarizationProvider  `json:"diarizationProvider"`
+	WhisperTinydiarizeEnabled    bool                 `json:"whisperTinydiarizeEnabled"`
+	WhisperTinydiarizeModelPath  string               `json:"whisperTinydiarizeModelPath"`
+	WhisperTinydiarizeOutputTXT  bool                 `json:"whisperTinydiarizeOutputTXT"`
+	WhisperTinydiarizeOutputSRT  bool                 `json:"whisperTinydiarizeOutputSRT"`
+	PyannoteHuggingFaceToken     string               `json:"pyannoteHuggingFaceToken"`
+	PyannoteLocalPipelinePath    string               `json:"pyannoteLocalPipelinePath"`
+	PyannoteOutputTXT            bool                 `json:"pyannoteOutputTXT"`
+	PyannoteOutputSRT            bool                 `json:"pyannoteOutputSRT"`
+	UseFirefoxCookies            bool                 `json:"useFirefoxCookies"`
+	KeepTemporaryFilesOnFailure  bool                 `json:"keepTemporaryFilesOnFailure"`
+	QobuzEmail                   string               `json:"qobuzEmail"`
+	QobuzPassword                string               `json:"qobuzPassword"`
+	QobuzUseUserAuthToken        bool                 `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken           string               `json:"qobuzUserAuthToken"`
+	DefaultOutputRoot            string               `json:"defaultOutputRoot"`
+	FavoriteRSSPodcasts          []FavoriteRSSPodcast `json:"favoriteRSSPodcasts,omitempty"`
+}
+
+type FavoriteRSSPodcast struct {
+	FeedURL                   string `json:"feedURL"`
+	PodcastTitle              string `json:"podcastTitle"`
+	PodcastArtworkURL         string `json:"podcastArtworkURL,omitempty"`
+	WhisperInitialPrompt      string `json:"whisperInitialPrompt,omitempty"`
+	WhisperCarryInitialPrompt bool   `json:"whisperCarryInitialPrompt"`
 }
 
 type RSSEpisodeAPIInput struct {
 	Title           string `json:"title"`
 	PublicationDate string `json:"publicationDate"`
 	MediaURL        string `json:"mediaURL"`
+	FeedURL         string `json:"feedURL,omitempty"`
 	PodcastTitle    string `json:"podcastTitle"`
 	ArtworkURL      string `json:"artworkURL"`
 }
@@ -126,6 +166,29 @@ type YouTubeDatesAPIResponse struct {
 	DurationsByVideoID map[string]int       `json:"durationsByVideoID"`
 }
 
+type LRCLIBSearchAPIRequest struct {
+	TrackName  string `json:"trackName"`
+	ArtistName string `json:"artistName"`
+	AlbumName  string `json:"albumName"`
+	Limit      int    `json:"limit"`
+}
+
+type LRCLIBSearchResultDTO struct {
+	ID           string `json:"id"`
+	TrackName    string `json:"trackName"`
+	ArtistName   string `json:"artistName"`
+	AlbumName    string `json:"albumName,omitempty"`
+	PlainLyrics  string `json:"plainLyrics,omitempty"`
+	SyncedLyrics string `json:"syncedLyrics,omitempty"`
+	Preview      string `json:"preview,omitempty"`
+	HasSynced    bool   `json:"hasSynced"`
+	Score        int    `json:"score"`
+}
+
+type LRCLIBSearchAPIResponse struct {
+	Results []LRCLIBSearchResultDTO `json:"results"`
+}
+
 type SelectDirectoryRequest struct {
 	CurrentPath string `json:"currentPath"`
 }
@@ -146,66 +209,158 @@ type SelectFileResponse struct {
 	Cancelled bool   `json:"cancelled"`
 }
 
+type ManualLyricsSelectionInput struct {
+	TargetTrackName  string `json:"targetTrackName"`
+	TargetArtistName string `json:"targetArtistName"`
+	TargetAlbumName  string `json:"targetAlbumName"`
+	TrackName        string `json:"trackName"`
+	ArtistName       string `json:"artistName"`
+	AlbumName        string `json:"albumName"`
+	PlainLyrics      string `json:"plainLyrics"`
+	SyncedLyrics     string `json:"syncedLyrics"`
+}
+
 type CreateJobAPIRequest struct {
-	InputURL                  string              `json:"inputURL"`
-	SourceKind                string              `json:"sourceKind"`
-	ContentType               string              `json:"contentType"`
-	OutputRootPath            string              `json:"outputRootPath"`
-	CustomName                string              `json:"customName"`
-	DisplayName               string              `json:"displayName"`
-	TranscriptionLanguage     string              `json:"transcriptionLanguage"`
-	EnableTranscription       *bool               `json:"enableTranscription"`
-	EnableTranslation         *bool               `json:"enableTranslation"`
-	TranslationSourceLanguage string              `json:"translationSourceLanguage"`
-	TranslationTargetLanguage string              `json:"translationTargetLanguage"`
-	EnableLyrics              *bool               `json:"enableLyrics"`
-	WhisperModelPath          string              `json:"whisperModelPath"`
-	YtDlpExtraArguments       string              `json:"ytDlpExtraArguments"`
-	WhisperExtraArguments     string              `json:"whisperExtraArguments"`
-	FfmpegExtraArguments      string              `json:"ffmpegExtraArguments"`
-	QobuzExtraArguments       string              `json:"qobuzExtraArguments"`
-	UseFirefoxCookies         *bool               `json:"useFirefoxCookies"`
-	QobuzEmail                string              `json:"qobuzEmail"`
-	QobuzPassword             string              `json:"qobuzPassword"`
-	QobuzArtistName           string              `json:"qobuzArtistName"`
-	QobuzPlaylistName         string              `json:"qobuzPlaylistName"`
-	CollisionPolicy           string              `json:"collisionPolicy"`
-	QobuzExistingAlbumPolicy  string              `json:"qobuzExistingAlbumPolicy"`
-	RSSEpisode                *RSSEpisodeAPIInput `json:"rssEpisode"`
+	InputURL                     string                       `json:"inputURL"`
+	SourceKind                   string                       `json:"sourceKind"`
+	ContentType                  string                       `json:"contentType"`
+	OutputRootPath               string                       `json:"outputRootPath"`
+	CustomName                   string                       `json:"customName"`
+	DisplayName                  string                       `json:"displayName"`
+	TranscriptionLanguage        string                       `json:"transcriptionLanguage"`
+	EnableTranscription          *bool                        `json:"enableTranscription"`
+	EnableTranslation            *bool                        `json:"enableTranslation"`
+	TranslationSourceLanguage    string                       `json:"translationSourceLanguage"`
+	TranslationTargetLanguage    string                       `json:"translationTargetLanguage"`
+	EnableLyrics                 *bool                        `json:"enableLyrics"`
+	UseCustomLyricsSearch        *bool                        `json:"useCustomLyricsSearch"`
+	LyricsSearchTitle            string                       `json:"lyricsSearchTitle"`
+	LyricsSearchArtist           string                       `json:"lyricsSearchArtist"`
+	LyricsSearchAlbum            string                       `json:"lyricsSearchAlbum"`
+	UseManualLyricsSelection     *bool                        `json:"useManualLyricsSelection"`
+	ManualLyricsTrackName        string                       `json:"manualLyricsTrackName"`
+	ManualLyricsArtistName       string                       `json:"manualLyricsArtistName"`
+	ManualLyricsAlbumName        string                       `json:"manualLyricsAlbumName"`
+	ManualLyricsPlain            string                       `json:"manualLyricsPlain"`
+	ManualLyricsSynced           string                       `json:"manualLyricsSynced"`
+	ManualLyricsSelections       []ManualLyricsSelectionInput `json:"manualLyricsSelections"`
+	WhisperModelPath             string                       `json:"whisperModelPath"`
+	WhisperVADEnabled            *bool                        `json:"whisperVADEnabled"`
+	WhisperVADModelPath          string                       `json:"whisperVADModelPath"`
+	WhisperVADThreshold          *float64                     `json:"whisperVADThreshold"`
+	WhisperVADMinSpeechDuration  *int                         `json:"whisperVADMinSpeechDuration"`
+	WhisperVADMinSilenceDuration *int                         `json:"whisperVADMinSilenceDuration"`
+	WhisperVADSpeechPad          *int                         `json:"whisperVADSpeechPad"`
+	WhisperMaxSegmentLength      *int                         `json:"whisperMaxSegmentLength"`
+	WhisperSplitOnWord           *bool                        `json:"whisperSplitOnWord"`
+	WhisperPromptEnabled         *bool                        `json:"whisperPromptEnabled"`
+	WhisperInitialPrompt         string                       `json:"whisperInitialPrompt"`
+	WhisperCarryInitialPrompt    *bool                        `json:"whisperCarryInitialPrompt"`
+	WhisperOutputJSONFull        *bool                        `json:"whisperOutputJSONFull"`
+	DiarizationProvider          string                       `json:"diarizationProvider"`
+	WhisperTinydiarizeEnabled    *bool                        `json:"whisperTinydiarizeEnabled"`
+	WhisperTinydiarizeModelPath  string                       `json:"whisperTinydiarizeModelPath"`
+	WhisperTinydiarizeOutputTXT  *bool                        `json:"whisperTinydiarizeOutputTXT"`
+	WhisperTinydiarizeOutputSRT  *bool                        `json:"whisperTinydiarizeOutputSRT"`
+	PyannoteHuggingFaceToken     string                       `json:"pyannoteHuggingFaceToken"`
+	PyannoteLocalPipelinePath    string                       `json:"pyannoteLocalPipelinePath"`
+	PyannoteOutputTXT            *bool                        `json:"pyannoteOutputTXT"`
+	PyannoteOutputSRT            *bool                        `json:"pyannoteOutputSRT"`
+	YtDlpExtraArguments          string                       `json:"ytDlpExtraArguments"`
+	WhisperExtraArguments        string                       `json:"whisperExtraArguments"`
+	FfmpegExtraArguments         string                       `json:"ffmpegExtraArguments"`
+	QobuzExtraArguments          string                       `json:"qobuzExtraArguments"`
+	UseFirefoxCookies            *bool                        `json:"useFirefoxCookies"`
+	QobuzEmail                   string                       `json:"qobuzEmail"`
+	QobuzPassword                string                       `json:"qobuzPassword"`
+	QobuzUseUserAuthToken        *bool                        `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken           string                       `json:"qobuzUserAuthToken"`
+	QobuzArtistName              string                       `json:"qobuzArtistName"`
+	QobuzPlaylistName            string                       `json:"qobuzPlaylistName"`
+	CollisionPolicy              string                       `json:"collisionPolicy"`
+	QobuzExistingAlbumPolicy     string                       `json:"qobuzExistingAlbumPolicy"`
+	RSSEpisode                   *RSSEpisodeAPIInput          `json:"rssEpisode"`
 }
 
 type UpdateSettingsAPIRequest struct {
-	WhisperModelPath            *string `json:"whisperModelPath"`
-	UseFirefoxCookies           *bool   `json:"useFirefoxCookies"`
-	KeepTemporaryFilesOnFailure *bool   `json:"keepTemporaryFilesOnFailure"`
-	QobuzEmail                  *string `json:"qobuzEmail"`
-	QobuzPassword               *string `json:"qobuzPassword"`
-	DefaultOutputRoot           *string `json:"defaultOutputRoot"`
+	WhisperModelPath             *string               `json:"whisperModelPath"`
+	WhisperVADEnabled            *bool                 `json:"whisperVADEnabled"`
+	WhisperVADModelPath          *string               `json:"whisperVADModelPath"`
+	WhisperVADThreshold          *float64              `json:"whisperVADThreshold"`
+	WhisperVADMinSpeechDuration  *int                  `json:"whisperVADMinSpeechDuration"`
+	WhisperVADMinSilenceDuration *int                  `json:"whisperVADMinSilenceDuration"`
+	WhisperVADSpeechPad          *int                  `json:"whisperVADSpeechPad"`
+	WhisperMaxSegmentLength      *int                  `json:"whisperMaxSegmentLength"`
+	WhisperSplitOnWord           *bool                 `json:"whisperSplitOnWord"`
+	WhisperInitialPrompt         *string               `json:"whisperInitialPrompt"`
+	WhisperCarryInitialPrompt    *bool                 `json:"whisperCarryInitialPrompt"`
+	WhisperOutputJSONFull        *bool                 `json:"whisperOutputJSONFull"`
+	DiarizationProvider          *string               `json:"diarizationProvider"`
+	WhisperTinydiarizeEnabled    *bool                 `json:"whisperTinydiarizeEnabled"`
+	WhisperTinydiarizeModelPath  *string               `json:"whisperTinydiarizeModelPath"`
+	WhisperTinydiarizeOutputTXT  *bool                 `json:"whisperTinydiarizeOutputTXT"`
+	WhisperTinydiarizeOutputSRT  *bool                 `json:"whisperTinydiarizeOutputSRT"`
+	PyannoteHuggingFaceToken     *string               `json:"pyannoteHuggingFaceToken"`
+	PyannoteLocalPipelinePath    *string               `json:"pyannoteLocalPipelinePath"`
+	PyannoteOutputTXT            *bool                 `json:"pyannoteOutputTXT"`
+	PyannoteOutputSRT            *bool                 `json:"pyannoteOutputSRT"`
+	UseFirefoxCookies            *bool                 `json:"useFirefoxCookies"`
+	KeepTemporaryFilesOnFailure  *bool                 `json:"keepTemporaryFilesOnFailure"`
+	QobuzEmail                   *string               `json:"qobuzEmail"`
+	QobuzPassword                *string               `json:"qobuzPassword"`
+	QobuzUseUserAuthToken        *bool                 `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken           *string               `json:"qobuzUserAuthToken"`
+	DefaultOutputRoot            *string               `json:"defaultOutputRoot"`
+	FavoriteRSSPodcasts          *[]FavoriteRSSPodcast `json:"favoriteRSSPodcasts"`
 }
 
 type QobuzArtistCatalogAPIRequest struct {
-	ArtistURL     string `json:"artistURL"`
-	QobuzEmail    string `json:"qobuzEmail"`
-	QobuzPassword string `json:"qobuzPassword"`
+	ArtistURL             string `json:"artistURL"`
+	QobuzEmail            string `json:"qobuzEmail"`
+	QobuzPassword         string `json:"qobuzPassword"`
+	QobuzUseUserAuthToken *bool  `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken    string `json:"qobuzUserAuthToken"`
 }
 
 type QobuzArtistSearchAPIRequest struct {
-	Query         string `json:"query"`
-	Limit         int    `json:"limit"`
-	QobuzEmail    string `json:"qobuzEmail"`
-	QobuzPassword string `json:"qobuzPassword"`
+	Query                 string `json:"query"`
+	Limit                 int    `json:"limit"`
+	QobuzEmail            string `json:"qobuzEmail"`
+	QobuzPassword         string `json:"qobuzPassword"`
+	QobuzUseUserAuthToken *bool  `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken    string `json:"qobuzUserAuthToken"`
 }
 
 type QobuzAlbumTracksAPIRequest struct {
-	AlbumID       string `json:"albumID"`
-	QobuzEmail    string `json:"qobuzEmail"`
-	QobuzPassword string `json:"qobuzPassword"`
+	AlbumID               string `json:"albumID"`
+	QobuzEmail            string `json:"qobuzEmail"`
+	QobuzPassword         string `json:"qobuzPassword"`
+	QobuzUseUserAuthToken *bool  `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken    string `json:"qobuzUserAuthToken"`
 }
 
 type QobuzPlaylistCatalogAPIRequest struct {
-	PlaylistURL   string `json:"playlistURL"`
-	QobuzEmail    string `json:"qobuzEmail"`
-	QobuzPassword string `json:"qobuzPassword"`
+	PlaylistURL           string `json:"playlistURL"`
+	QobuzEmail            string `json:"qobuzEmail"`
+	QobuzPassword         string `json:"qobuzPassword"`
+	QobuzUseUserAuthToken *bool  `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken    string `json:"qobuzUserAuthToken"`
+}
+
+type QobuzCredentialsCheckAPIRequest struct {
+	QobuzEmail            string `json:"qobuzEmail"`
+	QobuzPassword         string `json:"qobuzPassword"`
+	QobuzUseUserAuthToken *bool  `json:"qobuzUseUserAuthToken"`
+	QobuzUserAuthToken    string `json:"qobuzUserAuthToken"`
+}
+
+type QobuzCredentialsCheckAPIResponse struct {
+	OK                     bool   `json:"ok"`
+	Message                string `json:"message"`
+	Email                  string `json:"email,omitempty"`
+	MembershipLabel        string `json:"membershipLabel,omitempty"`
+	AuthMode               string `json:"authMode,omitempty"`
+	RefreshedUserAuthToken string `json:"-"`
 }
 
 type QobuzAlbumDTO struct {
@@ -288,10 +443,17 @@ type QobuzPlaylistCatalogAPIResponse struct {
 }
 
 type JobResultDTO struct {
-	MediaPath      string `json:"mediaPath"`
-	SubtitlePath   string `json:"subtitlePath,omitempty"`
-	TranscriptPath string `json:"transcriptPath,omitempty"`
-	MetadataPath   string `json:"metadataPath"`
+	MediaPath                 string `json:"mediaPath"`
+	SubtitlePath              string `json:"subtitlePath,omitempty"`
+	TranscriptPath            string `json:"transcriptPath,omitempty"`
+	JSONPath                  string `json:"jsonPath,omitempty"`
+	TinydiarizeJSONPath       string `json:"tinydiarizeJSONPath,omitempty"`
+	TinydiarizeTranscriptPath string `json:"tinydiarizeTranscriptPath,omitempty"`
+	TinydiarizeSubtitlePath   string `json:"tinydiarizeSubtitlePath,omitempty"`
+	PyannoteJSONPath          string `json:"pyannoteJSONPath,omitempty"`
+	PyannoteTranscriptPath    string `json:"pyannoteTranscriptPath,omitempty"`
+	PyannoteSubtitlePath      string `json:"pyannoteSubtitlePath,omitempty"`
+	MetadataPath              string `json:"metadataPath"`
 }
 
 type JobSummaryDTO struct {
@@ -309,6 +471,7 @@ type JobSummaryDTO struct {
 	ProgressFraction            float64       `json:"progressFraction"`
 	ProgressPercent             int           `json:"progressPercent"`
 	CompletedSteps              []string      `json:"completedSteps"`
+	ReusedSteps                 []string      `json:"reusedSteps,omitempty"`
 	StartedAt                   *time.Time    `json:"startedAt"`
 	EndedAt                     *time.Time    `json:"endedAt"`
 	CurrentStepStartedAt        *time.Time    `json:"currentStepStartedAt,omitempty"`
@@ -318,6 +481,7 @@ type JobSummaryDTO struct {
 	LyricsElapsedSeconds        int64         `json:"lyricsElapsedSeconds,omitempty"`
 	TranscriptionElapsedSeconds int64         `json:"transcriptionElapsedSeconds,omitempty"`
 	TranslationStatus           string        `json:"translationStatus,omitempty"`
+	TranslationReused           bool          `json:"translationReused,omitempty"`
 	TranslationElapsedSeconds   int64         `json:"translationElapsedSeconds,omitempty"`
 	ErrorMessage                string        `json:"errorMessage,omitempty"`
 	IsPauseRequested            bool          `json:"isPauseRequested"`
@@ -325,6 +489,7 @@ type JobSummaryDTO struct {
 	LogsSize                    int           `json:"logsSize"`
 	QobuzTracksDone             int           `json:"qobuzTracksDone,omitempty"`
 	QobuzTracksTotal            int           `json:"qobuzTracksTotal,omitempty"`
+	QobuzTracksUnavailable      int           `json:"qobuzTracksUnavailable,omitempty"`
 	LyricsTracksDone            int           `json:"lyricsTracksDone,omitempty"`
 	LyricsTracksTotal           int           `json:"lyricsTracksTotal,omitempty"`
 	LyricsFound                 int           `json:"lyricsFound,omitempty"`
@@ -361,6 +526,7 @@ type WebBinaryDiagnostic struct {
 	Available   bool   `json:"available"`
 	NeedsUpdate bool   `json:"needsUpdate,omitempty"`
 	Notes       string `json:"notes,omitempty"`
+	State       string `json:"state,omitempty"`
 }
 
 type WebDiagnosticsReport struct {
@@ -398,6 +564,17 @@ type DependencyInstallProgressResponse struct {
 	Logs      string    `json:"logs,omitempty"`
 	StartedAt time.Time `json:"startedAt,omitempty"`
 	UpdatedAt time.Time `json:"updatedAt,omitempty"`
+}
+
+type PyannoteAccessCheckRequest struct {
+	Token             string `json:"token"`
+	LocalPipelinePath string `json:"localPipelinePath"`
+}
+
+type PyannoteAccessCheckResponse struct {
+	OK         bool                `json:"ok"`
+	Message    string              `json:"message"`
+	Diagnostic WebBinaryDiagnostic `json:"diagnostic"`
 }
 
 type AppUpdateRequest struct {
@@ -497,73 +674,185 @@ type WhisperModelUninstallResponse struct {
 	ClearedDefaultSelection bool                `json:"clearedDefaultSelection,omitempty"`
 }
 
+type VADModelInfoDTO struct {
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	FileName          string `json:"fileName"`
+	DownloadURL       string `json:"downloadURL"`
+	ApproximateSizeMB int    `json:"approximateSizeMB"`
+	Installed         bool   `json:"installed"`
+	ManagedByApp      bool   `json:"managedByApp"`
+	InstalledPath     string `json:"installedPath,omitempty"`
+	InstalledBytes    int64  `json:"installedBytes,omitempty"`
+}
+
+type VADModelsResponse struct {
+	ModelDirectory    string            `json:"modelDirectory"`
+	SelectedModelPath string            `json:"selectedModelPath,omitempty"`
+	SelectedModelID   string            `json:"selectedModelID,omitempty"`
+	Models            []VADModelInfoDTO `json:"models"`
+}
+
+type VADModelInstallRequest struct {
+	ModelID string `json:"modelID"`
+}
+
+type VADModelInstallProgressRequest struct {
+	ModelID string `json:"modelID"`
+}
+
+type VADModelInstallProgressResponse struct {
+	ModelID         string    `json:"modelID"`
+	Active          bool      `json:"active"`
+	Stage           string    `json:"stage"`
+	Message         string    `json:"message,omitempty"`
+	DownloadedBytes int64     `json:"downloadedBytes,omitempty"`
+	TotalBytes      int64     `json:"totalBytes,omitempty"`
+	ProgressPercent int       `json:"progressPercent"`
+	UpdatedAt       time.Time `json:"updatedAt,omitempty"`
+}
+
+type VADModelInstallResponse struct {
+	OK      bool            `json:"ok"`
+	Message string          `json:"message"`
+	Model   VADModelInfoDTO `json:"model"`
+}
+
+type VADModelUninstallRequest struct {
+	ModelID string `json:"modelID"`
+}
+
+type VADModelUninstallResponse struct {
+	OK                      bool            `json:"ok"`
+	Message                 string          `json:"message"`
+	Model                   VADModelInfoDTO `json:"model"`
+	RemovedPath             string          `json:"removedPath,omitempty"`
+	ClearedDefaultSelection bool            `json:"clearedDefaultSelection,omitempty"`
+}
+
 type RSSEpisodeSelection struct {
 	Title           string
 	PublicationDate *time.Time
 	MediaURL        string
+	FeedURL         string
 	PodcastTitle    string
 	ArtworkURL      string
 }
 
+type ManualLyricsSelection struct {
+	TargetTrackName  string
+	TargetArtistName string
+	TargetAlbumName  string
+	TrackName        string
+	ArtistName       string
+	AlbumName        string
+	PlainLyrics      string
+	SyncedLyrics     string
+}
+
 type JobRequest struct {
-	ID                        xuuid.UUID
-	CreatedAt                 time.Time
-	SourceKind                JobSourceKind
-	ContentType               JobContentType
-	InputURL                  string
-	SelectedRSSEpisode        *RSSEpisodeSelection
-	TranscriptionLanguage     string
-	EnableTranscription       bool
-	EnableTranslation         bool
-	TranslationSourceLanguage string
-	TranslationTargetLanguage string
-	EnableLyrics              bool
-	WhisperModelPath          string
-	YtDlpExtraArguments       string
-	WhisperExtraArguments     string
-	FfmpegExtraArguments      string
-	QobuzExtraArguments       string
-	OutputRootPath            string
-	CustomName                string
-	UseFirefoxCookies         bool
-	QobuzEmail                string
-	QobuzPassword             string
-	QobuzArtistName           string
-	QobuzPlaylistName         string
+	ID                           xuuid.UUID
+	CreatedAt                    time.Time
+	SourceKind                   JobSourceKind
+	ContentType                  JobContentType
+	InputURL                     string
+	SelectedRSSEpisode           *RSSEpisodeSelection
+	TranscriptionLanguage        string
+	EnableTranscription          bool
+	EnableTranslation            bool
+	TranslationSourceLanguage    string
+	TranslationTargetLanguage    string
+	EnableLyrics                 bool
+	UseCustomLyricsSearch        bool
+	LyricsSearchTitle            string
+	LyricsSearchArtist           string
+	LyricsSearchAlbum            string
+	UseManualLyricsSelection     bool
+	ManualLyricsTrackName        string
+	ManualLyricsArtistName       string
+	ManualLyricsAlbumName        string
+	ManualLyricsPlain            string
+	ManualLyricsSynced           string
+	ManualLyricsSelections       []ManualLyricsSelection
+	WhisperModelPath             string
+	WhisperVADEnabled            bool
+	WhisperVADModelPath          string
+	WhisperVADThreshold          float64
+	WhisperVADMinSpeechDuration  int
+	WhisperVADMinSilenceDuration int
+	WhisperVADSpeechPad          int
+	WhisperMaxSegmentLength      int
+	WhisperSplitOnWord           bool
+	WhisperPromptEnabled         bool
+	WhisperInitialPrompt         string
+	WhisperCarryInitialPrompt    bool
+	WhisperOutputJSONFull        bool
+	DiarizationProvider          DiarizationProvider
+	WhisperTinydiarizeEnabled    bool
+	WhisperTinydiarizeModelPath  string
+	WhisperTinydiarizeOutputTXT  bool
+	WhisperTinydiarizeOutputSRT  bool
+	PyannoteHuggingFaceToken     string
+	PyannoteLocalPipelinePath    string
+	PyannoteOutputTXT            bool
+	PyannoteOutputSRT            bool
+	YtDlpExtraArguments          string
+	WhisperExtraArguments        string
+	FfmpegExtraArguments         string
+	QobuzExtraArguments          string
+	OutputRootPath               string
+	CustomName                   string
+	UseFirefoxCookies            bool
+	QobuzEmail                   string
+	QobuzPassword                string
+	QobuzUseUserAuthToken        bool
+	QobuzUserAuthToken           string
+	QobuzArtistName              string
+	QobuzPlaylistName            string
 }
 
 type JobResult struct {
-	MediaPath      string
-	SubtitlePath   string
-	TranscriptPath string
-	MetadataPath   string
+	MediaPath                 string
+	SubtitlePath              string
+	TranscriptPath            string
+	JSONPath                  string
+	TinydiarizeJSONPath       string
+	TinydiarizeTranscriptPath string
+	TinydiarizeSubtitlePath   string
+	PyannoteJSONPath          string
+	PyannoteTranscriptPath    string
+	PyannoteSubtitlePath      string
+	MetadataPath              string
 }
 
 type JobRecord struct {
-	ID                   xuuid.UUID
-	Request              JobRequest
-	Status               JobStatus
-	CurrentStep          *JobStep
-	CurrentStepStartedAt *time.Time
-	StepElapsed          map[JobStep]time.Duration
-	TranslationStatus    string
-	TranslationStartedAt *time.Time
-	TranslationEndedAt   *time.Time
-	CurrentStepProgress  float64
-	CompletedSteps       map[JobStep]bool
-	StartedAt            *time.Time
-	EndedAt              *time.Time
-	ErrorMessage         string
-	Result               *JobResult
-	Logs                 string
-	IsPauseRequested     bool
-	QobuzTracksDone      int
-	QobuzTracksTotal     int
-	LyricsTracksDone     int
-	LyricsTracksTotal    int
-	LyricsFound          int
-	LyricsFoundTotal     int
-	LyricsFailed         int
+	ID                     xuuid.UUID
+	Request                JobRequest
+	Status                 JobStatus
+	CurrentStep            *JobStep
+	CurrentStepStartedAt   *time.Time
+	StepElapsed            map[JobStep]time.Duration
+	TranslationStatus      string
+	TranslationStartedAt   *time.Time
+	TranslationEndedAt     *time.Time
+	CurrentStepProgress    float64
+	CompletedSteps         map[JobStep]bool
+	ReusedSteps            map[JobStep]bool
+	StartedAt              *time.Time
+	EndedAt                *time.Time
+	ErrorMessage           string
+	Result                 *JobResult
+	Logs                   string
+	IsPauseRequested       bool
+	QobuzTracksDone        int
+	QobuzTracksTotal       int
+	QobuzTracksUnavailable int
+	LyricsTracksDone       int
+	LyricsTracksTotal      int
+	LyricsFound            int
+	LyricsFoundTotal       int
+	LyricsFailed           int
+	TranslationReused      bool
 }
 
 func NewJobRecord(req JobRequest) JobRecord {
@@ -572,6 +861,7 @@ func NewJobRecord(req JobRequest) JobRecord {
 		Request:        req,
 		Status:         StatusQueued,
 		CompletedSteps: map[JobStep]bool{},
+		ReusedSteps:    map[JobStep]bool{},
 		StepElapsed:    map[JobStep]time.Duration{},
 	}
 }

@@ -1,7 +1,10 @@
 package jobs
 
 import (
+	"bufio"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,20 +27,27 @@ import (
 	"21loader-cross/internal/util"
 )
 
+const qobuzUserAuthTokenEnv = "LOADER21_QOBUZ_USER_AUTH_TOKEN"
+const qobuzEmailEnv = "LOADER21_QOBUZ_EMAIL"
+
 type Runner struct {
-	processRunner *sys.Runner
-	organizer     *Organizer
-	httpClient    *http.Client
-	paths         util.AppPaths
-	argosScript   string
+	processRunner         *sys.Runner
+	organizer             *Organizer
+	httpClient            *http.Client
+	paths                 util.AppPaths
+	argosScript           string
+	pyannoteScript        string
+	qobuzCLIWrapperScript string
 }
 
 type RunCallbacks struct {
-	OnStep         func(core.JobStep)
-	OnStepProgress func(float64)
-	OnStepCount    func(int, int)
-	OnLog          func(string)
-	OnDisplayName  func(string)
+	OnStep              func(core.JobStep)
+	OnStepProgress      func(float64)
+	OnStepCount         func(int, int)
+	OnLog               func(string)
+	OnStepReused        func(core.JobStep)
+	OnTranslationReused func()
+	OnDisplayName       func(string)
 }
 
 type RunOptions struct {
@@ -56,13 +66,20 @@ type downloadArtifact struct {
 }
 
 type existingOutput struct {
-	MediaPath       string
-	SubtitlePath    string
-	TranscriptPath  string
-	MetadataPath    string
-	Title           string
-	SourceName      string
-	PublicationDate *time.Time
+	MediaPath                 string
+	SubtitlePath              string
+	TranscriptPath            string
+	JSONPath                  string
+	TinydiarizeJSONPath       string
+	TinydiarizeTranscriptPath string
+	TinydiarizeSubtitlePath   string
+	PyannoteJSONPath          string
+	PyannoteTranscriptPath    string
+	PyannoteSubtitlePath      string
+	MetadataPath              string
+	Title                     string
+	SourceName                string
+	PublicationDate           *time.Time
 }
 
 type translationVariantArtifacts struct {
@@ -72,6 +89,19 @@ type translationVariantArtifacts struct {
 	OriginalTranscriptPath   string
 	TranslatedSubtitlePath   string
 	TranslatedTranscriptPath string
+}
+
+type transcriptionArtifacts struct {
+	SubtitlePath              string
+	TranscriptPath            string
+	JSONPath                  string
+	InternalWhisperJSONPath   string
+	TinydiarizeJSONPath       string
+	TinydiarizeTranscriptPath string
+	TinydiarizeSubtitlePath   string
+	PyannoteJSONPath          string
+	PyannoteTranscriptPath    string
+	PyannoteSubtitlePath      string
 }
 
 func (a translationVariantArtifacts) hasAny() bool {
@@ -84,11 +114,13 @@ func (a translationVariantArtifacts) hasAny() bool {
 func NewRunner(proc *sys.Runner, organizer *Organizer, paths util.AppPaths, baseDir string) *Runner {
 	baseDir = strings.TrimSpace(baseDir)
 	return &Runner{
-		processRunner: proc,
-		organizer:     organizer,
-		httpClient:    &http.Client{Timeout: 25 * time.Second},
-		paths:         paths,
-		argosScript:   filepath.Join(baseDir, "assets", "scripts", "argos_translate_file.py"),
+		processRunner:         proc,
+		organizer:             organizer,
+		httpClient:            &http.Client{Timeout: 25 * time.Second},
+		paths:                 paths,
+		argosScript:           filepath.Join(baseDir, "assets", "scripts", "argos_translate_file.py"),
+		pyannoteScript:        filepath.Join(baseDir, "assets", "scripts", "pyannote_diarize.py"),
+		qobuzCLIWrapperScript: filepath.Join(baseDir, "assets", "scripts", "qobuz_cli_wrapper.py"),
 	}
 }
 
@@ -102,6 +134,38 @@ func (r *Runner) Pause() bool {
 
 func (r *Runner) Resume() bool {
 	return r.processRunner.ResumeCurrentProcess()
+}
+
+func (r *Runner) SearchLRCLIBCandidates(ctx context.Context, track, artistHint, albumHint string, limit int) (core.LRCLIBSearchAPIResponse, error) {
+	track = strings.TrimSpace(track)
+	if track == "" {
+		return core.LRCLIBSearchAPIResponse{}, fmt.Errorf("le champ trackName est requis")
+	}
+	if limit <= 0 {
+		limit = 8
+	}
+	candidates, err := searchLRCLIBCandidates(ctx, r.httpClient, track, artistHint, albumHint)
+	if err != nil {
+		return core.LRCLIBSearchAPIResponse{}, err
+	}
+	if len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+	results := make([]core.LRCLIBSearchResultDTO, 0, len(candidates))
+	for idx, candidate := range candidates {
+		results = append(results, core.LRCLIBSearchResultDTO{
+			ID:           fmt.Sprintf("lrclib-%d", idx+1),
+			TrackName:    strings.TrimSpace(candidate.trackName),
+			ArtistName:   strings.TrimSpace(candidate.artistName),
+			AlbumName:    strings.TrimSpace(candidate.albumName),
+			PlainLyrics:  candidate.payload.plainLyrics,
+			SyncedLyrics: candidate.payload.syncedLyrics,
+			Preview:      previewLRCLIBText(candidate.payload),
+			HasSynced:    strings.TrimSpace(candidate.payload.syncedLyrics) != "",
+			Score:        candidate.score,
+		})
+	}
+	return core.LRCLIBSearchAPIResponse{Results: results}, nil
 }
 
 func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, cb RunCallbacks) (core.JobResult, error) {
@@ -139,6 +203,9 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 	var artifact downloadArtifact
 	var err error
 	if reusingExistingOutput {
+		if cb.OnStepReused != nil {
+			cb.OnStepReused(core.StepDownload)
+		}
 		if cb.OnLog != nil {
 			cb.OnLog("[download] Mode completer: media existant detecte, telechargement ignore.\n")
 		}
@@ -192,7 +259,9 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 		cb.OnStepCount(0, 0)
 	}
 	if shouldFetchLyrics(job, artifact) {
-		r.fetchLyricsFromLRCLIBWithHints(ctx, artifact.MediaPath, artifact.Title, artifact.SourceName, cb)
+		if err := r.fetchLyricsForJob(ctx, job, artifact, cb); err != nil {
+			return core.JobResult{}, err
+		}
 		if cb.OnStepProgress != nil {
 			cb.OnStepProgress(1)
 		}
@@ -218,6 +287,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 
 	subtitleFile := ""
 	transcriptFile := ""
+	transcriptionOutput := transcriptionArtifacts{}
 	var translationArtifacts translationVariantArtifacts
 	sourceLanguage := normalizeLanguageCode(job.TranslationSourceLanguage, "en")
 	targetLanguage := normalizeLanguageCode(job.TranslationTargetLanguage, "fr")
@@ -237,21 +307,38 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 				preferredLanguages,
 				reusedOutput.TranscriptPath,
 			)
-			if subtitleFile != "" || transcriptFile != "" {
+			transcriptionOutput.JSONPath = firstExistingFile(reusedOutput.JSONPath, whisperFullJSONPathForMedia(artifact.MediaPath))
+			transcriptionOutput.InternalWhisperJSONPath = transcriptionOutput.JSONPath
+			transcriptionOutput.TinydiarizeJSONPath = firstExistingFile(reusedOutput.TinydiarizeJSONPath, tinydiarizeJSONPathForMedia(artifact.MediaPath))
+			transcriptionOutput.TinydiarizeTranscriptPath = firstExistingFile(reusedOutput.TinydiarizeTranscriptPath, tinydiarizeTranscriptPathForMedia(artifact.MediaPath))
+			transcriptionOutput.TinydiarizeSubtitlePath = firstExistingFile(reusedOutput.TinydiarizeSubtitlePath, tinydiarizeSubtitlePathForMedia(artifact.MediaPath))
+			transcriptionOutput.PyannoteJSONPath = firstExistingFile(reusedOutput.PyannoteJSONPath, pyannoteJSONPathForMedia(artifact.MediaPath))
+			transcriptionOutput.PyannoteTranscriptPath = firstExistingFile(reusedOutput.PyannoteTranscriptPath, pyannoteTranscriptPathForMedia(artifact.MediaPath))
+			transcriptionOutput.PyannoteSubtitlePath = firstExistingFile(reusedOutput.PyannoteSubtitlePath, pyannoteSubtitlePathForMedia(artifact.MediaPath))
+			if canReuseTranscriptionOutput(job, subtitleFile, transcriptFile, transcriptionOutput) {
+				transcriptionOutput.SubtitlePath = subtitleFile
+				transcriptionOutput.TranscriptPath = transcriptFile
+				if cb.OnStepReused != nil {
+					cb.OnStepReused(core.StepTranscription)
+				}
 				if cb.OnLog != nil {
 					cb.OnLog("[transcription] Mode completer: transcription existante detectee, etape ignoree.\n")
 				}
 			} else {
-				subtitleFile, transcriptFile, err = r.transcribe(ctx, artifact.MediaPath, workspace, job, cb)
+				transcriptionOutput, err = r.transcribe(ctx, artifact.MediaPath, workspace, job, cb)
 				if err != nil {
 					return core.JobResult{}, err
 				}
+				subtitleFile = transcriptionOutput.SubtitlePath
+				transcriptFile = transcriptionOutput.TranscriptPath
 			}
 		} else {
-			subtitleFile, transcriptFile, err = r.transcribe(ctx, artifact.MediaPath, workspace, job, cb)
+			transcriptionOutput, err = r.transcribe(ctx, artifact.MediaPath, workspace, job, cb)
 			if err != nil {
 				return core.JobResult{}, err
 			}
+			subtitleFile = transcriptionOutput.SubtitlePath
+			transcriptFile = transcriptionOutput.TranscriptPath
 		}
 
 		subtitleForTranslation := subtitleFile
@@ -270,6 +357,9 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 				}
 			}
 			if strings.TrimSpace(subtitleForTranslation) == "" && strings.TrimSpace(transcriptForTranslation) == "" {
+				if cb.OnTranslationReused != nil {
+					cb.OnTranslationReused()
+				}
 				if cb.OnLog != nil {
 					cb.OnLog("[translation] Mode completer: traductions deja presentes, etape ignoree.\n")
 				}
@@ -306,11 +396,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 		}
 	} else {
 		if cb.OnLog != nil {
-			if job.ContentType == core.ContentMusic {
-				cb.OnLog("[transcription] Etape ignoree (musique).\n")
-			} else {
-				cb.OnLog("[transcription] Etape ignoree (desactivee).\n")
-			}
+			cb.OnLog("[transcription] Etape ignoree (desactivee).\n")
 		}
 		if cb.OnStepProgress != nil {
 			cb.OnStepProgress(1)
@@ -325,6 +411,9 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 	}
 	if job.SourceKind == core.SourceYouTube && job.ContentType == core.ContentVideo && subtitleFile != "" {
 		if reusingExistingOutput {
+			if cb.OnStepReused != nil {
+				cb.OnStepReused(core.StepMuxing)
+			}
 			if cb.OnLog != nil {
 				cb.OnLog("[muxing] Mode completer: media deja present, remux ignore.\n")
 			}
@@ -359,19 +448,26 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 	}
 
 	result, err := r.organizer.Organize(OrganizationPayload{
-		SourceKind:            job.SourceKind,
-		SourceName:            artifact.SourceName,
-		Title:                 artifact.Title,
-		PublicationDate:       artifact.PublicationDate,
-		OriginalInputURL:      job.InputURL,
-		MediaPath:             artifact.MediaPath,
-		IsMediaDirectory:      artifact.IsDirectory,
-		SubtitleFile:          subtitleFile,
-		TranscriptFile:        transcriptFile,
-		ArtworkFile:           artifact.ArtworkPath,
-		CustomName:            job.CustomName,
-		OutputRoot:            outputRoot,
-		TranscriptionLanguage: job.TranscriptionLanguage,
+		SourceKind:                job.SourceKind,
+		SourceName:                artifact.SourceName,
+		Title:                     artifact.Title,
+		PublicationDate:           artifact.PublicationDate,
+		OriginalInputURL:          job.InputURL,
+		MediaPath:                 artifact.MediaPath,
+		IsMediaDirectory:          artifact.IsDirectory,
+		SubtitleFile:              subtitleFile,
+		TranscriptFile:            transcriptFile,
+		JSONFile:                  transcriptionOutput.JSONPath,
+		TinydiarizeJSONFile:       transcriptionOutput.TinydiarizeJSONPath,
+		TinydiarizeTranscriptFile: transcriptionOutput.TinydiarizeTranscriptPath,
+		TinydiarizeSubtitleFile:   transcriptionOutput.TinydiarizeSubtitlePath,
+		PyannoteJSONFile:          transcriptionOutput.PyannoteJSONPath,
+		PyannoteTranscriptFile:    transcriptionOutput.PyannoteTranscriptPath,
+		PyannoteSubtitleFile:      transcriptionOutput.PyannoteSubtitlePath,
+		ArtworkFile:               artifact.ArtworkPath,
+		CustomName:                job.CustomName,
+		OutputRoot:                outputRoot,
+		TranscriptionLanguage:     job.TranscriptionLanguage,
 	}, opt.StandardCollision)
 	if err != nil {
 		return core.JobResult{}, err
@@ -881,7 +977,7 @@ func (r *Runner) downloadQobuzAlbum(ctx context.Context, job core.JobRequest, ou
 	if rt != util.QobuzAlbum && rt != util.QobuzPlaylist {
 		return downloadArtifact{}, fmt.Errorf("URL Qobuz invalide ou non supportee")
 	}
-	if err := r.ensureQobuzConfigured(ctx, job.QobuzEmail, job.QobuzPassword, cb); err != nil {
+	if err := r.ensureQobuzConfigured(ctx, job.QobuzEmail, job.QobuzPassword, job.QobuzUserAuthToken, job.QobuzUseUserAuthToken, cb); err != nil {
 		return downloadArtifact{}, err
 	}
 	if rt == util.QobuzPlaylist {
@@ -904,13 +1000,26 @@ func (r *Runner) downloadQobuzAlbumResource(ctx context.Context, job core.JobReq
 	args = append(args, util.ParseArgumentString(job.QobuzExtraArguments)...)
 	args = append(args, job.InputURL)
 
-	if err := r.runQobuzDownloadCommand(ctx, args, workspace, cb); err != nil {
+	runResult, err := r.runQobuzDownloadCommand(ctx, args, workspace, job.QobuzEmail, job.QobuzPassword, job.QobuzUserAuthToken, job.QobuzUseUserAuthToken, cb)
+	if err != nil {
 		return downloadArtifact{}, err
 	}
 
-	albumDir := discoverLatestDirectory(downloadRoot)
+	albumDir := strings.TrimSpace(runResult.Directory)
+	if albumDir == "" {
+		albumDir = discoverQobuzDirectoryByDownloadLabel(downloadRoot, runResult.Label)
+	}
+	if albumDir == "" {
+		albumDir = discoverLatestDirectory(downloadRoot)
+	}
+	if albumDir == "" {
+		albumDir = r.findExistingQobuzAlbumDirectory(job.InputURL, outputRoot)
+	}
 	if albumDir == "" {
 		return downloadArtifact{}, fmt.Errorf("telechargement Qobuz termine mais dossier d'album introuvable")
+	}
+	if cb.OnLog != nil {
+		cb.OnLog("[qobuz] Dossier album detecte: " + albumDir + "\n")
 	}
 	meta := r.readQobuzFolderMetadata(albumDir, artistOverride)
 	return downloadArtifact{MediaPath: albumDir, Title: meta.albumTitle, SourceName: meta.artistName, IsDirectory: true}, nil
@@ -929,11 +1038,21 @@ func (r *Runner) downloadQobuzPlaylistResource(ctx context.Context, job core.Job
 	args := []string{"dl", "-q", "27", "--embed-art", "--og-cover", "--no-db", "-d", downloadRoot}
 	args = append(args, util.ParseArgumentString(job.QobuzExtraArguments)...)
 	args = append(args, job.InputURL)
-	if err := r.runQobuzDownloadCommand(ctx, args, workspace, cb); err != nil {
+	runResult, err := r.runQobuzDownloadCommand(ctx, args, workspace, job.QobuzEmail, job.QobuzPassword, job.QobuzUserAuthToken, job.QobuzUseUserAuthToken, cb)
+	if err != nil {
 		return downloadArtifact{}, err
 	}
 
-	playlistDir := discoverLatestDirectory(downloadRoot)
+	playlistDir := strings.TrimSpace(runResult.Directory)
+	if playlistDir == "" {
+		playlistDir = discoverQobuzDirectoryByDownloadLabel(downloadRoot, runResult.Label)
+	}
+	if playlistDir == "" {
+		playlistDir = discoverLatestDirectory(downloadRoot)
+	}
+	if playlistDir == "" {
+		playlistDir = r.findExistingQobuzAlbumDirectory(job.InputURL, outputRoot)
+	}
 	if playlistDir == "" {
 		return downloadArtifact{}, fmt.Errorf("telechargement Qobuz termine mais dossier de playlist introuvable")
 	}
@@ -962,47 +1081,179 @@ func (r *Runner) downloadQobuzPlaylistResource(ctx context.Context, job core.Job
 	if title == "" {
 		title = "Playlist"
 	}
+	if cb.OnLog != nil {
+		cb.OnLog("[qobuz] Dossier playlist detecte: " + playlistDir + "\n")
+	}
 	return downloadArtifact{MediaPath: playlistDir, Title: title, SourceName: "Playlists", IsDirectory: true}, nil
 }
 
-func (r *Runner) runQobuzDownloadCommand(ctx context.Context, args []string, workspace string, cb RunCallbacks) error {
+type qobuzDownloadRunResult struct {
+	Label     string
+	Directory string
+}
+
+func (r *Runner) runQobuzDownloadCommand(ctx context.Context, args []string, workspace, qobuzEmail, qobuzPassword, qobuzUserAuthToken string, useUserAuthToken bool, cb RunCallbacks) (qobuzDownloadRunResult, error) {
 	qobuzExec := "qobuz-dl"
 	if resolved, _, err := util.ResolveToolExecutable("qobuz-dl"); err == nil {
 		qobuzExec = resolved
 	}
-
-	_, err := r.processRunner.Run(ctx, sys.RunOptions{
-		Executable: qobuzExec,
-		Args:       args,
-		WorkingDir: workspace,
-		OnOutput: func(line string) {
-			if cb.OnLog != nil {
-				cb.OnLog(line)
-			}
-			if cb.OnStepProgress != nil {
-				if pct := parsePercentProgress(line); pct >= 0 {
-					cb.OnStepProgress(minFloat(0.95, pct/100.0))
+	const maxRetryableDownloadAttempts = 3
+	result := qobuzDownloadRunResult{}
+	bestProgress := 0.0
+	currentArgs := append([]string{}, args...)
+	ogCoverFallbackUsed := false
+	passwordMode := "raw"
+	commandEnv, err := qobuzCommandEnvironment(workspace, qobuzEmail, qobuzPassword, qobuzUserAuthToken, passwordMode, useUserAuthToken)
+	if err != nil {
+		return qobuzDownloadRunResult{}, err
+	}
+	authFallbackUsed := false
+	executable := qobuzExec
+	buildCommandArgs := func(downloadArgs []string) ([]string, error) {
+		wrapperScript := strings.TrimSpace(r.qobuzCLIWrapperScript)
+		if wrapperScript != "" {
+			if info, statErr := os.Stat(wrapperScript); statErr == nil && !info.IsDir() {
+				python, buildErr := resolveQobuzPythonRuntimeForRunner()
+				if buildErr == nil {
+					executable = python.Exec
+					return append(append(append([]string{}, python.PrefixArgs...), wrapperScript), downloadArgs...), nil
+				}
+				if useUserAuthToken {
+					return nil, buildErr
 				}
 			}
-		},
-		CaptureOutput: false,
-	})
+		}
+		if useUserAuthToken {
+			python, buildErr := resolveQobuzPythonRuntimeForRunner()
+			if buildErr != nil {
+				return nil, buildErr
+			}
+			executable = python.Exec
+			return append(append(append([]string{}, python.PrefixArgs...), r.qobuzCLIWrapperScript), downloadArgs...), nil
+		}
+		executable = qobuzExec
+		return append([]string{}, downloadArgs...), nil
+	}
+	commandArgs, err := buildCommandArgs(currentArgs)
 	if err != nil {
-		return err
+		return qobuzDownloadRunResult{}, err
 	}
-	if cb.OnStepProgress != nil {
-		cb.OnStepProgress(0.99)
+
+	retryableDownloadAttempts := 0
+	for attempt := 1; ; attempt++ {
+		attemptLabel := ""
+		attemptDirectory := ""
+		attemptOutputTail := ""
+
+		_, err := r.processRunner.Run(ctx, sys.RunOptions{
+			Executable:  executable,
+			Args:        commandArgs,
+			WorkingDir:  workspace,
+			Environment: commandEnv,
+			OnOutput: func(line string) {
+				if attemptLabel == "" {
+					attemptLabel = parseQobuzDownloadingLabel(line)
+				}
+				if attemptDirectory == "" {
+					attemptDirectory = parseQobuzDirectoryFromProgressLine(line)
+				}
+				attemptOutputTail = appendOutputTail(attemptOutputTail, line, 32*1024)
+				if cb.OnLog != nil {
+					cb.OnLog(line)
+				}
+				if cb.OnStepProgress != nil {
+					if pct := parsePercentProgress(line); pct >= 0 {
+						progress := minFloat(0.95, pct/100.0)
+						if progress > bestProgress {
+							bestProgress = progress
+							cb.OnStepProgress(progress)
+						}
+					}
+				}
+			},
+			CaptureOutput: false,
+		})
+		if result.Label == "" && attemptLabel != "" {
+			result.Label = attemptLabel
+		}
+		if result.Directory == "" && attemptDirectory != "" {
+			result.Directory = attemptDirectory
+		}
+
+		if !authFallbackUsed && !useUserAuthToken && detectQobuzAuthenticationFailure(attemptOutputTail) && strings.TrimSpace(qobuzEmail) != "" && strings.TrimSpace(qobuzPassword) != "" && passwordMode == "raw" {
+			if ctx.Err() != nil {
+				return qobuzDownloadRunResult{}, ctx.Err()
+			}
+			commandEnv, err = qobuzCommandEnvironment(workspace, qobuzEmail, qobuzPassword, "", "md5", useUserAuthToken)
+			if err != nil {
+				return qobuzDownloadRunResult{}, err
+			}
+			passwordMode = "md5"
+			authFallbackUsed = true
+			if cb.OnLog != nil {
+				cb.OnLog(fmt.Sprintf("[qobuz] Authentification refusee avec le mot de passe brut. Reprise automatique avec mot de passe MD5, tentative %d...\n", attempt+1))
+			}
+			continue
+		}
+
+		if !ogCoverFallbackUsed && qobuzArgsContainOGCover(currentArgs) && detectQobuzOGCoverTooLargeError(attemptOutputTail) {
+			if ctx.Err() != nil {
+				return qobuzDownloadRunResult{}, ctx.Err()
+			}
+			currentArgs = qobuzArgsWithoutOGCover(currentArgs)
+			commandArgs, err = buildCommandArgs(currentArgs)
+			if err != nil {
+				return qobuzDownloadRunResult{}, err
+			}
+			ogCoverFallbackUsed = true
+			if cb.OnLog != nil {
+				cb.OnLog(fmt.Sprintf("[qobuz] Cover trop volumineuse pour l'embed detectee. Reprise automatique sans --og-cover, tentative %d...\n", attempt+1))
+			}
+			continue
+		}
+
+		if retryReason := detectQobuzRetryableDownloadError(attemptOutputTail); retryReason != "" {
+			if ctx.Err() != nil {
+				return qobuzDownloadRunResult{}, ctx.Err()
+			}
+			if retryableDownloadAttempts >= maxRetryableDownloadAttempts-1 {
+				return qobuzDownloadRunResult{}, fmt.Errorf("telechargement Qobuz interrompu apres %d tentatives (%s)", retryableDownloadAttempts+1, retryReason)
+			}
+			retryableDownloadAttempts++
+			if cb.OnLog != nil {
+				cb.OnLog(fmt.Sprintf("[qobuz] Erreur transitoire detectee (%s). Reprise automatique du telechargement, tentative %d...\n", retryReason, attempt+1))
+			}
+			if err := waitForRetryDelay(ctx, 1500*time.Millisecond); err != nil {
+				return qobuzDownloadRunResult{}, err
+			}
+			continue
+		}
+
+		if err != nil {
+			return qobuzDownloadRunResult{}, err
+		}
+		if cb.OnStepProgress != nil && bestProgress < 0.99 {
+			cb.OnStepProgress(0.99)
+		}
+		return result, nil
 	}
-	return nil
 }
 
-func (r *Runner) ensureQobuzConfigured(ctx context.Context, email, password string, cb RunCallbacks) error {
+func (r *Runner) ensureQobuzConfigured(ctx context.Context, email, password, userAuthToken string, useUserAuthToken bool, cb RunCallbacks) error {
+	if useUserAuthToken {
+		if strings.TrimSpace(userAuthToken) == "" {
+			return fmt.Errorf("renseigne un token de session Qobuz pour activer le contournement")
+		}
+		if _, _, err := util.ResolveToolExecutable("qobuz-dl"); err != nil {
+			return fmt.Errorf("qobuz-dl introuvable. Installe-le depuis Systeme > Diagnostics")
+		}
+		return nil
+	}
 	if existing := qobuzExistingConfigPath(); existing != "" {
 		return nil
 	}
 	email = strings.TrimSpace(email)
-	password = strings.TrimSpace(password)
-	if email == "" || password == "" {
+	if email == "" || strings.TrimSpace(password) == "" {
 		return fmt.Errorf("qobuz-dl n'est pas configure. Renseigne email/mot de passe Qobuz dans Reglages")
 	}
 	qobuzExec, _, err := util.ResolveToolExecutable("qobuz-dl")
@@ -1045,6 +1296,104 @@ func qobuzConfigPath() string {
 	return filepath.Join(home, ".config", "qobuz-dl", "config.ini")
 }
 
+func qobuzCommandEnvironment(workspace, email, password, userAuthToken, passwordMode string, useUserAuthToken bool) (map[string]string, error) {
+	if useUserAuthToken {
+		trimmedToken := strings.TrimSpace(userAuthToken)
+		if trimmedToken == "" {
+			return nil, fmt.Errorf("renseigne un token de session Qobuz pour activer le contournement")
+		}
+		env := map[string]string{
+			qobuzUserAuthTokenEnv: trimmedToken,
+		}
+		if trimmedEmail := strings.TrimSpace(email); trimmedEmail != "" {
+			env[qobuzEmailEnv] = trimmedEmail
+		}
+		if runtime.GOOS == "windows" {
+			appData := filepath.Join(workspace, "qobuz-appdata")
+			if err := os.MkdirAll(appData, 0o755); err != nil {
+				return nil, err
+			}
+			env["APPDATA"] = appData
+			return env, nil
+		}
+		tempHome := filepath.Join(workspace, "qobuz-home")
+		if err := os.MkdirAll(tempHome, 0o755); err != nil {
+			return nil, err
+		}
+		env["HOME"] = tempHome
+		return env, nil
+	}
+
+	email = strings.TrimSpace(email)
+	if email == "" || strings.TrimSpace(password) == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(qobuzConfigPath())
+	if err != nil {
+		return nil, fmt.Errorf("impossible de lire la configuration qobuz-dl")
+	}
+
+	configData := overrideQobuzConfigCredentials(string(data), email, qobuzPasswordValueForMode(password, passwordMode))
+
+	if runtime.GOOS == "windows" {
+		appData := filepath.Join(workspace, "qobuz-appdata")
+		configDir := filepath.Join(appData, "qobuz-dl")
+		if err := os.MkdirAll(configDir, 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "config.ini"), []byte(configData), 0o600); err != nil {
+			return nil, err
+		}
+		return map[string]string{"APPDATA": appData}, nil
+	}
+
+	tempHome := filepath.Join(workspace, "qobuz-home")
+	configDir := filepath.Join(tempHome, ".config", "qobuz-dl")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.ini"), []byte(configData), 0o600); err != nil {
+		return nil, err
+	}
+	return map[string]string{"HOME": tempHome}, nil
+}
+
+func overrideQobuzConfigCredentials(configData, email, passwordMD5 string) string {
+	lines := strings.Split(configData, "\n")
+	emailFound := false
+	passwordFound := false
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		switch {
+		case strings.HasPrefix(lower, "email"):
+			lines[i] = "email = " + email
+			emailFound = true
+		case strings.HasPrefix(lower, "password"):
+			lines[i] = "password = " + passwordMD5
+			passwordFound = true
+		}
+	}
+
+	if !emailFound {
+		lines = append(lines, "email = "+email)
+	}
+	if !passwordFound {
+		lines = append(lines, "password = "+passwordMD5)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func qobuzPasswordValueForMode(password, mode string) string {
+	if mode == "md5" {
+		sum := md5.Sum([]byte(password))
+		return hex.EncodeToString(sum[:])
+	}
+	return password
+}
+
 func qobuzExistingConfigPath() string {
 	for _, candidate := range qobuzConfigPathCandidates() {
 		if _, err := os.Stat(candidate); err == nil {
@@ -1070,7 +1419,190 @@ func qobuzConfigPathCandidates() []string {
 	return dedupeStrings(candidates)
 }
 
-func (r *Runner) transcribe(ctx context.Context, mediaPath, workspace string, job core.JobRequest, cb RunCallbacks) (string, string, error) {
+type qobuzPythonCommandCandidate struct {
+	Exec       string
+	PrefixArgs []string
+}
+
+func resolveQobuzPythonRuntimeForRunner() (qobuzPythonCommandCandidate, error) {
+	for _, candidate := range qobuzPythonProbeCandidatesForRunner() {
+		if qobuzPythonCandidateSupportsModuleForRunner(candidate) {
+			return candidate, nil
+		}
+	}
+	return qobuzPythonCommandCandidate{}, fmt.Errorf("impossible de trouver le runtime Python de qobuz-dl")
+}
+
+func qobuzPythonProbeCandidatesForRunner() []qobuzPythonCommandCandidate {
+	candidates := make([]qobuzPythonCommandCandidate, 0, 16)
+	if qobuzPath, _, err := util.ResolveToolExecutable("qobuz-dl"); err == nil {
+		for _, probeFile := range qobuzRuntimeProbeFilesForRunner(qobuzPath) {
+			if resolved := qobuzPythonFromShebangForRunner(probeFile); strings.TrimSpace(resolved) != "" {
+				candidates = append(candidates, qobuzPythonCommandCandidate{Exec: resolved})
+			}
+		}
+	}
+	for _, candidate := range qobuzFallbackPythonCandidatesForRunner() {
+		candidates = append(candidates, candidate)
+	}
+	return uniqueQobuzPythonCandidatesForRunner(candidates)
+}
+
+func qobuzRuntimeProbeFilesForRunner(entrypoint string) []string {
+	out := []string{entrypoint}
+	if runtime.GOOS == "windows" && strings.EqualFold(filepath.Ext(entrypoint), ".exe") {
+		base := strings.TrimSuffix(entrypoint, filepath.Ext(entrypoint))
+		out = append(out, base+"-script.py")
+		out = append(out, base+".py")
+	}
+	return out
+}
+
+func qobuzPythonFromShebangForRunner(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+	if !s.Scan() {
+		return ""
+	}
+	line := strings.TrimSpace(s.Text())
+	if !strings.HasPrefix(line, "#!") {
+		return ""
+	}
+
+	interpreter := strings.TrimSpace(strings.TrimPrefix(line, "#!"))
+	if interpreter == "" {
+		return ""
+	}
+	parts := strings.Fields(interpreter)
+	if len(parts) == 0 {
+		return ""
+	}
+	candidate := strings.Trim(parts[0], "\"'")
+	if strings.EqualFold(filepath.Base(candidate), "env") && len(parts) >= 2 {
+		candidate = strings.Trim(parts[1], "\"'")
+	}
+	return resolvePythonCandidatePathForRunner(candidate)
+}
+
+func resolvePythonCandidatePathForRunner(candidate string) string {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return ""
+	}
+
+	looksLikePath := filepath.IsAbs(candidate) ||
+		strings.Contains(candidate, string(filepath.Separator)) ||
+		(runtime.GOOS == "windows" && strings.Contains(candidate, "/"))
+
+	if looksLikePath {
+		info, err := os.Stat(candidate)
+		if err != nil || info.IsDir() {
+			return ""
+		}
+		return candidate
+	}
+
+	resolved, err := exec.LookPath(candidate)
+	if err != nil {
+		return ""
+	}
+	return resolved
+}
+
+func qobuzFallbackPythonCandidatesForRunner() []qobuzPythonCommandCandidate {
+	if runtime.GOOS == "windows" {
+		return uniqueQobuzPythonCandidatesForRunner([]qobuzPythonCommandCandidate{
+			{Exec: "py", PrefixArgs: []string{"-3.13"}},
+			{Exec: "py", PrefixArgs: []string{"-3.12"}},
+			{Exec: "py", PrefixArgs: []string{"-3.11"}},
+			{Exec: "py", PrefixArgs: []string{"-3"}},
+			{Exec: "py"},
+			{Exec: "python"},
+			{Exec: "python3"},
+		})
+	}
+	candidates := []qobuzPythonCommandCandidate{}
+	if runtime.GOOS == "darwin" {
+		candidates = append(candidates,
+			qobuzPythonCommandCandidate{Exec: "/opt/homebrew/opt/python@3.13/bin/python3.13"},
+			qobuzPythonCommandCandidate{Exec: "/opt/homebrew/opt/python@3.12/bin/python3.12"},
+			qobuzPythonCommandCandidate{Exec: "/usr/local/opt/python@3.13/bin/python3.13"},
+			qobuzPythonCommandCandidate{Exec: "/usr/local/opt/python@3.12/bin/python3.12"},
+		)
+	}
+	candidates = append(candidates,
+		qobuzPythonCommandCandidate{Exec: "python3.13"},
+		qobuzPythonCommandCandidate{Exec: "python3.12"},
+		qobuzPythonCommandCandidate{Exec: "python3.11"},
+		qobuzPythonCommandCandidate{Exec: "python3"},
+		qobuzPythonCommandCandidate{Exec: "python"},
+	)
+	return uniqueQobuzPythonCandidatesForRunner(candidates)
+}
+
+func uniqueQobuzPythonCandidatesForRunner(candidates []qobuzPythonCommandCandidate) []qobuzPythonCommandCandidate {
+	out := make([]qobuzPythonCommandCandidate, 0, len(candidates))
+	seen := map[string]struct{}{}
+	for _, candidate := range candidates {
+		execName := strings.TrimSpace(candidate.Exec)
+		if execName == "" {
+			continue
+		}
+		key := execName + "\x00" + strings.Join(candidate.PrefixArgs, "\x00")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, qobuzPythonCommandCandidate{
+			Exec:       execName,
+			PrefixArgs: append([]string{}, candidate.PrefixArgs...),
+		})
+	}
+	return out
+}
+
+func qobuzPythonCandidateSupportsModuleForRunner(candidate qobuzPythonCommandCandidate) bool {
+	execName := strings.TrimSpace(candidate.Exec)
+	if execName == "" {
+		return false
+	}
+
+	if strings.Contains(execName, string(filepath.Separator)) || (runtime.GOOS == "windows" && strings.Contains(execName, "/")) {
+		info, err := os.Stat(execName)
+		if err != nil || info.IsDir() {
+			return false
+		}
+	} else {
+		if _, err := exec.LookPath(execName); err != nil {
+			return false
+		}
+	}
+
+	args := append(append([]string{}, candidate.PrefixArgs...), "-c", "import qobuz_dl.qopy")
+	cmd := exec.Command(execName, args...)
+	return cmd.Run() == nil
+}
+
+type whisperInvocationOptions struct {
+	OutputBase         string
+	GenerateSubtitle   bool
+	GenerateTranscript bool
+	GenerateJSONFull   bool
+	Tinydiarize        bool
+}
+
+type whisperInvocationArtifacts struct {
+	SubtitlePath   string
+	TranscriptPath string
+	JSONPath       string
+}
+
+func (r *Runner) transcribe(ctx context.Context, mediaPath, workspace string, job core.JobRequest, cb RunCallbacks) (transcriptionArtifacts, error) {
 	wav := filepath.Join(workspace, "audio_for_whisper.wav")
 	extractArgs := []string{"-y", "-nostdin", "-i", mediaPath, "-vn", "-ac", "1", "-ar", "16000"}
 	extractArgs = append(extractArgs, util.ParseArgumentString(job.FfmpegExtraArguments)...)
@@ -1092,7 +1624,7 @@ func (r *Runner) transcribe(ctx context.Context, mediaPath, workspace string, jo
 		},
 	})
 	if err != nil {
-		return "", "", err
+		return transcriptionArtifacts{}, err
 	}
 	if cb.OnStepProgress != nil {
 		cb.OnStepProgress(0.15)
@@ -1102,30 +1634,120 @@ func (r *Runner) transcribe(ctx context.Context, mediaPath, workspace string, jo
 	if resolved, _, resolveErr := util.ResolveToolExecutable("whisper-cli"); resolveErr == nil {
 		whisperExec = resolved
 	}
+	diarizationProvider := resolvedJobDiarizationProvider(job)
 
 	whisperModelPath := resolveWhisperModelPath(job.WhisperModelPath, whisperExec)
 	if whisperModelPath == "" {
-		return "", "", fmt.Errorf("chemin du modele Whisper invalide. Configure-le dans Reglages")
+		return transcriptionArtifacts{}, fmt.Errorf("chemin du modele Whisper invalide. Configure-le dans Reglages")
+	}
+	tinydiarizeWhisperModelPath := whisperModelPath
+	if strings.TrimSpace(job.WhisperTinydiarizeModelPath) != "" {
+		tinydiarizeWhisperModelPath = resolveWhisperModelPath(job.WhisperTinydiarizeModelPath, whisperExec)
+		if tinydiarizeWhisperModelPath == "" {
+			return transcriptionArtifacts{}, fmt.Errorf("chemin du modele Whisper tinydiarize invalide. Configure un modele compatible `*-tdrz` dans Reglages ou dans le job")
+		}
+	}
+	vadModelPath := ""
+	if job.WhisperVADEnabled {
+		vadModelPath = resolveVADModelPath(job.WhisperVADModelPath)
 	}
 	if cb.OnLog != nil && whisperModelPath != strings.TrimSpace(job.WhisperModelPath) {
 		cb.OnLog("[transcription] Modele Whisper detecte: " + whisperModelPath + "\n")
 	}
-
-	outputBase := filepath.Join(workspace, "transcription")
-	whisperArgs := []string{"-m", whisperModelPath, "-f", wav, "-osrt", "-otxt", "-of", outputBase}
-	lang := strings.TrimSpace(job.TranscriptionLanguage)
-	if lang == "" {
-		lang = "auto"
+	if job.WhisperVADEnabled && strings.TrimSpace(vadModelPath) == "" {
+		return transcriptionArtifacts{}, fmt.Errorf("VAD activé sans modèle VAD valide. Installe ou sélectionne un modèle VAD dans Réglages moteur ou dans le job")
 	}
-	whisperArgs = append(whisperArgs, "-l", lang)
-	whisperArgs = append(whisperArgs, util.ParseArgumentString(job.WhisperExtraArguments)...)
+	if diarizationProvider == core.DiarizationProviderTinydiarize && !whisperModelSupportsTinydiarize(tinydiarizeWhisperModelPath) {
+		return transcriptionArtifacts{}, fmt.Errorf("tinydiarize exige un modèle Whisper compatible `*-tdrz` (ex: `ggml-small.en-tdrz.bin`)")
+	}
+	if cb.OnLog != nil && vadModelPath != "" && vadModelPath != strings.TrimSpace(job.WhisperVADModelPath) {
+		cb.OnLog("[transcription] Modele VAD detecte: " + vadModelPath + "\n")
+	}
+	if cb.OnLog != nil && diarizationProvider == core.DiarizationProviderTinydiarize {
+		cb.OnLog("[transcription] Modele tinydiarize utilise: " + tinydiarizeWhisperModelPath + "\n")
+	}
 	if cb.OnLog != nil && whisperExec != "whisper-cli" {
 		cb.OnLog("[transcription] Executable Whisper detecte: " + whisperExec + "\n")
 	}
 
+	requiresWhisperJSON := job.WhisperOutputJSONFull || diarizationProvider == core.DiarizationProviderPyannote
+	primaryPlan := whisperInvocationOptions{
+		OutputBase:         filepath.Join(workspace, "transcription"),
+		GenerateSubtitle:   true,
+		GenerateTranscript: true,
+		GenerateJSONFull:   requiresWhisperJSON,
+	}
+	primaryArtifacts, err := r.runWhisperInvocation(ctx, whisperExec, whisperModelPath, vadModelPath, wav, workspace, job, primaryPlan, 0.15, 0.75, cb)
+	if err != nil {
+		return transcriptionArtifacts{}, err
+	}
+	out := transcriptionArtifacts{
+		SubtitlePath:            primaryArtifacts.SubtitlePath,
+		TranscriptPath:          primaryArtifacts.TranscriptPath,
+		InternalWhisperJSONPath: primaryArtifacts.JSONPath,
+	}
+	if job.WhisperOutputJSONFull {
+		out.JSONPath = primaryArtifacts.JSONPath
+	}
+
+	progressBase := 0.9
+	switch diarizationProvider {
+	case core.DiarizationProviderTinydiarize:
+		tinydiarizePlan := whisperInvocationOptions{
+			OutputBase:         filepath.Join(workspace, "transcription.tdrz"),
+			GenerateSubtitle:   job.WhisperTinydiarizeOutputSRT,
+			GenerateTranscript: job.WhisperTinydiarizeOutputTXT,
+			GenerateJSONFull:   true,
+			Tinydiarize:        true,
+		}
+		tinydiarizeArtifacts, runErr := r.runWhisperInvocation(ctx, whisperExec, tinydiarizeWhisperModelPath, vadModelPath, wav, workspace, job, tinydiarizePlan, 0.9, 0.09, cb)
+		if runErr != nil {
+			return transcriptionArtifacts{}, runErr
+		}
+		out.TinydiarizeJSONPath = tinydiarizeArtifacts.JSONPath
+		out.TinydiarizeTranscriptPath = tinydiarizeArtifacts.TranscriptPath
+		out.TinydiarizeSubtitlePath = tinydiarizeArtifacts.SubtitlePath
+		progressBase = 0.99
+	case core.DiarizationProviderPyannote:
+		pyannoteJSONPath := filepath.Join(workspace, "transcription.pyannote.json")
+		if err := r.runPyannoteDiarization(ctx, wav, pyannoteJSONPath, workspace, job, 0.9, 0.05, cb); err != nil {
+			return transcriptionArtifacts{}, err
+		}
+		out.PyannoteJSONPath = pyannoteJSONPath
+		if job.PyannoteOutputTXT || job.PyannoteOutputSRT {
+			mergedSegments, mergeErr := mergeWhisperAndPyannoteJSON(out.InternalWhisperJSONPath, pyannoteJSONPath)
+			if mergeErr != nil {
+				return transcriptionArtifacts{}, mergeErr
+			}
+			if job.PyannoteOutputTXT {
+				out.PyannoteTranscriptPath = filepath.Join(workspace, "transcription.pyannote.txt")
+				if err := writeAnnotatedTranscript(out.PyannoteTranscriptPath, mergedSegments); err != nil {
+					return transcriptionArtifacts{}, err
+				}
+			}
+			if job.PyannoteOutputSRT {
+				out.PyannoteSubtitlePath = filepath.Join(workspace, "transcription.pyannote.srt")
+				if err := writeAnnotatedSRT(out.PyannoteSubtitlePath, mergedSegments); err != nil {
+					return transcriptionArtifacts{}, err
+				}
+			}
+		}
+		progressBase = 0.99
+	}
+	if cb.OnStepProgress != nil {
+		cb.OnStepProgress(progressBase)
+	}
+	return out, nil
+}
+
+func (r *Runner) runWhisperInvocation(ctx context.Context, whisperExec, whisperModelPath, vadModelPath, wavPath, workspace string, job core.JobRequest, options whisperInvocationOptions, progressBase, progressSpan float64, cb RunCallbacks) (whisperInvocationArtifacts, error) {
+	args, artifacts, err := buildWhisperArgs(job, wavPath, whisperModelPath, vadModelPath, options)
+	if err != nil {
+		return whisperInvocationArtifacts{}, err
+	}
 	_, err = r.processRunner.Run(ctx, sys.RunOptions{
 		Executable:    whisperExec,
-		Args:          whisperArgs,
+		Args:          args,
 		WorkingDir:    workspace,
 		CaptureOutput: false,
 		OnOutput: func(line string) {
@@ -1134,26 +1756,116 @@ func (r *Runner) transcribe(ctx context.Context, mediaPath, workspace string, jo
 			}
 			if cb.OnStepProgress != nil {
 				if pct := parsePercentProgress(line); pct >= 0 {
-					cb.OnStepProgress(minFloat(0.9, 0.15+(pct/100.0)*0.75))
+					cb.OnStepProgress(minFloat(progressBase+progressSpan, progressBase+(pct/100.0)*progressSpan))
 				}
 			}
 		},
 	})
 	if err != nil {
-		return "", "", err
+		return whisperInvocationArtifacts{}, err
 	}
-	subtitle := filepath.Join(workspace, "transcription.srt")
-	transcript := filepath.Join(workspace, "transcription.txt")
-	if _, err := os.Stat(subtitle); err != nil {
-		return "", "", fmt.Errorf("Whisper n'a pas genere les fichiers .txt/.srt attendus")
+	if options.GenerateSubtitle {
+		if !fileExists(artifacts.SubtitlePath) {
+			return whisperInvocationArtifacts{}, fmt.Errorf("Whisper n'a pas genere le fichier .srt attendu")
+		}
 	}
-	if _, err := os.Stat(transcript); err != nil {
-		return "", "", fmt.Errorf("Whisper n'a pas genere les fichiers .txt/.srt attendus")
+	if options.GenerateTranscript {
+		if !fileExists(artifacts.TranscriptPath) {
+			return whisperInvocationArtifacts{}, fmt.Errorf("Whisper n'a pas genere le fichier .txt attendu")
+		}
 	}
-	if cb.OnStepProgress != nil {
-		cb.OnStepProgress(0.9)
+	if options.GenerateJSONFull {
+		if !fileExists(artifacts.JSONPath) {
+			return whisperInvocationArtifacts{}, fmt.Errorf("Whisper n'a pas genere le fichier JSON attendu")
+		}
 	}
-	return subtitle, transcript, nil
+	return artifacts, nil
+}
+
+func buildWhisperArgs(job core.JobRequest, wavPath, whisperModelPath, vadModelPath string, options whisperInvocationOptions) ([]string, whisperInvocationArtifacts, error) {
+	if strings.TrimSpace(whisperModelPath) == "" {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("chemin du modele Whisper invalide. Configure-le dans Reglages")
+	}
+	if strings.TrimSpace(wavPath) == "" {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("fichier audio Whisper introuvable")
+	}
+	if strings.TrimSpace(options.OutputBase) == "" {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("base de sortie Whisper invalide")
+	}
+	if job.WhisperVADEnabled && strings.TrimSpace(vadModelPath) == "" {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("VAD activé sans modèle VAD valide. Installe ou sélectionne un modèle VAD dans Réglages moteur ou dans le job")
+	}
+	if options.Tinydiarize && !whisperModelSupportsTinydiarize(whisperModelPath) {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("tinydiarize exige un modèle Whisper compatible `*-tdrz` (ex: `ggml-small.en-tdrz.bin`)")
+	}
+	if job.WhisperVADThreshold < 0 {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("le seuil VAD doit être positif")
+	}
+	if job.WhisperVADMinSpeechDuration < 0 || job.WhisperVADMinSilenceDuration < 0 || job.WhisperVADSpeechPad < 0 {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("les durées VAD doivent être positives")
+	}
+	if job.WhisperMaxSegmentLength < 0 {
+		return nil, whisperInvocationArtifacts{}, fmt.Errorf("la longueur maximale de segment doit être positive")
+	}
+
+	args := []string{"-m", whisperModelPath, "-f", wavPath, "-of", options.OutputBase}
+	if options.GenerateSubtitle {
+		args = append(args, "-osrt")
+	}
+	if options.GenerateTranscript {
+		args = append(args, "-otxt")
+	}
+	if options.GenerateJSONFull {
+		args = append(args, "-ojf")
+	}
+	if options.Tinydiarize {
+		args = append(args, "-tdrz")
+	}
+	lang := strings.TrimSpace(job.TranscriptionLanguage)
+	if lang == "" {
+		lang = "auto"
+	}
+	args = append(args, "-l", lang)
+	if job.WhisperVADEnabled {
+		args = append(args, "--vad", "--vad-model", vadModelPath)
+		if job.WhisperVADThreshold > 0 {
+			args = append(args, "--vad-threshold", strconv.FormatFloat(job.WhisperVADThreshold, 'f', -1, 64))
+		}
+		if job.WhisperVADMinSpeechDuration > 0 {
+			args = append(args, "--vad-min-speech-duration-ms", strconv.Itoa(job.WhisperVADMinSpeechDuration))
+		}
+		if job.WhisperVADMinSilenceDuration > 0 {
+			args = append(args, "--vad-min-silence-duration-ms", strconv.Itoa(job.WhisperVADMinSilenceDuration))
+		}
+		if job.WhisperVADSpeechPad > 0 {
+			args = append(args, "--vad-speech-pad-ms", strconv.Itoa(job.WhisperVADSpeechPad))
+		}
+	}
+	if job.WhisperMaxSegmentLength > 0 {
+		args = append(args, "-ml", strconv.Itoa(job.WhisperMaxSegmentLength))
+	}
+	if job.WhisperSplitOnWord {
+		args = append(args, "-sow")
+	}
+	if strings.TrimSpace(job.WhisperInitialPrompt) != "" {
+		args = append(args, "--prompt", strings.TrimSpace(job.WhisperInitialPrompt))
+	}
+	if job.WhisperCarryInitialPrompt {
+		args = append(args, "--carry-initial-prompt")
+	}
+	args = append(args, util.ParseArgumentString(job.WhisperExtraArguments)...)
+
+	artifacts := whisperInvocationArtifacts{}
+	if options.GenerateSubtitle {
+		artifacts.SubtitlePath = options.OutputBase + ".srt"
+	}
+	if options.GenerateTranscript {
+		artifacts.TranscriptPath = options.OutputBase + ".txt"
+	}
+	if options.GenerateJSONFull {
+		artifacts.JSONPath = options.OutputBase + ".json"
+	}
+	return args, artifacts, nil
 }
 
 func (r *Runner) translateTranscription(ctx context.Context, subtitlePath, transcriptPath, workspace string, job core.JobRequest, cb RunCallbacks) (string, string, error) {
@@ -1307,6 +2019,105 @@ func resolvePythonExecutable() (string, error) {
 	return "", fmt.Errorf("runtime Python introuvable (python3/python)")
 }
 
+func (r *Runner) resolvePyannotePythonExecutable(ctx context.Context) (string, error) {
+	candidates := make([]string, 0, 8)
+	candidates = append(candidates, util.PyannoteVenvPythonCandidates("")...)
+	candidates = append(candidates, "python3.13", "python3.12", "python3.11", "python3", "python")
+
+	var lastProbeError string
+	for _, raw := range candidates {
+		candidate := strings.TrimSpace(raw)
+		if candidate == "" {
+			continue
+		}
+
+		resolved := candidate
+		if !strings.Contains(candidate, string(os.PathSeparator)) {
+			path, err := exec.LookPath(candidate)
+			if err != nil {
+				continue
+			}
+			resolved = path
+		} else {
+			info, err := os.Stat(candidate)
+			if err != nil || info.IsDir() {
+				continue
+			}
+		}
+
+		output, err := r.processRunner.Run(ctx, sys.RunOptions{
+			Executable:    resolved,
+			Args:          []string{"-c", "import pyannote.audio"},
+			CaptureOutput: true,
+		})
+		if err == nil {
+			return resolved, nil
+		}
+		if line := strings.TrimSpace(output); line != "" {
+			lastProbeError = firstNonEmptyLineValue(line)
+		}
+	}
+
+	if strings.TrimSpace(lastProbeError) != "" {
+		return "", fmt.Errorf("runtime pyannote indisponible: %s", lastProbeError)
+	}
+	return "", fmt.Errorf("runtime pyannote indisponible: installe/maj pyannote via Diagnostics")
+}
+
+func (r *Runner) runPyannoteDiarization(ctx context.Context, wavPath, outputJSONPath, workspace string, job core.JobRequest, progressBase, progressSpan float64, cb RunCallbacks) error {
+	pythonExec, err := r.resolvePyannotePythonExecutable(ctx)
+	if err != nil {
+		return err
+	}
+	scriptPath := strings.TrimSpace(r.pyannoteScript)
+	if scriptPath == "" {
+		scriptPath = filepath.Join("assets", "scripts", "pyannote_diarize.py")
+	}
+	if _, err := os.Stat(scriptPath); err != nil {
+		return fmt.Errorf("script pyannote introuvable: %s", scriptPath)
+	}
+	args := []string{scriptPath, "--audio", wavPath, "--output-json", outputJSONPath}
+	env := map[string]string{}
+	pipelinePath := strings.TrimSpace(job.PyannoteLocalPipelinePath)
+	if token := strings.TrimSpace(job.PyannoteHuggingFaceToken); token != "" && pipelinePath == "" {
+		env["PYANNOTE_HF_TOKEN"] = token
+	}
+	if pipelinePath != "" {
+		args = append(args, "--pipeline-path", pipelinePath)
+	}
+	if cb.OnLog != nil {
+		cb.OnLog("[pyannote] Diarisation locale en cours...\n")
+	}
+	if cb.OnStepProgress != nil {
+		cb.OnStepProgress(progressBase)
+	}
+	_, err = r.processRunner.Run(ctx, sys.RunOptions{
+		Executable:    pythonExec,
+		Args:          args,
+		WorkingDir:    workspace,
+		Environment:   env,
+		CaptureOutput: false,
+		OnOutput: func(line string) {
+			if cb.OnLog != nil {
+				cb.OnLog(line)
+			}
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("diarisation pyannote echouee: %w", err)
+	}
+	if _, err := os.Stat(outputJSONPath); err != nil {
+		return fmt.Errorf("diarisation pyannote incomplete: fichier JSON manquant")
+	}
+	if _, err := readPyannoteDiarization(outputJSONPath); err != nil {
+		return fmt.Errorf("diarisation pyannote incomplete: %w", err)
+	}
+	if cb.OnStepProgress != nil {
+		cb.OnStepProgress(progressBase + progressSpan)
+	}
+	return nil
+}
+
 func (r *Runner) resolveArgosPythonExecutable(ctx context.Context) (string, error) {
 	candidates := make([]string, 0, 8)
 	candidates = append(candidates, util.ArgosVenvPythonCandidates("")...)
@@ -1400,6 +2211,23 @@ func resolveWhisperModelPath(configuredPath, whisperExecutable string) string {
 	return firstExistingWhisperModelPath(candidates)
 }
 
+func resolveVADModelPath(configuredPath string) string {
+	configuredPath = strings.TrimSpace(configuredPath)
+	if configuredPath != "" && fileExists(configuredPath) {
+		return configuredPath
+	}
+	candidates := make([]string, 0, len(util.VADModelCandidateFiles())*4)
+	if configuredPath != "" {
+		candidates = append(candidates, configuredPath)
+	}
+	for _, dir := range util.VADModelSearchDirs(configuredPath) {
+		for _, modelFile := range util.VADModelCandidateFiles() {
+			candidates = append(candidates, filepath.Join(dir, modelFile))
+		}
+	}
+	return firstExistingVADModelPath(candidates)
+}
+
 func firstExistingWhisperModelPath(paths []string) string {
 	for _, candidate := range paths {
 		path := strings.TrimSpace(candidate)
@@ -1413,6 +2241,20 @@ func firstExistingWhisperModelPath(paths []string) string {
 		return path
 	}
 	return ""
+}
+
+func firstExistingVADModelPath(paths []string) string {
+	for _, p := range paths {
+		if fileExists(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+func whisperModelSupportsTinydiarize(modelPath string) bool {
+	base := strings.ToLower(strings.TrimSpace(filepath.Base(strings.TrimSpace(modelPath))))
+	return strings.Contains(base, "tdrz")
 }
 
 type muxSubtitleTrack struct {
@@ -1634,7 +2476,40 @@ var subtitleLanguageISO6392 = map[string]string{
 }
 
 func shouldTranscribe(job core.JobRequest) bool {
-	return job.ContentType != core.ContentMusic && job.EnableTranscription
+	return job.EnableTranscription
+}
+
+func canReuseTranscriptionOutput(job core.JobRequest, subtitleFile, transcriptFile string, artifacts transcriptionArtifacts) bool {
+	if strings.TrimSpace(subtitleFile) == "" || strings.TrimSpace(transcriptFile) == "" {
+		return false
+	}
+	provider := resolvedJobDiarizationProvider(job)
+	if job.WhisperOutputJSONFull && strings.TrimSpace(artifacts.JSONPath) == "" {
+		return false
+	}
+	switch provider {
+	case core.DiarizationProviderTinydiarize:
+		if strings.TrimSpace(artifacts.TinydiarizeJSONPath) == "" {
+			return false
+		}
+		if job.WhisperTinydiarizeOutputTXT && strings.TrimSpace(artifacts.TinydiarizeTranscriptPath) == "" {
+			return false
+		}
+		if job.WhisperTinydiarizeOutputSRT && strings.TrimSpace(artifacts.TinydiarizeSubtitlePath) == "" {
+			return false
+		}
+	case core.DiarizationProviderPyannote:
+		if strings.TrimSpace(artifacts.PyannoteJSONPath) == "" {
+			return false
+		}
+		if job.PyannoteOutputTXT && strings.TrimSpace(artifacts.PyannoteTranscriptPath) == "" {
+			return false
+		}
+		if job.PyannoteOutputSRT && strings.TrimSpace(artifacts.PyannoteSubtitlePath) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func shouldTranslate(job core.JobRequest, subtitleFile, transcriptFile string) bool {
@@ -1651,6 +2526,347 @@ func shouldTranslate(job core.JobRequest, subtitleFile, transcriptFile string) b
 
 func shouldFetchLyrics(job core.JobRequest, artifact downloadArtifact) bool {
 	return job.ContentType == core.ContentMusic && job.EnableLyrics && strings.TrimSpace(artifact.MediaPath) != ""
+}
+
+func resolveLyricsSearchHints(job core.JobRequest, artifact downloadArtifact) (string, string, string) {
+	defaultTrackHint := strings.TrimSpace(artifact.Title)
+	defaultArtistHint := strings.TrimSpace(artifact.SourceName)
+	defaultAlbumHint := strings.TrimSpace(artifact.Title)
+
+	if (job.SourceKind != core.SourceYouTube && job.SourceKind != core.SourceQobuz) || job.ContentType != core.ContentMusic || !job.UseCustomLyricsSearch {
+		return defaultTrackHint, defaultArtistHint, defaultAlbumHint
+	}
+
+	trackHint := strings.TrimSpace(job.LyricsSearchTitle)
+	if trackHint == "" {
+		trackHint = defaultTrackHint
+	}
+	return trackHint, strings.TrimSpace(job.LyricsSearchArtist), strings.TrimSpace(job.LyricsSearchAlbum)
+}
+
+func shouldUseManualLyricsSelection(job core.JobRequest) bool {
+	return (job.SourceKind == core.SourceYouTube || job.SourceKind == core.SourceQobuz) &&
+		job.ContentType == core.ContentMusic &&
+		job.UseManualLyricsSelection &&
+		(strings.TrimSpace(job.ManualLyricsSynced) != "" || strings.TrimSpace(job.ManualLyricsPlain) != "")
+}
+
+func manualLyricsSelections(job core.JobRequest) []core.ManualLyricsSelection {
+	selections := make([]core.ManualLyricsSelection, 0, len(job.ManualLyricsSelections)+1)
+	for _, selection := range job.ManualLyricsSelections {
+		entry := core.ManualLyricsSelection{
+			TargetTrackName:  strings.TrimSpace(selection.TargetTrackName),
+			TargetArtistName: strings.TrimSpace(selection.TargetArtistName),
+			TargetAlbumName:  strings.TrimSpace(selection.TargetAlbumName),
+			TrackName:        strings.TrimSpace(selection.TrackName),
+			ArtistName:       strings.TrimSpace(selection.ArtistName),
+			AlbumName:        strings.TrimSpace(selection.AlbumName),
+			PlainLyrics:      strings.TrimSpace(selection.PlainLyrics),
+			SyncedLyrics:     strings.TrimSpace(selection.SyncedLyrics),
+		}
+		if entry.PlainLyrics == "" && entry.SyncedLyrics == "" {
+			continue
+		}
+		selections = append(selections, entry)
+	}
+	if len(selections) == 0 && shouldUseManualLyricsSelection(job) {
+		selections = append(selections, core.ManualLyricsSelection{
+			TrackName:    strings.TrimSpace(job.ManualLyricsTrackName),
+			ArtistName:   strings.TrimSpace(job.ManualLyricsArtistName),
+			AlbumName:    strings.TrimSpace(job.ManualLyricsAlbumName),
+			PlainLyrics:  strings.TrimSpace(job.ManualLyricsPlain),
+			SyncedLyrics: strings.TrimSpace(job.ManualLyricsSynced),
+		})
+	}
+	return selections
+}
+
+func manualLyricsSelectionTargetCandidates(selection core.ManualLyricsSelection) []string {
+	base := strings.TrimSpace(selection.TargetTrackName)
+	if base == "" {
+		base = strings.TrimSpace(selection.TrackName)
+	}
+	return normalizeLRCLIBTrackCandidates(base)
+}
+
+func manualLyricsSelectionMatchesTrack(selection core.ManualLyricsSelection, track string, totalAudioFiles int) bool {
+	if totalAudioFiles == 1 && strings.TrimSpace(selection.TargetTrackName) == "" {
+		return true
+	}
+	targetCandidates := manualLyricsSelectionTargetCandidates(selection)
+	if len(targetCandidates) == 0 {
+		return totalAudioFiles == 1
+	}
+	trackCandidates := normalizeLRCLIBTrackCandidates(track)
+	if len(trackCandidates) == 0 {
+		trackCandidates = []string{strings.TrimSpace(track)}
+	}
+	targets := map[string]struct{}{}
+	for _, candidate := range targetCandidates {
+		normalized := normalizeLRCLIBText(candidate)
+		if normalized == "" {
+			continue
+		}
+		targets[normalized] = struct{}{}
+	}
+	for _, candidate := range trackCandidates {
+		if _, ok := targets[normalizeLRCLIBText(candidate)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func writeManualLyricsSelectionFile(base string, selection core.ManualLyricsSelection) (string, error) {
+	targetPath := base + ".lyrics.txt"
+	payload := []byte(selection.PlainLyrics)
+	generatedLabel := "[lyrics] Lyrics texte generes.\n"
+	if strings.TrimSpace(selection.SyncedLyrics) != "" {
+		targetPath = base + ".lrc"
+		payload = []byte(selection.SyncedLyrics)
+		generatedLabel = "[lyrics] Sous-titres synchronises generes.\n"
+	}
+	if err := os.WriteFile(targetPath, payload, 0o644); err != nil {
+		return "", err
+	}
+	return generatedLabel, nil
+}
+
+func resolveLRCLIBSearchForAudioFile(track string, totalAudioFiles int, trackHint, artistHint, albumHint string) (string, string, string) {
+	searchTrack := sanitizeLRCLIBTrackHint(track)
+	if searchTrack == "" {
+		searchTrack = track
+	}
+	searchArtist := sanitizeLRCLIBArtistHint(artistHint)
+	searchAlbum := sanitizeLRCLIBAlbumHint(albumHint)
+	if totalAudioFiles == 1 {
+		if t := strings.TrimSpace(trackHint); t != "" {
+			searchTrack = sanitizeLRCLIBTrackHint(t)
+			if searchTrack == "" {
+				searchTrack = t
+			}
+		}
+	} else if searchArtist != "" && searchAlbum == "" {
+		if a := strings.TrimSpace(trackHint); a != "" {
+			// For legacy callers, trackHint may actually carry the album title for multi-track jobs.
+			searchAlbum = sanitizeLRCLIBAlbumHint(a)
+		}
+	}
+	return searchTrack, searchArtist, searchAlbum
+}
+
+func (r *Runner) fetchLyricsForJob(ctx context.Context, job core.JobRequest, artifact downloadArtifact, cb RunCallbacks) error {
+	audioFiles := discoverAudioFiles(artifact.MediaPath)
+	if len(audioFiles) == 0 {
+		if cb.OnLog != nil {
+			cb.OnLog("[lyrics] Aucun fichier audio trouve.\n")
+		}
+		return nil
+	}
+
+	trackHint, artistHint, albumHint := resolveLyricsSearchHints(job, artifact)
+	selections := manualLyricsSelections(job)
+	usedSelections := make([]bool, len(selections))
+
+	if cb.OnStepCount != nil {
+		cb.OnStepCount(0, len(audioFiles))
+	}
+	if cb.OnLog != nil {
+		cb.OnLog(fmt.Sprintf("[lyrics] Recherche des sous-titres LRCLIB en cours (%d piste(s)).\n", len(audioFiles)))
+	}
+
+	generated, skipped, failed := 0, 0, 0
+	for idx, file := range audioFiles {
+		track := strings.TrimSpace(strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)))
+		if track == "" {
+			track = fmt.Sprintf("Track %d", idx+1)
+		}
+		base := strings.TrimSuffix(file, filepath.Ext(file))
+		if fileExists(base+".lrc") || fileExists(base+".lyrics.txt") {
+			skipped++
+			for selectionIdx, selection := range selections {
+				if usedSelections[selectionIdx] {
+					continue
+				}
+				if manualLyricsSelectionMatchesTrack(selection, track, len(audioFiles)) {
+					usedSelections[selectionIdx] = true
+					break
+				}
+			}
+			if cb.OnLog != nil {
+				cb.OnLog("[lyrics] Deja present, piste ignoree.\n")
+			}
+			if cb.OnStepProgress != nil {
+				cb.OnStepProgress(float64(idx+1) / float64(len(audioFiles)))
+			}
+			if cb.OnStepCount != nil {
+				cb.OnStepCount(idx+1, len(audioFiles))
+			}
+			continue
+		}
+
+		matchedSelection := -1
+		for selectionIdx, selection := range selections {
+			if usedSelections[selectionIdx] {
+				continue
+			}
+			if manualLyricsSelectionMatchesTrack(selection, track, len(audioFiles)) {
+				matchedSelection = selectionIdx
+				usedSelections[selectionIdx] = true
+				break
+			}
+		}
+		if matchedSelection >= 0 {
+			if cb.OnLog != nil {
+				cb.OnLog(fmt.Sprintf("[lyrics] Selection LRCLIB manuelle detectee pour %q.\n", track))
+			}
+			label, err := writeManualLyricsSelectionFile(base, selections[matchedSelection])
+			if err != nil {
+				failed++
+				if cb.OnLog != nil {
+					cb.OnLog("[lyrics] Echec " + track + ": " + err.Error() + "\n")
+				}
+			} else {
+				generated++
+				if cb.OnLog != nil {
+					cb.OnLog(label)
+				}
+			}
+			if cb.OnStepProgress != nil {
+				cb.OnStepProgress(float64(idx+1) / float64(len(audioFiles)))
+			}
+			if cb.OnStepCount != nil {
+				cb.OnStepCount(idx+1, len(audioFiles))
+			}
+			continue
+		}
+
+		searchTrack, searchArtist, searchAlbum := resolveLRCLIBSearchForAudioFile(track, len(audioFiles), trackHint, artistHint, albumHint)
+		if cb.OnLog != nil {
+			cb.OnLog(fmt.Sprintf("[lyrics] Recherche %d/%d: track=%q, artist=%q, album=%q\n", idx+1, len(audioFiles), searchTrack, searchArtist, searchAlbum))
+		}
+		payload, err := fetchLRCLIB(ctx, r.httpClient, searchTrack, searchArtist, searchAlbum)
+		if err != nil {
+			failed++
+			if cb.OnLog != nil {
+				cb.OnLog("[lyrics] Echec " + track + ": " + err.Error() + "\n")
+			}
+			if cb.OnStepProgress != nil {
+				cb.OnStepProgress(float64(idx+1) / float64(len(audioFiles)))
+			}
+			if cb.OnStepCount != nil {
+				cb.OnStepCount(idx+1, len(audioFiles))
+			}
+			continue
+		}
+		if payload.syncedLyrics != "" {
+			_ = os.WriteFile(base+".lrc", []byte(payload.syncedLyrics), 0o644)
+			generated++
+			if cb.OnLog != nil {
+				cb.OnLog("[lyrics] Sous-titres synchronises generes.\n")
+			}
+		} else if payload.plainLyrics != "" {
+			_ = os.WriteFile(base+".lyrics.txt", []byte(payload.plainLyrics), 0o644)
+			generated++
+			if cb.OnLog != nil {
+				cb.OnLog("[lyrics] Lyrics texte generes.\n")
+			}
+		} else {
+			if cb.OnLog != nil {
+				detail := ""
+				if searchArtist != "" {
+					if searchAlbum != "" {
+						detail = fmt.Sprintf(" (track=%q, artist=%q, album=%q)", searchTrack, searchArtist, searchAlbum)
+					} else {
+						detail = fmt.Sprintf(" (track=%q, artist=%q)", searchTrack, searchArtist)
+					}
+				} else if searchTrack != track {
+					detail = fmt.Sprintf(" (track=%q)", searchTrack)
+				}
+				cb.OnLog("[lyrics] Aucun resultat LRCLIB pour cette piste." + detail + "\n")
+			}
+		}
+		if cb.OnStepProgress != nil {
+			cb.OnStepProgress(float64(idx+1) / float64(len(audioFiles)))
+		}
+		if cb.OnStepCount != nil {
+			cb.OnStepCount(idx+1, len(audioFiles))
+		}
+	}
+	if cb.OnLog != nil {
+		for selectionIdx, selection := range selections {
+			if usedSelections[selectionIdx] {
+				continue
+			}
+			label := strings.TrimSpace(selection.TargetTrackName)
+			if label == "" {
+				label = strings.TrimSpace(selection.TrackName)
+			}
+			if label == "" {
+				label = "selection LRCLIB"
+			}
+			cb.OnLog(fmt.Sprintf("[lyrics] Selection LRCLIB manuelle sans piste correspondante: %q.\n", label))
+		}
+		cb.OnLog(fmt.Sprintf("[lyrics] Termine: %d genere(s), %d deja present(s), %d erreur(s).\n", generated, skipped, failed))
+	}
+	return nil
+}
+
+func (r *Runner) applyManualLyricsSelection(job core.JobRequest, mediaPath string, cb RunCallbacks) (bool, error) {
+	if !shouldUseManualLyricsSelection(job) {
+		return false, nil
+	}
+
+	audioFiles := discoverAudioFiles(mediaPath)
+	if len(audioFiles) != 1 {
+		if cb.OnLog != nil {
+			cb.OnLog("[lyrics] Selection LRCLIB manuelle ignoree (plusieurs pistes detectees). Retour au mode automatique.\n")
+		}
+		return false, nil
+	}
+
+	file := audioFiles[0]
+	base := strings.TrimSuffix(file, filepath.Ext(file))
+	if fileExists(base+".lrc") || fileExists(base+".lyrics.txt") {
+		if cb.OnStepCount != nil {
+			cb.OnStepCount(0, 1)
+			cb.OnStepCount(1, 1)
+		}
+		if cb.OnLog != nil {
+			cb.OnLog("[lyrics] Selection LRCLIB manuelle detectee.\n")
+			cb.OnLog("[lyrics] Deja present, piste ignoree.\n")
+			cb.OnLog("[lyrics] Termine: 0 genere(s), 1 deja present(s), 0 erreur(s).\n")
+		}
+		if cb.OnStepProgress != nil {
+			cb.OnStepProgress(1)
+		}
+		return true, nil
+	}
+
+	targetPath := base + ".lyrics.txt"
+	payload := []byte(job.ManualLyricsPlain)
+	generatedLabel := "[lyrics] Lyrics texte generes.\n"
+	if strings.TrimSpace(job.ManualLyricsSynced) != "" {
+		targetPath = base + ".lrc"
+		payload = []byte(job.ManualLyricsSynced)
+		generatedLabel = "[lyrics] Sous-titres synchronises generes.\n"
+	}
+	if err := os.WriteFile(targetPath, payload, 0o644); err != nil {
+		return false, err
+	}
+	if cb.OnStepCount != nil {
+		cb.OnStepCount(0, 1)
+		cb.OnStepCount(1, 1)
+	}
+	if cb.OnLog != nil {
+		cb.OnLog("[lyrics] Selection LRCLIB manuelle detectee.\n")
+		cb.OnLog(generatedLabel)
+		cb.OnLog("[lyrics] Termine: 1 genere(s), 0 deja present(s), 0 erreur(s).\n")
+	}
+	if cb.OnStepProgress != nil {
+		cb.OnStepProgress(1)
+	}
+	return true, nil
 }
 
 func discoverDownloadedMedia(workspace string) string {
@@ -1820,6 +3036,13 @@ func minFloat(a, b float64) float64 {
 	return b
 }
 
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func discoverLatestDirectory(root string) string {
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -1845,6 +3068,193 @@ func discoverLatestDirectory(root string) string {
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].mod.After(list[j].mod) })
 	return list[0].path
+}
+
+func parseQobuzDownloadingLabel(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return ""
+	}
+	sep := strings.Index(trimmed, ":")
+	if sep <= 0 {
+		return ""
+	}
+	prefix := strings.ToLower(strings.TrimSpace(trimmed[:sep]))
+	if prefix != "downloading" {
+		return ""
+	}
+	label := strings.TrimSpace(trimmed[sep+1:])
+	return label
+}
+
+func parseQobuzDirectoryFromProgressLine(line string) string {
+	if !strings.Contains(line, ".tmp") || !strings.Contains(line, " /// ") {
+		return ""
+	}
+	parts := strings.Split(line, " /// ")
+	for idx := len(parts) - 1; idx >= 0; idx-- {
+		segment := strings.TrimSpace(parts[idx])
+		tmpStart := strings.LastIndex(segment, "/.")
+		if tmpStart <= 0 || !strings.Contains(segment[tmpStart:], ".tmp") {
+			continue
+		}
+		dir := strings.TrimSpace(segment[:tmpStart])
+		if dir == "" {
+			continue
+		}
+		if isQobuzDiscDirectory(filepath.Base(dir)) {
+			dir = filepath.Dir(dir)
+		}
+		if dir != "" {
+			return dir
+		}
+	}
+	return ""
+}
+
+func isQobuzDiscDirectory(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if !strings.HasPrefix(name, "disc ") {
+		return false
+	}
+	suffix := strings.TrimSpace(strings.TrimPrefix(name, "disc "))
+	if suffix == "" {
+		return false
+	}
+	_, err := strconv.Atoi(suffix)
+	return err == nil
+}
+
+func appendOutputTail(current, chunk string, limit int) string {
+	if limit <= 0 || chunk == "" {
+		return current
+	}
+	current += chunk
+	if len(current) <= limit {
+		return current
+	}
+	return current[len(current)-limit:]
+}
+
+func detectQobuzRetryableDownloadError(output string) string {
+	lower := strings.ToLower(strings.TrimSpace(output))
+	if lower == "" {
+		return ""
+	}
+	if strings.Contains(lower, "incompleteread") &&
+		(strings.Contains(lower, "error getting release") || strings.Contains(lower, "connection broken")) {
+		return "IncompleteRead"
+	}
+	return ""
+}
+
+func detectQobuzAuthenticationFailure(output string) bool {
+	lower := strings.ToLower(strings.TrimSpace(output))
+	if lower == "" {
+		return false
+	}
+	return strings.Contains(lower, "authenticationerror") ||
+		strings.Contains(lower, "invalid credentials") ||
+		strings.Contains(lower, "authentification qobuz refusee")
+}
+
+func detectQobuzOGCoverTooLargeError(output string) bool {
+	lower := strings.ToLower(strings.TrimSpace(output))
+	if lower == "" {
+		return false
+	}
+	return strings.Contains(lower, "downloaded cover size too large to embed") ||
+		strings.Contains(lower, "turn off `og_cover` to avoid error") ||
+		strings.Contains(lower, "turn off og_cover to avoid error")
+}
+
+func qobuzArgsContainOGCover(args []string) bool {
+	for _, arg := range args {
+		trimmed := strings.ToLower(strings.TrimSpace(arg))
+		if trimmed == "--og-cover" || strings.HasPrefix(trimmed, "--og-cover=") {
+			return true
+		}
+	}
+	return false
+}
+
+func qobuzArgsWithoutOGCover(args []string) []string {
+	filtered := make([]string, 0, len(args))
+	for _, arg := range args {
+		trimmed := strings.ToLower(strings.TrimSpace(arg))
+		if trimmed == "--og-cover" || strings.HasPrefix(trimmed, "--og-cover=") {
+			continue
+		}
+		filtered = append(filtered, arg)
+	}
+	return filtered
+}
+
+func waitForRetryDelay(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func discoverQobuzDirectoryByDownloadLabel(root, label string) string {
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return ""
+	}
+	target := normalizeLRCLIBText(label)
+	if target == "" {
+		return ""
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return ""
+	}
+	type candidate struct {
+		path  string
+		score int
+		mod   time.Time
+	}
+	best := candidate{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		dirPath := filepath.Join(root, entry.Name())
+		nameNorm := normalizeLRCLIBText(entry.Name())
+		if nameNorm == "" {
+			continue
+		}
+		score := 0
+		if strings.Contains(nameNorm, target) {
+			score = 2
+		} else if strings.Contains(target, nameNorm) {
+			score = 1
+		}
+		if score == 0 {
+			continue
+		}
+		info, infoErr := entry.Info()
+		mod := time.Time{}
+		if infoErr == nil {
+			mod = info.ModTime()
+		}
+		if score > best.score || (score == best.score && mod.After(best.mod)) {
+			best = candidate{
+				path:  dirPath,
+				score: score,
+				mod:   mod,
+			}
+		}
+	}
+	return best.path
 }
 
 func defaultIfEmpty(value, fallback string) string {
@@ -2107,13 +3517,20 @@ func (r *Runner) findExistingYouTubeOutput(inputURL, outputRoot string) existing
 			publicationDate = &value
 		}
 		found = existingOutput{
-			MediaPath:       mediaPath,
-			SubtitlePath:    firstExistingFile(strings.TrimSpace(meta.SubtitlePath), sidecarPathForMedia(mediaPath, "", ".srt")),
-			TranscriptPath:  firstExistingFile(strings.TrimSpace(meta.TranscriptPath), sidecarPathForMedia(mediaPath, "", ".txt")),
-			MetadataPath:    path,
-			Title:           strings.TrimSpace(meta.Title),
-			SourceName:      strings.TrimSpace(meta.SourceName),
-			PublicationDate: publicationDate,
+			MediaPath:                 mediaPath,
+			SubtitlePath:              firstExistingFile(strings.TrimSpace(meta.SubtitlePath), sidecarPathForMedia(mediaPath, "", ".srt")),
+			TranscriptPath:            firstExistingFile(strings.TrimSpace(meta.TranscriptPath), sidecarPathForMedia(mediaPath, "", ".txt")),
+			JSONPath:                  firstExistingFile(strings.TrimSpace(meta.JSONPath), whisperFullJSONPathForMedia(mediaPath)),
+			TinydiarizeJSONPath:       firstExistingFile(strings.TrimSpace(meta.TinydiarizeJSONPath), tinydiarizeJSONPathForMedia(mediaPath)),
+			TinydiarizeTranscriptPath: firstExistingFile(strings.TrimSpace(meta.TinydiarizeTranscriptPath), tinydiarizeTranscriptPathForMedia(mediaPath)),
+			TinydiarizeSubtitlePath:   firstExistingFile(strings.TrimSpace(meta.TinydiarizeSubtitlePath), tinydiarizeSubtitlePathForMedia(mediaPath)),
+			PyannoteJSONPath:          firstExistingFile(strings.TrimSpace(meta.PyannoteJSONPath), pyannoteJSONPathForMedia(mediaPath)),
+			PyannoteTranscriptPath:    firstExistingFile(strings.TrimSpace(meta.PyannoteTranscriptPath), pyannoteTranscriptPathForMedia(mediaPath)),
+			PyannoteSubtitlePath:      firstExistingFile(strings.TrimSpace(meta.PyannoteSubtitlePath), pyannoteSubtitlePathForMedia(mediaPath)),
+			MetadataPath:              path,
+			Title:                     strings.TrimSpace(meta.Title),
+			SourceName:                strings.TrimSpace(meta.SourceName),
+			PublicationDate:           publicationDate,
 		}
 		return io.EOF
 	})
@@ -2134,6 +3551,7 @@ func (r *Runner) findExistingRSSOutput(job core.JobRequest, outputRoot string) e
 	targetMediaURL := normalizeComparableURL(selection.MediaURL)
 	targetTitle := normalizeComparableText(selection.Title)
 	targetPodcast := normalizeComparableText(selection.PodcastTitle)
+	hasTargetURL := targetInputURL != "" || targetMediaURL != ""
 	found := existingOutput{}
 	bestScore := 0
 
@@ -2162,6 +3580,9 @@ func (r *Runner) findExistingRSSOutput(job core.JobRequest, outputRoot string) e
 
 		score := 0
 		candidateInputURL := normalizeComparableURL(meta.OriginalInputURL)
+		if hasTargetURL && candidateInputURL != targetMediaURL && candidateInputURL != targetInputURL {
+			return nil
+		}
 		if targetMediaURL != "" && candidateInputURL == targetMediaURL {
 			score += 4
 		}
@@ -2184,13 +3605,20 @@ func (r *Runner) findExistingRSSOutput(job core.JobRequest, outputRoot string) e
 			publicationDate = &value
 		}
 		found = existingOutput{
-			MediaPath:       mediaPath,
-			SubtitlePath:    firstExistingFile(strings.TrimSpace(meta.SubtitlePath), sidecarPathForMedia(mediaPath, "", ".srt")),
-			TranscriptPath:  firstExistingFile(strings.TrimSpace(meta.TranscriptPath), sidecarPathForMedia(mediaPath, "", ".txt")),
-			MetadataPath:    path,
-			Title:           strings.TrimSpace(meta.Title),
-			SourceName:      strings.TrimSpace(meta.SourceName),
-			PublicationDate: publicationDate,
+			MediaPath:                 mediaPath,
+			SubtitlePath:              firstExistingFile(strings.TrimSpace(meta.SubtitlePath), sidecarPathForMedia(mediaPath, "", ".srt")),
+			TranscriptPath:            firstExistingFile(strings.TrimSpace(meta.TranscriptPath), sidecarPathForMedia(mediaPath, "", ".txt")),
+			JSONPath:                  firstExistingFile(strings.TrimSpace(meta.JSONPath), whisperFullJSONPathForMedia(mediaPath)),
+			TinydiarizeJSONPath:       firstExistingFile(strings.TrimSpace(meta.TinydiarizeJSONPath), tinydiarizeJSONPathForMedia(mediaPath)),
+			TinydiarizeTranscriptPath: firstExistingFile(strings.TrimSpace(meta.TinydiarizeTranscriptPath), tinydiarizeTranscriptPathForMedia(mediaPath)),
+			TinydiarizeSubtitlePath:   firstExistingFile(strings.TrimSpace(meta.TinydiarizeSubtitlePath), tinydiarizeSubtitlePathForMedia(mediaPath)),
+			PyannoteJSONPath:          firstExistingFile(strings.TrimSpace(meta.PyannoteJSONPath), pyannoteJSONPathForMedia(mediaPath)),
+			PyannoteTranscriptPath:    firstExistingFile(strings.TrimSpace(meta.PyannoteTranscriptPath), pyannoteTranscriptPathForMedia(mediaPath)),
+			PyannoteSubtitlePath:      firstExistingFile(strings.TrimSpace(meta.PyannoteSubtitlePath), pyannoteSubtitlePathForMedia(mediaPath)),
+			MetadataPath:              path,
+			Title:                     strings.TrimSpace(meta.Title),
+			SourceName:                strings.TrimSpace(meta.SourceName),
+			PublicationDate:           publicationDate,
 		}
 		bestScore = score
 		return nil
@@ -2441,10 +3869,10 @@ func copyFileReplacing(src, dst string) error {
 }
 
 func (r *Runner) fetchLyricsFromLRCLIB(ctx context.Context, albumDir string, cb RunCallbacks) {
-	r.fetchLyricsFromLRCLIBWithHints(ctx, albumDir, "", "", cb)
+	r.fetchLyricsFromLRCLIBWithHints(ctx, albumDir, "", "", "", cb)
 }
 
-func (r *Runner) fetchLyricsFromLRCLIBWithHints(ctx context.Context, albumDir, titleHint, artistHint string, cb RunCallbacks) {
+func (r *Runner) fetchLyricsFromLRCLIBWithHints(ctx context.Context, albumDir, trackHint, artistHint, albumHint string, cb RunCallbacks) {
 	audioFiles := discoverAudioFiles(albumDir)
 	if len(audioFiles) == 0 {
 		if cb.OnLog != nil {
@@ -2464,9 +3892,6 @@ func (r *Runner) fetchLyricsFromLRCLIBWithHints(ctx context.Context, albumDir, t
 		if track == "" {
 			track = fmt.Sprintf("Track %d", idx+1)
 		}
-		if cb.OnLog != nil {
-			cb.OnLog(fmt.Sprintf("[lyrics] Recherche %d/%d: %s\n", idx+1, len(audioFiles), track))
-		}
 		base := strings.TrimSuffix(file, filepath.Ext(file))
 		if fileExists(base+".lrc") || fileExists(base+".lyrics.txt") {
 			skipped++
@@ -2481,18 +3906,27 @@ func (r *Runner) fetchLyricsFromLRCLIBWithHints(ctx context.Context, albumDir, t
 			}
 			continue
 		}
-		searchTrack := track
+		searchTrack := sanitizeLRCLIBTrackHint(track)
+		if searchTrack == "" {
+			searchTrack = track
+		}
 		searchArtist := sanitizeLRCLIBArtistHint(artistHint)
-		searchAlbum := ""
+		searchAlbum := sanitizeLRCLIBAlbumHint(albumHint)
 		if len(audioFiles) == 1 {
-			if t := strings.TrimSpace(titleHint); t != "" {
-				searchTrack = t
+			if t := strings.TrimSpace(trackHint); t != "" {
+				searchTrack = sanitizeLRCLIBTrackHint(t)
+				if searchTrack == "" {
+					searchTrack = t
+				}
 			}
-		} else if searchArtist != "" {
-			if a := strings.TrimSpace(titleHint); a != "" {
-				// For multi-track jobs, the title hint is usually the album title.
-				searchAlbum = a
+		} else if searchArtist != "" && searchAlbum == "" {
+			if a := strings.TrimSpace(trackHint); a != "" {
+				// For legacy callers, trackHint may actually carry the album title for multi-track jobs.
+				searchAlbum = sanitizeLRCLIBAlbumHint(a)
 			}
+		}
+		if cb.OnLog != nil {
+			cb.OnLog(fmt.Sprintf("[lyrics] Recherche %d/%d: track=%q, artist=%q, album=%q\n", idx+1, len(audioFiles), searchTrack, searchArtist, searchAlbum))
 		}
 		payload, err := fetchLRCLIB(ctx, r.httpClient, searchTrack, searchArtist, searchAlbum)
 		if err != nil {
@@ -2567,6 +4001,17 @@ type lrclibSearchQuery struct {
 	query      string
 }
 
+type lrclibCandidate struct {
+	trackName   string
+	artistName  string
+	albumName   string
+	payload     lrclibPayload
+	score       int
+	trackScore  int
+	artistScore int
+	albumScore  int
+}
+
 func fetchLRCLIB(ctx context.Context, client *http.Client, track, artistHint, albumHint string) (lrclibPayload, error) {
 	const maxAttempts = 3
 	retryDelay := 350 * time.Millisecond
@@ -2634,6 +4079,15 @@ func fetchLRCLIBOnce(ctx context.Context, client *http.Client, track, artistHint
 }
 
 func fetchLRCLIBSearch(ctx context.Context, client *http.Client, request lrclibSearchQuery, scoreSearch lrclibSearchQuery) (lrclibPayload, int, error) {
+	candidates, err := fetchLRCLIBSearchCandidates(ctx, client, request, scoreSearch)
+	if err != nil {
+		return lrclibPayload{}, -1, err
+	}
+	payload, score := pickBestLRCLIBCandidate(candidates, scoreSearch)
+	return payload, score, nil
+}
+
+func fetchLRCLIBSearchCandidates(ctx context.Context, client *http.Client, request lrclibSearchQuery, scoreSearch lrclibSearchQuery) ([]lrclibCandidate, error) {
 	q := url.Values{}
 	trackName := strings.TrimSpace(request.trackName)
 	artistName := strings.TrimSpace(request.artistName)
@@ -2652,40 +4106,73 @@ func fetchLRCLIBSearch(ctx context.Context, client *http.Client, request lrclibS
 		q.Set("q", query)
 	}
 	if len(q) == 0 {
-		return lrclibPayload{}, -1, nil
+		return nil, nil
 	}
 
 	u := "https://lrclib.net/api/search?" + q.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return lrclibPayload{}, -1, err
+		return nil, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return lrclibPayload{}, -1, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return lrclibPayload{}, -1, lrclibHTTPError{statusCode: resp.StatusCode}
+		return nil, lrclibHTTPError{statusCode: resp.StatusCode}
 	}
 	var items []map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
-		return lrclibPayload{}, -1, err
+		return nil, err
 	}
-	payload, score := pickBestLRCLIBPayload(items, scoreSearch)
-	return payload, score, nil
+	return decodeLRCLIBCandidates(items, scoreSearch), nil
 }
 
 func pickBestLRCLIBPayload(items []map[string]any, search lrclibSearchQuery) (lrclibPayload, int) {
+	return pickBestLRCLIBCandidate(decodeLRCLIBCandidates(items, search), search)
+}
+
+func pickBestLRCLIBCandidate(candidates []lrclibCandidate, search lrclibSearchQuery) (lrclibPayload, int) {
 	bestScore := -1
 	bestPayload := lrclibPayload{}
 	bestArtistScore := -1
 	bestArtistPayload := lrclibPayload{}
 	searchTrack := normalizeLRCLIBText(search.trackName)
 	searchArtist := normalizeLRCLIBText(search.artistName)
+
+	for _, candidate := range candidates {
+		if candidate.score > bestScore {
+			bestScore = candidate.score
+			bestPayload = candidate.payload
+		}
+		if searchArtist != "" && candidate.artistScore > 0 {
+			if searchTrack != "" && candidate.trackScore == 0 {
+				// Artist match without track overlap is too risky for plain-text lyrics.
+				continue
+			}
+			if candidate.score > bestArtistScore {
+				bestArtistScore = candidate.score
+				bestArtistPayload = candidate.payload
+			}
+		}
+	}
+	if searchArtist != "" {
+		if bestArtistScore >= 0 {
+			return bestArtistPayload, bestArtistScore
+		}
+		return lrclibPayload{}, -1
+	}
+	return bestPayload, bestScore
+}
+
+func decodeLRCLIBCandidates(items []map[string]any, search lrclibSearchQuery) []lrclibCandidate {
+	searchTrack := normalizeLRCLIBText(search.trackName)
+	searchArtist := normalizeLRCLIBText(search.artistName)
 	searchAlbum := normalizeLRCLIBText(search.albumName)
 	searchQuery := normalizeLRCLIBText(search.query)
 
+	candidates := make([]lrclibCandidate, 0, len(items))
 	for _, item := range items {
 		payload := lrclibPayload{
 			plainLyrics:  strings.TrimSpace(anyToString(item["plainLyrics"])),
@@ -2701,6 +4188,13 @@ func pickBestLRCLIBPayload(items []map[string]any, search lrclibSearchQuery) (lr
 			continue
 		}
 
+		itemTrack := strings.TrimSpace(firstNonEmptyValue(item["trackName"], item["track_name"], item["name"]))
+		itemArtist := strings.TrimSpace(firstNonEmptyValue(item["artistName"], item["artist_name"], item["artist"]))
+		itemAlbum := strings.TrimSpace(firstNonEmptyValue(item["albumName"], item["album_name"], item["album"]))
+		normalizedTrack := normalizeLRCLIBText(itemTrack)
+		normalizedArtist := normalizeLRCLIBText(itemArtist)
+		normalizedAlbum := normalizeLRCLIBText(itemAlbum)
+
 		score := 0
 		if payload.syncedLyrics != "" {
 			score += 50
@@ -2708,30 +4202,26 @@ func pickBestLRCLIBPayload(items []map[string]any, search lrclibSearchQuery) (lr
 			score += 10
 		}
 
-		itemTrack := normalizeLRCLIBText(firstNonEmptyValue(item["trackName"], item["track_name"], item["name"]))
-		itemArtist := normalizeLRCLIBText(firstNonEmptyValue(item["artistName"], item["artist_name"], item["artist"]))
-		itemAlbum := normalizeLRCLIBText(firstNonEmptyValue(item["albumName"], item["album_name"], item["album"]))
-		trackScore := partialMatchScore(searchTrack, itemTrack, 40, 20)
-		artistScore := partialMatchScore(searchArtist, itemArtist, 25, 12)
-		albumScore := partialMatchScore(searchAlbum, itemAlbum, 12, 6)
-		score += trackScore + artistScore
-		score += albumScore
+		trackScore := partialMatchScore(searchTrack, normalizedTrack, 40, 20)
+		artistScore := partialMatchScore(searchArtist, normalizedArtist, 25, 12)
+		albumScore := partialMatchScore(searchAlbum, normalizedAlbum, 12, 6)
+		score += trackScore + artistScore + albumScore
 
 		// Avoid selecting unrelated songs when a source artist is known.
-		if searchArtist != "" && itemArtist != "" && artistScore == 0 {
+		if searchArtist != "" && normalizedArtist != "" && artistScore == 0 {
 			score -= 25
 		}
-		if searchArtist != "" && itemArtist == "" {
+		if searchArtist != "" && normalizedArtist == "" {
 			score -= 20
 		}
-		if searchTrack != "" && itemTrack != "" && trackScore == 0 {
+		if searchTrack != "" && normalizedTrack != "" && trackScore == 0 {
 			score -= 15
 		}
-		if searchAlbum != "" && itemAlbum != "" && albumScore == 0 {
+		if searchAlbum != "" && normalizedAlbum != "" && albumScore == 0 {
 			score -= 6
 		}
 		if searchQuery != "" && (searchTrack == "" || searchArtist == "") {
-			haystack := strings.TrimSpace(itemArtist + " " + itemTrack)
+			haystack := strings.TrimSpace(normalizedArtist + " " + normalizedTrack)
 			if haystack == searchQuery {
 				score += 8
 			} else if strings.Contains(haystack, searchQuery) || strings.Contains(searchQuery, haystack) {
@@ -2739,28 +4229,83 @@ func pickBestLRCLIBPayload(items []map[string]any, search lrclibSearchQuery) (lr
 			}
 		}
 
-		if score > bestScore {
-			bestScore = score
-			bestPayload = payload
+		candidates = append(candidates, lrclibCandidate{
+			trackName:   itemTrack,
+			artistName:  itemArtist,
+			albumName:   itemAlbum,
+			payload:     payload,
+			score:       score,
+			trackScore:  trackScore,
+			artistScore: artistScore,
+			albumScore:  albumScore,
+		})
+	}
+	return candidates
+}
+
+func searchLRCLIBCandidates(ctx context.Context, client *http.Client, track, artistHint, albumHint string) ([]lrclibCandidate, error) {
+	queries := buildLRCLIBSearchQueries(track, artistHint, albumHint)
+	if len(queries) == 0 {
+		return nil, nil
+	}
+	targetTrack := strings.TrimSpace(track)
+	targetArtist := strings.TrimSpace(artistHint)
+	targetAlbum := strings.TrimSpace(albumHint)
+	byKey := map[string]lrclibCandidate{}
+	for _, search := range queries {
+		scoreSearch := search
+		if targetTrack != "" && strings.TrimSpace(scoreSearch.trackName) == "" {
+			scoreSearch.trackName = targetTrack
 		}
-		if searchArtist != "" && artistScore > 0 {
-			if searchTrack != "" && trackScore == 0 {
-				// Artist match without track overlap is too risky for plain-text lyrics.
-				continue
-			}
-			if score > bestArtistScore {
-				bestArtistScore = score
-				bestArtistPayload = payload
+		if targetArtist != "" {
+			scoreSearch.artistName = targetArtist
+		}
+		if targetAlbum != "" && strings.TrimSpace(scoreSearch.albumName) == "" {
+			scoreSearch.albumName = targetAlbum
+		}
+		candidates, err := fetchLRCLIBSearchCandidates(ctx, client, search, scoreSearch)
+		if err != nil {
+			return nil, err
+		}
+		for _, candidate := range candidates {
+			key := lrclibCandidateKey(candidate)
+			existing, ok := byKey[key]
+			if !ok || candidate.score > existing.score {
+				byKey[key] = candidate
 			}
 		}
 	}
-	if searchArtist != "" {
-		if bestArtistScore >= 0 {
-			return bestArtistPayload, bestArtistScore
-		}
-		return lrclibPayload{}, -1
+
+	results := make([]lrclibCandidate, 0, len(byKey))
+	for _, candidate := range byKey {
+		results = append(results, candidate)
 	}
-	return bestPayload, bestScore
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].score != results[j].score {
+			return results[i].score > results[j].score
+		}
+		iHasSynced := strings.TrimSpace(results[i].payload.syncedLyrics) != ""
+		jHasSynced := strings.TrimSpace(results[j].payload.syncedLyrics) != ""
+		if iHasSynced != jHasSynced {
+			return iHasSynced
+		}
+		if results[i].trackName != results[j].trackName {
+			return strings.ToLower(results[i].trackName) < strings.ToLower(results[j].trackName)
+		}
+		if results[i].artistName != results[j].artistName {
+			return strings.ToLower(results[i].artistName) < strings.ToLower(results[j].artistName)
+		}
+		return strings.ToLower(results[i].albumName) < strings.ToLower(results[j].albumName)
+	})
+	return results, nil
+}
+
+func lrclibCandidateKey(candidate lrclibCandidate) string {
+	return strings.ToLower(strings.TrimSpace(candidate.trackName)) + "\x00" +
+		strings.ToLower(strings.TrimSpace(candidate.artistName)) + "\x00" +
+		strings.ToLower(strings.TrimSpace(candidate.albumName)) + "\x00" +
+		candidate.payload.syncedLyrics + "\x00" +
+		candidate.payload.plainLyrics
 }
 
 func partialMatchScore(expected, actual string, exactScore, partialScore int) int {
@@ -2788,13 +4333,44 @@ func firstNonEmptyValue(values ...any) string {
 	return ""
 }
 
+func previewLRCLIBText(payload lrclibPayload) string {
+	text := strings.TrimSpace(payload.syncedLyrics)
+	if text == "" {
+		text = strings.TrimSpace(payload.plainLyrics)
+	}
+	if text == "" {
+		return ""
+	}
+	lines := strings.Split(text, "\n")
+	preview := make([]string, 0, minInt(len(lines), 4))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		preview = append(preview, line)
+		if len(preview) == 4 {
+			break
+		}
+	}
+	joined := strings.Join(preview, "\n")
+	if joined == "" {
+		joined = text
+	}
+	if len([]rune(joined)) > 280 {
+		runes := []rune(joined)
+		return strings.TrimSpace(string(runes[:280])) + "..."
+	}
+	return joined
+}
+
 func buildLRCLIBSearchQueries(track, artistHint, albumHint string) []lrclibSearchQuery {
 	raw := strings.TrimSpace(track)
 	if raw == "" {
 		return nil
 	}
 	artistHint = strings.TrimSpace(artistHint)
-	albumHint = strings.TrimSpace(albumHint)
+	albumHint = sanitizeLRCLIBAlbumHint(albumHint)
 	candidates := normalizeLRCLIBTrackCandidates(raw)
 	queries := make([]lrclibSearchQuery, 0, 10)
 	seen := map[string]bool{}
@@ -2850,6 +4426,7 @@ var lrclibLeadingTrackNumberRe = regexp.MustCompile(`^\s*\d{1,3}\s*[\.\-:]\s+`)
 var lrclibBracketChunkRe = regexp.MustCompile(`\s*[\(\[][^\)\]]*[\)\]]`)
 var lrclibTitleNoiseRe = regexp.MustCompile(`(?i)\s*[\(\[][^)\]]*(clip officiel|clip|official|video|audio|lyrics?|paroles?|visualizer|remix|remaster|version|hd|4k)[^)\]]*[\)\]]`)
 var lrclibTextTokenRe = regexp.MustCompile(`[^\p{L}\p{N}]+`)
+var lrclibAlbumYearSuffixRe = regexp.MustCompile(`\s*\(\d{4}\).*$`)
 var lrclibGenericArtistHints = map[string]bool{
 	"artiste inconnu": true,
 	"source inconnue": true,
@@ -2872,6 +4449,30 @@ func sanitizeLRCLIBArtistHint(value string) string {
 		return ""
 	}
 	return trimmed
+}
+
+func sanitizeLRCLIBTrackHint(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	cleaned := strings.TrimSpace(stripLeadingTrackNumber(trimmed))
+	if cleaned == "" {
+		return trimmed
+	}
+	return cleaned
+}
+
+func sanitizeLRCLIBAlbumHint(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	cleaned := strings.TrimSpace(lrclibAlbumYearSuffixRe.ReplaceAllString(trimmed, ""))
+	if cleaned == "" {
+		return trimmed
+	}
+	return cleaned
 }
 
 func normalizeLRCLIBTrackCandidates(track string) []string {

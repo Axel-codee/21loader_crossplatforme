@@ -16,14 +16,27 @@ if not exist "%APP_DIR%\21loader-server.exe" (
   exit /b 1
 )
 
+if /I "%~1"=="update" goto run_foreground
+if /I "%~1"=="version" goto run_foreground
+if /I "%~1"=="--version" goto run_foreground
+
 pushd "%APP_DIR%" || (
   echo Unable to enter app directory: "%APP_DIR%"
   exit /b 1
 )
 
-start "" /B "%APP_DIR%\21loader-server.exe" --host "%LOADER21_HOST%" --port "%LOADER21_PORT%" >> "%LOG_FILE%" 2>&1
-timeout /t 1 /nobreak >nul
-start "" "http://%LOADER21_HOST%:%LOADER21_PORT%"
+start "" /B "%APP_DIR%\21loader-server.exe" --open --host "%LOADER21_HOST%" --port "%LOADER21_PORT%" %* >> "%LOG_FILE%" 2>&1
 
 popd
 endlocal
+exit /b 0
+
+:run_foreground
+pushd "%APP_DIR%" || (
+  echo Unable to enter app directory: "%APP_DIR%"
+  exit /b 1
+)
+"%APP_DIR%\21loader-server.exe" %*
+set "EXIT_CODE=%ERRORLEVEL%"
+popd
+endlocal & exit /b %EXIT_CODE%

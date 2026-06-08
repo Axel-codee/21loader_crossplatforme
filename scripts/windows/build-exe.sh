@@ -73,7 +73,7 @@ mkdir -p "$GOCACHE_DIR"
 
 echo "Building Windows binary ($ARCH)..."
 GOCACHE="$GOCACHE_DIR" GO111MODULE=on CGO_ENABLED=0 GOOS=windows GOARCH="$ARCH" \
-  go build -o "$SERVER_BIN" ./cmd/server
+  go build -trimpath -ldflags="-s -w -X main.appVersion=$VERSION" -o "$SERVER_BIN" ./cmd/server
 
 echo "Copying runtime assets..."
 cp -R "$ROOT_DIR/web" "$APP_DIR/"
@@ -85,8 +85,9 @@ cat > "$README_DST" <<EOF
 ==================================
 
 Quick start:
-1. Double-click ${APP_NAME}.cmd
+1. Double-click ${APP_NAME}.cmd, or type ${APP_NAME} in a new terminal after setup installer integration.
 2. Browser should open automatically on http://127.0.0.1:8080
+3. Update from GitHub Releases with: ${APP_NAME} update
 
 Notes:
 - Logs: %APPDATA%\\21loader\\Logs\\21loader\\server.log

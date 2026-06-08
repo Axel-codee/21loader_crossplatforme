@@ -13,6 +13,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - `web/index.html` contient toute l'interface frontend sans framework: formulaire de job, modales de selection, polling de statut, tableau des jobs, logs et reglages.
 - `assets/scripts/` contient les scripts Python utilises par Qobuz et Argos Translate.
 - `assets/macos/`, `assets/windows/`, `scripts/macos/` et `scripts/windows/` couvrent les icones et le packaging desktop.
+- `.github/workflows/release.yml` construit les assets de release Windows/macOS quand un tag `v*` est pousse.
 - `dist/` contient des sorties de build/de packaging deja generees.
 
 ## Constats utiles releves dans le code
@@ -26,6 +27,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Le choix explicite `mp3/mp4/les deux` pour YouTube ne ressort pas dans l'UI actuelle; le backend choisit surtout selon le type de contenu (`audio` ou `video`).
 - Je n'ai pas repere de mode dedie pour `telecharger uniquement les sous-titres`; aujourd'hui les sous-titres sont produits via la transcription.
 - Le mode de collision `completer` doit comparer un job RSS a l'URL exacte de l'episode, pas seulement au podcast, sinon un episode peut etre reutilise a la place d'un autre.
+- La commande terminal `21loader` est exposee par les packages; `21loader update` consomme la derniere GitHub Release, pas le dernier commit brut de `main`.
 
 ## Zones de code probablement concernees par les prochains sujets
 
@@ -34,6 +36,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Lyrics LRCLIB et futur fallback description YouTube: `internal/jobs/runner.go`, `internal/httpapi/router.go`, `web/index.html`
 - Organisation des dossiers de sortie: `internal/jobs/organizer.go`, `internal/util/paths.go`, `web/index.html`
 - Branding web et packaging d'icones: `web/index.html`, `internal/httpapi/router.go`, `assets/ui/`, `assets/macos/`, `assets/windows/`, scripts de packaging
+- Commande terminal et updater applicatif: `cmd/server/main.go`, `internal/updater/`, scripts de packaging, `.github/workflows/release.yml`
 
 ## Suivi fonctionnel
 
@@ -47,6 +50,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [ ] Pouvoir gerer directement depuis l'app la tete des ramifications dossiers creees (ex: sur le NAS)
 - [ ] Pouvoir choisir `mp3` / `mp4` ou les deux pour les musiques YouTube
 - [ ] Pouvoir obtenir les lyrics sur les musiques YouTube
+- [ ] Pouvoir regler le nombre de threads utilises par Whisper
 
 ### Deja fait
 
@@ -56,6 +60,10 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Afficher la vraie progression de transcription au lieu d'un 43% global trompeur
 - [x] Empecher l'ajout d'un job identique deja present en mode `completer`
 - [x] Eviter la reutilisation erronee d'un autre episode RSS en mode `completer`
+- [x] Ajouter des podcasts RSS favoris selectionnables depuis `Ajouter un job`
+- [x] Ajouter les options Whisper avancees (VAD, segmentation, prompt, JSON complet, tinydiarize) avec gestionnaire de modeles VAD
+- [x] Permettre de choisir un modele Whisper dedie a tinydiarize dans les reglages globaux et par job
+- [x] Reorganiser l'onglet `Reglages` en cartes separees pour les options generales, yt-dlp, Whisper et Qobuz
 - [x] Savoir a quel titre on est sur combien plutot qu'un simple pourcentage / une barre
 - [x] Pourcentage de telechargement d'une video YouTube
 - [x] Recuperation des lyrics sur LRCLIB
@@ -68,6 +76,8 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Traduction des sous-titres YouTube
 - [x] Choix de la langue d'arrivee
 - [x] Installation automatique
+- [x] Ajouter pyannote comme moteur de diarisation optionnel avec merge par segments Whisper, runtime Python dedie et UI guidee
+- [x] Ajouter la commande terminal `21loader` et `21loader update` base sur GitHub Releases
 
 ## Notes
 

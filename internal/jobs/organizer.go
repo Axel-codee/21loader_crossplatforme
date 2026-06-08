@@ -15,33 +15,47 @@ import (
 )
 
 type MediaMetadata struct {
-	Title                 string             `json:"title"`
-	SourceName            string             `json:"sourceName"`
-	SourceKind            core.JobSourceKind `json:"sourceKind"`
-	PublicationDate       *time.Time         `json:"publicationDate,omitempty"`
-	DownloadedAt          time.Time          `json:"downloadedAt"`
-	OriginalInputURL      string             `json:"originalInputURL"`
-	MediaPath             string             `json:"mediaPath"`
-	SubtitlePath          string             `json:"subtitlePath,omitempty"`
-	TranscriptPath        string             `json:"transcriptPath,omitempty"`
-	ArtworkPath           string             `json:"artworkPath,omitempty"`
-	TranscriptionLanguage string             `json:"transcriptionLanguage"`
+	Title                     string             `json:"title"`
+	SourceName                string             `json:"sourceName"`
+	SourceKind                core.JobSourceKind `json:"sourceKind"`
+	PublicationDate           *time.Time         `json:"publicationDate,omitempty"`
+	DownloadedAt              time.Time          `json:"downloadedAt"`
+	OriginalInputURL          string             `json:"originalInputURL"`
+	MediaPath                 string             `json:"mediaPath"`
+	SubtitlePath              string             `json:"subtitlePath,omitempty"`
+	TranscriptPath            string             `json:"transcriptPath,omitempty"`
+	JSONPath                  string             `json:"jsonPath,omitempty"`
+	TinydiarizeJSONPath       string             `json:"tinydiarizeJSONPath,omitempty"`
+	TinydiarizeTranscriptPath string             `json:"tinydiarizeTranscriptPath,omitempty"`
+	TinydiarizeSubtitlePath   string             `json:"tinydiarizeSubtitlePath,omitempty"`
+	PyannoteJSONPath          string             `json:"pyannoteJSONPath,omitempty"`
+	PyannoteTranscriptPath    string             `json:"pyannoteTranscriptPath,omitempty"`
+	PyannoteSubtitlePath      string             `json:"pyannoteSubtitlePath,omitempty"`
+	ArtworkPath               string             `json:"artworkPath,omitempty"`
+	TranscriptionLanguage     string             `json:"transcriptionLanguage"`
 }
 
 type OrganizationPayload struct {
-	SourceKind            core.JobSourceKind
-	SourceName            string
-	Title                 string
-	PublicationDate       *time.Time
-	OriginalInputURL      string
-	MediaPath             string
-	IsMediaDirectory      bool
-	SubtitleFile          string
-	TranscriptFile        string
-	ArtworkFile           string
-	CustomName            string
-	OutputRoot            string
-	TranscriptionLanguage string
+	SourceKind                core.JobSourceKind
+	SourceName                string
+	Title                     string
+	PublicationDate           *time.Time
+	OriginalInputURL          string
+	MediaPath                 string
+	IsMediaDirectory          bool
+	SubtitleFile              string
+	TranscriptFile            string
+	JSONFile                  string
+	TinydiarizeJSONFile       string
+	TinydiarizeTranscriptFile string
+	TinydiarizeSubtitleFile   string
+	PyannoteJSONFile          string
+	PyannoteTranscriptFile    string
+	PyannoteSubtitleFile      string
+	ArtworkFile               string
+	CustomName                string
+	OutputRoot                string
+	TranscriptionLanguage     string
 }
 
 type Organizer struct{}
@@ -104,6 +118,13 @@ func (o *Organizer) organizeFile(payload OrganizationPayload, collision core.Col
 
 	subtitleTarget := filepath.Join(itemDir, selectedBase+".srt")
 	transcriptTarget := filepath.Join(itemDir, selectedBase+".txt")
+	jsonTarget := filepath.Join(itemDir, selectedBase+whisperFullJSONSuffix)
+	tinydiarizeJSONTarget := filepath.Join(itemDir, selectedBase+tinydiarizeJSONSuffix)
+	tinydiarizeTranscriptTarget := filepath.Join(itemDir, selectedBase+tinydiarizeTranscriptSuffix)
+	tinydiarizeSubtitleTarget := filepath.Join(itemDir, selectedBase+tinydiarizeSubtitleSuffix)
+	pyannoteJSONTarget := filepath.Join(itemDir, selectedBase+pyannoteJSONSuffix)
+	pyannoteTranscriptTarget := filepath.Join(itemDir, selectedBase+pyannoteTranscriptSuffix)
+	pyannoteSubtitleTarget := filepath.Join(itemDir, selectedBase+pyannoteSubtitleSuffix)
 	metadataTarget := filepath.Join(itemDir, selectedBase+".json")
 	artworkTarget := ""
 	if strings.TrimSpace(payload.ArtworkFile) != "" {
@@ -143,18 +164,43 @@ func (o *Organizer) organizeFile(payload OrganizationPayload, collision core.Col
 		}
 	}
 	if strings.TrimSpace(payload.TranscriptFile) != "" {
-		if !samePath(payload.TranscriptFile, transcriptTarget) {
-			if collision == core.CollisionComplete {
-				if _, err := os.Stat(transcriptTarget); os.IsNotExist(err) {
-					if err := moveReplacing(payload.TranscriptFile, transcriptTarget); err != nil {
-						return core.JobResult{}, err
-					}
-				}
-			} else {
-				if err := moveReplacing(payload.TranscriptFile, transcriptTarget); err != nil {
-					return core.JobResult{}, err
-				}
-			}
+		if err := moveOptionalArtifact(payload.TranscriptFile, transcriptTarget, collision); err != nil {
+			return core.JobResult{}, err
+		}
+	}
+	if strings.TrimSpace(payload.JSONFile) != "" {
+		if err := moveOptionalArtifact(payload.JSONFile, jsonTarget, collision); err != nil {
+			return core.JobResult{}, err
+		}
+	}
+	if strings.TrimSpace(payload.TinydiarizeJSONFile) != "" {
+		if err := moveOptionalArtifact(payload.TinydiarizeJSONFile, tinydiarizeJSONTarget, collision); err != nil {
+			return core.JobResult{}, err
+		}
+	}
+	if strings.TrimSpace(payload.TinydiarizeTranscriptFile) != "" {
+		if err := moveOptionalArtifact(payload.TinydiarizeTranscriptFile, tinydiarizeTranscriptTarget, collision); err != nil {
+			return core.JobResult{}, err
+		}
+	}
+	if strings.TrimSpace(payload.TinydiarizeSubtitleFile) != "" {
+		if err := moveOptionalArtifact(payload.TinydiarizeSubtitleFile, tinydiarizeSubtitleTarget, collision); err != nil {
+			return core.JobResult{}, err
+		}
+	}
+	if strings.TrimSpace(payload.PyannoteJSONFile) != "" {
+		if err := moveOptionalArtifact(payload.PyannoteJSONFile, pyannoteJSONTarget, collision); err != nil {
+			return core.JobResult{}, err
+		}
+	}
+	if strings.TrimSpace(payload.PyannoteTranscriptFile) != "" {
+		if err := moveOptionalArtifact(payload.PyannoteTranscriptFile, pyannoteTranscriptTarget, collision); err != nil {
+			return core.JobResult{}, err
+		}
+	}
+	if strings.TrimSpace(payload.PyannoteSubtitleFile) != "" {
+		if err := moveOptionalArtifact(payload.PyannoteSubtitleFile, pyannoteSubtitleTarget, collision); err != nil {
+			return core.JobResult{}, err
 		}
 	}
 	if artworkTarget != "" {
@@ -189,6 +235,27 @@ func (o *Organizer) organizeFile(payload OrganizationPayload, collision core.Col
 	if _, err := os.Stat(transcriptTarget); err == nil {
 		metadata.TranscriptPath = transcriptTarget
 	}
+	if _, err := os.Stat(jsonTarget); err == nil {
+		metadata.JSONPath = jsonTarget
+	}
+	if _, err := os.Stat(tinydiarizeJSONTarget); err == nil {
+		metadata.TinydiarizeJSONPath = tinydiarizeJSONTarget
+	}
+	if _, err := os.Stat(tinydiarizeTranscriptTarget); err == nil {
+		metadata.TinydiarizeTranscriptPath = tinydiarizeTranscriptTarget
+	}
+	if _, err := os.Stat(tinydiarizeSubtitleTarget); err == nil {
+		metadata.TinydiarizeSubtitlePath = tinydiarizeSubtitleTarget
+	}
+	if _, err := os.Stat(pyannoteJSONTarget); err == nil {
+		metadata.PyannoteJSONPath = pyannoteJSONTarget
+	}
+	if _, err := os.Stat(pyannoteTranscriptTarget); err == nil {
+		metadata.PyannoteTranscriptPath = pyannoteTranscriptTarget
+	}
+	if _, err := os.Stat(pyannoteSubtitleTarget); err == nil {
+		metadata.PyannoteSubtitlePath = pyannoteSubtitleTarget
+	}
 	if artworkTarget != "" {
 		if _, err := os.Stat(artworkTarget); err == nil {
 			metadata.ArtworkPath = artworkTarget
@@ -204,6 +271,27 @@ func (o *Organizer) organizeFile(payload OrganizationPayload, collision core.Col
 	}
 	if metadata.TranscriptPath != "" {
 		result.TranscriptPath = metadata.TranscriptPath
+	}
+	if metadata.JSONPath != "" {
+		result.JSONPath = metadata.JSONPath
+	}
+	if metadata.TinydiarizeJSONPath != "" {
+		result.TinydiarizeJSONPath = metadata.TinydiarizeJSONPath
+	}
+	if metadata.TinydiarizeTranscriptPath != "" {
+		result.TinydiarizeTranscriptPath = metadata.TinydiarizeTranscriptPath
+	}
+	if metadata.TinydiarizeSubtitlePath != "" {
+		result.TinydiarizeSubtitlePath = metadata.TinydiarizeSubtitlePath
+	}
+	if metadata.PyannoteJSONPath != "" {
+		result.PyannoteJSONPath = metadata.PyannoteJSONPath
+	}
+	if metadata.PyannoteTranscriptPath != "" {
+		result.PyannoteTranscriptPath = metadata.PyannoteTranscriptPath
+	}
+	if metadata.PyannoteSubtitlePath != "" {
+		result.PyannoteSubtitlePath = metadata.PyannoteSubtitlePath
 	}
 	return result, nil
 }
@@ -355,6 +443,19 @@ func copyAcrossDevices(src, dst string) error {
 	return os.Remove(src)
 }
 
+func moveOptionalArtifact(src, dst string, collision core.CollisionDecision) error {
+	if strings.TrimSpace(src) == "" || strings.TrimSpace(dst) == "" || samePath(src, dst) {
+		return nil
+	}
+	if collision == core.CollisionComplete {
+		if _, err := os.Stat(dst); os.IsNotExist(err) {
+			return moveReplacing(src, dst)
+		}
+		return nil
+	}
+	return moveReplacing(src, dst)
+}
+
 func copyDirectory(srcDir, dstDir string) error {
 	if err := os.MkdirAll(dstDir, 0o755); err != nil {
 		return err
@@ -478,6 +579,13 @@ func existsAnyTarget(dir, base, ext string) bool {
 		filepath.Join(dir, base+"."+ext),
 		filepath.Join(dir, base+".srt"),
 		filepath.Join(dir, base+".txt"),
+		filepath.Join(dir, base+whisperFullJSONSuffix),
+		filepath.Join(dir, base+tinydiarizeJSONSuffix),
+		filepath.Join(dir, base+tinydiarizeTranscriptSuffix),
+		filepath.Join(dir, base+tinydiarizeSubtitleSuffix),
+		filepath.Join(dir, base+pyannoteJSONSuffix),
+		filepath.Join(dir, base+pyannoteTranscriptSuffix),
+		filepath.Join(dir, base+pyannoteSubtitleSuffix),
 		filepath.Join(dir, base+".json"),
 	}
 	for _, p := range candidates {
@@ -500,6 +608,13 @@ func removeExistingTargets(dir, base, ext string) error {
 		filepath.Join(dir, base+"."+ext),
 		filepath.Join(dir, base+".srt"),
 		filepath.Join(dir, base+".txt"),
+		filepath.Join(dir, base+whisperFullJSONSuffix),
+		filepath.Join(dir, base+tinydiarizeJSONSuffix),
+		filepath.Join(dir, base+tinydiarizeTranscriptSuffix),
+		filepath.Join(dir, base+tinydiarizeSubtitleSuffix),
+		filepath.Join(dir, base+pyannoteJSONSuffix),
+		filepath.Join(dir, base+pyannoteTranscriptSuffix),
+		filepath.Join(dir, base+pyannoteSubtitleSuffix),
 		filepath.Join(dir, base+".json"),
 	}
 	for _, p := range candidates {

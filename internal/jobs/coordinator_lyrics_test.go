@@ -1,6 +1,8 @@
 package jobs
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -105,5 +107,44 @@ func TestCountLyricsProgressLines(t *testing.T) {
 	}
 	if got := countLyricsFailedTracks(chunk); got != 2 {
 		t.Fatalf("unexpected failed count: got=%d want=2", got)
+	}
+}
+
+func TestMarkCompletedUsesActualQobuzAudioCounts(t *testing.T) {
+	jobID := xuuid.New()
+	albumDir := filepath.Join(t.TempDir(), "Album Demo")
+	if err := os.MkdirAll(albumDir, 0o755); err != nil {
+		t.Fatalf("mkdir album dir failed: %v", err)
+	}
+	for idx := 1; idx <= 26; idx++ {
+		name := filepath.Join(albumDir, "track-"+time.Date(2026, 1, idx, 0, 0, 0, 0, time.UTC).Format("20060102")+".flac")
+		if err := os.WriteFile(name, []byte("audio"), 0o644); err != nil {
+			t.Fatalf("write audio file failed: %v", err)
+		}
+	}
+
+	step := core.StepDownload
+	rec := core.NewJobRecord(core.JobRequest{
+		ID:         jobID,
+		CreatedAt:  time.Now().UTC(),
+		SourceKind: core.SourceQobuz,
+	})
+	rec.CurrentStep = &step
+	rec.QobuzTracksTotal = 27
+
+	c := &Coordinator{
+		paths:              util.AppPaths{LogsDirectory: t.TempDir()},
+		jobs:               []core.JobRecord{rec},
+		maxLogCharacters:   160000,
+		displayNameByJobID: map[xuuid.UUID]string{},
+	}
+
+	c.markCompleted(jobID, core.JobResult{MediaPath: albumDir})
+
+	if got := c.jobs[0].QobuzTracksDone; got != 26 {
+		t.Fatalf("unexpected qobuz done count: got=%d want=26", got)
+	}
+	if got := c.jobs[0].QobuzTracksUnavailable; got != 1 {
+		t.Fatalf("unexpected qobuz unavailable count: got=%d want=1", got)
 	}
 }

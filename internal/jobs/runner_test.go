@@ -11,14 +11,19 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"21loader-cross/internal/core"
+	"21loader-cross/internal/sys"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
+
+const qobuzRunnerHelperFlag = "--qobuz-runner-helper"
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
@@ -228,6 +233,54 @@ func TestBuildLRCLIBSearchQueriesStripsLeadingTrackNumber(t *testing.T) {
 	}
 }
 
+func TestQobuzCommandEnvironmentUsesTokenWorkaroundHome(t *testing.T) {
+	workspace := t.TempDir()
+
+	env, err := qobuzCommandEnvironment(workspace, " user@example.com ", "", " session.token.value ", "raw", true)
+	if err != nil {
+		t.Fatalf("qobuzCommandEnvironment returned error: %v", err)
+	}
+	if got, want := env[qobuzUserAuthTokenEnv], "session.token.value"; got != want {
+		t.Fatalf("unexpected token env: got=%q want=%q", got, want)
+	}
+	if got, want := env[qobuzEmailEnv], "user@example.com"; got != want {
+		t.Fatalf("unexpected email env: got=%q want=%q", got, want)
+	}
+	if runtime.GOOS == "windows" {
+		if got := strings.TrimSpace(env["APPDATA"]); got == "" {
+			t.Fatalf("expected APPDATA override, got %q", got)
+		}
+	} else if got := strings.TrimSpace(env["HOME"]); got == "" {
+		t.Fatalf("expected HOME override, got %q", got)
+	}
+}
+
+func TestQobuzCommandEnvironmentIgnoresTokenWhenModeDisabled(t *testing.T) {
+	env, err := qobuzCommandEnvironment(t.TempDir(), "", "", " session.token.value ", "raw", false)
+	if err != nil {
+		t.Fatalf("qobuzCommandEnvironment returned error: %v", err)
+	}
+	if env != nil {
+		t.Fatalf("expected no token environment when workaround is disabled, got %#v", env)
+	}
+}
+
+func TestBuildLRCLIBSearchQueriesSanitizesQobuzAlbumHint(t *testing.T) {
+	queries := buildLRCLIBSearchQueries("04. LEAVING THE CITY", "Rilès", "THE 25TH HOUR (2025) [24B-48kHz]")
+	if len(queries) == 0 {
+		t.Fatalf("expected at least one query")
+	}
+
+	for _, query := range queries {
+		if query.albumName == "" {
+			continue
+		}
+		if query.albumName != "THE 25TH HOUR" {
+			t.Fatalf("unexpected album hint in query: %+v", query)
+		}
+	}
+}
+
 func TestFetchLyricsFromLRCLIBWithHintsUsesArtistForAlbumTracks(t *testing.T) {
 	root := t.TempDir()
 	track1 := filepath.Join(root, "01. Invasion.flac")
@@ -245,7 +298,7 @@ func TestFetchLyricsFromLRCLIBWithHintsUsesArtistForAlbumTracks(t *testing.T) {
 	var requested []string
 	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
 
-	r.fetchLyricsFromLRCLIBWithHints(context.Background(), root, "", "Stupeflip", RunCallbacks{})
+	r.fetchLyricsFromLRCLIBWithHints(context.Background(), root, "", "Stupeflip", "", RunCallbacks{})
 
 	assertFileContains(t, filepath.Join(root, "05. Check da Crou.lrc"), "[00:00.00] Crou")
 	if !containsString(requested, "Stupeflip::Check da Crou") {
@@ -267,7 +320,7 @@ func TestFetchLyricsFromLRCLIBWithHintsIgnoresGenericPlaylistArtistHint(t *testi
 	var requested []string
 	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
 
-	r.fetchLyricsFromLRCLIBWithHints(context.Background(), root, "My Playlist", "Playlists", RunCallbacks{})
+	r.fetchLyricsFromLRCLIBWithHints(context.Background(), root, "My Playlist", "Playlists", "", RunCallbacks{})
 
 	assertFileContains(t, filepath.Join(root, "01. PRESSURE.lrc"), "[00:00.00] Pressure")
 	if containsString(requested, "Playlists::PRESSURE") || containsString(requested, "Playlists::01. PRESSURE") {
@@ -318,11 +371,147 @@ func TestFetchLyricsFromLRCLIBWithHintsUsesMetadataForSingleTrack(t *testing.T) 
 	var requested []string
 	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
 
-	r.fetchLyricsFromLRCLIBWithHints(context.Background(), mediaPath, "GIMS & La Mano 1.9 - PARISIENNE (Clip officiel)", "GIMS", RunCallbacks{})
+	r.fetchLyricsFromLRCLIBWithHints(context.Background(), mediaPath, "GIMS & La Mano 1.9 - PARISIENNE (Clip officiel)", "GIMS", "", RunCallbacks{})
 
 	assertFileContains(t, filepath.Join(root, "GIMS - 20250816 - GIMS & La Mano 1.9 - PARISIENNE (Clip officiel).lrc"), "[00:00.00] From metadata")
 	if !containsString(requested, "GIMS::GIMS & La Mano 1.9 - PARISIENNE (Clip officiel)") {
 		t.Fatalf("expected metadata-assisted query, got %v", requested)
+	}
+}
+
+func TestResolveLyricsSearchHintsAllowsBlankArtistAndAlbumOverrides(t *testing.T) {
+	job := core.JobRequest{
+		SourceKind:            core.SourceYouTube,
+		ContentType:           core.ContentMusic,
+		UseCustomLyricsSearch: true,
+		LyricsSearchTitle:     "Titre manuel",
+		LyricsSearchArtist:    "",
+		LyricsSearchAlbum:     "",
+	}
+	artifact := downloadArtifact{
+		Title:      "Titre auto",
+		SourceName: "Artiste auto",
+	}
+
+	trackHint, artistHint, albumHint := resolveLyricsSearchHints(job, artifact)
+
+	if trackHint != "Titre manuel" {
+		t.Fatalf("unexpected track hint: %q", trackHint)
+	}
+	if artistHint != "" {
+		t.Fatalf("artist hint should stay empty, got %q", artistHint)
+	}
+	if albumHint != "" {
+		t.Fatalf("album hint should stay empty, got %q", albumHint)
+	}
+}
+
+func TestApplyManualLyricsSelectionWritesSyncedLyrics(t *testing.T) {
+	root := t.TempDir()
+	mediaPath := filepath.Join(root, "Chosen Song.webm")
+	if err := os.WriteFile(mediaPath, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write webm failed: %v", err)
+	}
+	r := &Runner{}
+	job := core.JobRequest{
+		SourceKind:               core.SourceYouTube,
+		ContentType:              core.ContentMusic,
+		UseManualLyricsSelection: true,
+		ManualLyricsTrackName:    "Chosen Song",
+		ManualLyricsSynced:       "[00:00.00] Manual line",
+	}
+
+	handled, err := r.applyManualLyricsSelection(job, mediaPath, RunCallbacks{})
+	if err != nil {
+		t.Fatalf("applyManualLyricsSelection returned error: %v", err)
+	}
+	if !handled {
+		t.Fatalf("expected manual lyrics selection to be handled")
+	}
+	assertFileContains(t, filepath.Join(root, "Chosen Song.lrc"), "[00:00.00] Manual line")
+}
+
+func TestFetchLyricsForJobAppliesManualSelectionsBeforeAutomaticFallback(t *testing.T) {
+	root := t.TempDir()
+	introPath := filepath.Join(root, "01. Intro.flac")
+	outroPath := filepath.Join(root, "02. Outro.flac")
+	if err := os.WriteFile(introPath, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write intro failed: %v", err)
+	}
+	if err := os.WriteFile(outroPath, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write outro failed: %v", err)
+	}
+
+	requested := []string{}
+	responses := map[string]lrclibPayload{
+		"Artist Demo::Outro": {syncedLyrics: "[00:00.00] Auto outro"},
+	}
+	r := &Runner{httpClient: newLRCLIBMockClient(t, responses, &requested)}
+	job := core.JobRequest{
+		SourceKind:   core.SourceQobuz,
+		ContentType:  core.ContentMusic,
+		EnableLyrics: true,
+		ManualLyricsSelections: []core.ManualLyricsSelection{
+			{
+				TargetTrackName: "Intro",
+				TrackName:       "Intro",
+				ArtistName:      "Artist Demo",
+				AlbumName:       "Album Demo",
+				SyncedLyrics:    "[00:00.00] Manual intro",
+			},
+		},
+	}
+	artifact := downloadArtifact{
+		MediaPath:   root,
+		Title:       "Album Demo",
+		SourceName:  "Artist Demo",
+		IsDirectory: true,
+	}
+
+	if err := r.fetchLyricsForJob(context.Background(), job, artifact, RunCallbacks{}); err != nil {
+		t.Fatalf("fetchLyricsForJob returned error: %v", err)
+	}
+
+	assertFileContains(t, filepath.Join(root, "01. Intro.lrc"), "[00:00.00] Manual intro")
+	assertFileContains(t, filepath.Join(root, "02. Outro.lrc"), "[00:00.00] Auto outro")
+	if len(requested) == 0 {
+		t.Fatalf("expected LRCLIB fallback requests for the non-manual track")
+	}
+	if requested[0] != "Artist Demo::Outro" {
+		t.Fatalf("unexpected LRCLIB requests: %#v", requested)
+	}
+	for _, value := range requested {
+		if strings.Contains(strings.ToLower(value), "intro") {
+			t.Fatalf("manual track should not trigger LRCLIB fallback, got %#v", requested)
+		}
+	}
+}
+
+func TestSearchLRCLIBCandidatesReturnsSortedResults(t *testing.T) {
+	client := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			body := `[{"trackName":"Chosen Song","artistName":"Chosen Artist","albumName":"Chosen Album","syncedLyrics":"[00:00.00] synced line"},{"trackName":"Chosen Song","artistName":"Other Artist","plainLyrics":"plain line"}]`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}, nil
+		}),
+	}
+	r := &Runner{httpClient: client}
+
+	response, err := r.SearchLRCLIBCandidates(context.Background(), "Chosen Song", "Chosen Artist", "Chosen Album", 8)
+	if err != nil {
+		t.Fatalf("SearchLRCLIBCandidates returned error: %v", err)
+	}
+	if len(response.Results) < 2 {
+		t.Fatalf("expected at least 2 results, got %d", len(response.Results))
+	}
+	if !response.Results[0].HasSynced {
+		t.Fatalf("expected synced result to be ranked first, got %+v", response.Results[0])
+	}
+	if strings.TrimSpace(response.Results[0].Preview) == "" {
+		t.Fatalf("expected preview text on first result")
 	}
 }
 
@@ -558,6 +747,218 @@ func TestDedupeStrings(t *testing.T) {
 	}
 }
 
+func TestParseQobuzDownloadingLabel(t *testing.T) {
+	if got := parseQobuzDownloadingLabel("Downloading: The Monroeville Sound"); got != "The Monroeville Sound" {
+		t.Fatalf("unexpected parsed label: %q", got)
+	}
+	if got := parseQobuzDownloadingLabel("  downloading :  Album Demo  "); got != "Album Demo" {
+		t.Fatalf("unexpected parsed label with spaces: %q", got)
+	}
+	if got := parseQobuzDownloadingLabel("Roadrunner was already downloaded"); got != "" {
+		t.Fatalf("unexpected label for non-downloading line: %q", got)
+	}
+}
+
+func TestParseQobuzDirectoryFromProgressLineUsesAlbumRoot(t *testing.T) {
+	line := "0.00/44.7M /// /Users/test/qobuz/David Guetta/David Guetta - 7 (2018) [24B-44.1kHz]/Disc 2/.24.tmp353k/44.7M"
+	got := parseQobuzDirectoryFromProgressLine(line)
+	want := "/Users/test/qobuz/David Guetta/David Guetta - 7 (2018) [24B-44.1kHz]"
+	if got != want {
+		t.Fatalf("unexpected parsed qobuz directory: got=%q want=%q", got, want)
+	}
+}
+
+func TestIsQobuzDiscDirectory(t *testing.T) {
+	if !isQobuzDiscDirectory("Disc 2") {
+		t.Fatalf("expected disc directory to be detected")
+	}
+	if isQobuzDiscDirectory("Disc bonus") {
+		t.Fatalf("did not expect non-numeric disc directory to be detected")
+	}
+}
+
+func TestDetectQobuzRetryableDownloadError(t *testing.T) {
+	logOutput := "Error getting release: ('Connection broken: IncompleteRead(1 bytes read, 52476484 more expected)', IncompleteRead(1 bytes read, 52476484 more expected)). Skipping...\n"
+	if got := detectQobuzRetryableDownloadError(logOutput); got != "IncompleteRead" {
+		t.Fatalf("unexpected retry reason: %q", got)
+	}
+	if got := detectQobuzRetryableDownloadError("Error getting release: 404 not found"); got != "" {
+		t.Fatalf("unexpected retry reason for non-retryable error: %q", got)
+	}
+}
+
+func TestDetectQobuzOGCoverTooLargeError(t *testing.T) {
+	logOutput := "Error embedding image: downloaded cover size too large to embed. turn off `og_cover` to avoid error\n"
+	if !detectQobuzOGCoverTooLargeError(logOutput) {
+		t.Fatalf("expected og cover embed failure to be detected")
+	}
+	if detectQobuzOGCoverTooLargeError("Error embedding image: some other tag failure") {
+		t.Fatalf("unexpected og cover detection for unrelated embedding error")
+	}
+}
+
+func TestQobuzArgsWithoutOGCover(t *testing.T) {
+	args := []string{"dl", "--embed-art", "--og-cover", "--og-cover=true", "--no-db", "https://play.qobuz.com/album/123456"}
+	got := qobuzArgsWithoutOGCover(args)
+	if qobuzArgsContainOGCover(got) {
+		t.Fatalf("expected og-cover args to be removed, got %v", got)
+	}
+	if len(got) != 4 {
+		t.Fatalf("unexpected filtered args length: %d (%v)", len(got), got)
+	}
+}
+
+func TestRunQobuzDownloadCommandRetriesAfterIncompleteRead(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("wrapper qobuz-dl de test non implemente sur Windows")
+	}
+
+	binDir := t.TempDir()
+	stateFile := filepath.Join(binDir, "attempts.txt")
+	writeQobuzTestWrapper(t, filepath.Join(binDir, "qobuz-dl"), "retry-once", stateFile)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	r := &Runner{processRunner: &sys.Runner{}}
+	var logs strings.Builder
+
+	result, err := r.runQobuzDownloadCommand(context.Background(), []string{"dl", "https://play.qobuz.com/album/123456"}, binDir, "", "", "", false, RunCallbacks{
+		OnLog: func(line string) {
+			logs.WriteString(line)
+		},
+	})
+	if err != nil {
+		t.Fatalf("runQobuzDownloadCommand returned error: %v", err)
+	}
+	if result.Label != "Album Demo" {
+		t.Fatalf("unexpected download label: %q", result.Label)
+	}
+
+	rawAttempts, err := os.ReadFile(stateFile)
+	if err != nil {
+		t.Fatalf("read attempts failed: %v", err)
+	}
+	if strings.TrimSpace(string(rawAttempts)) != "2" {
+		t.Fatalf("expected 2 qobuz attempts, got %q", strings.TrimSpace(string(rawAttempts)))
+	}
+
+	logOutput := logs.String()
+	if !strings.Contains(logOutput, "Erreur transitoire detectee (IncompleteRead). Reprise automatique du telechargement, tentative 2") {
+		t.Fatalf("expected retry log in output, got: %s", logOutput)
+	}
+}
+
+func TestRunQobuzDownloadCommandStopsAfterMaxRetryableAttempts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("wrapper qobuz-dl de test non implemente sur Windows")
+	}
+
+	binDir := t.TempDir()
+	stateFile := filepath.Join(binDir, "attempts.txt")
+	writeQobuzTestWrapper(t, filepath.Join(binDir, "qobuz-dl"), "retry-always", stateFile)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	r := &Runner{processRunner: &sys.Runner{}}
+	_, err := r.runQobuzDownloadCommand(context.Background(), []string{"dl", "https://play.qobuz.com/album/123456"}, binDir, "", "", "", false, RunCallbacks{})
+	if err == nil {
+		t.Fatal("expected retry exhaustion error")
+	}
+	if !strings.Contains(err.Error(), "telechargement Qobuz interrompu apres 3 tentatives") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	rawAttempts, readErr := os.ReadFile(stateFile)
+	if readErr != nil {
+		t.Fatalf("read attempts failed: %v", readErr)
+	}
+	if strings.TrimSpace(string(rawAttempts)) != "3" {
+		t.Fatalf("expected 3 qobuz attempts, got %q", strings.TrimSpace(string(rawAttempts)))
+	}
+}
+
+func TestRunQobuzDownloadCommandRetriesWithoutOGCoverAfterCoverTooLargeError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("wrapper qobuz-dl de test non implemente sur Windows")
+	}
+
+	binDir := t.TempDir()
+	stateFile := filepath.Join(binDir, "attempts.txt")
+	writeQobuzTestWrapper(t, filepath.Join(binDir, "qobuz-dl"), "fallback-og-cover", stateFile)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	r := &Runner{processRunner: &sys.Runner{}}
+	var logs strings.Builder
+
+	result, err := r.runQobuzDownloadCommand(context.Background(), []string{"dl", "--embed-art", "--og-cover", "https://play.qobuz.com/album/123456"}, binDir, "", "", "", false, RunCallbacks{
+		OnLog: func(line string) {
+			logs.WriteString(line)
+		},
+	})
+	if err != nil {
+		t.Fatalf("runQobuzDownloadCommand returned error: %v", err)
+	}
+	if result.Label != "Album Demo" {
+		t.Fatalf("unexpected download label: %q", result.Label)
+	}
+
+	rawAttempts, err := os.ReadFile(stateFile)
+	if err != nil {
+		t.Fatalf("read attempts failed: %v", err)
+	}
+	if strings.TrimSpace(string(rawAttempts)) != "2" {
+		t.Fatalf("expected 2 qobuz attempts, got %q", strings.TrimSpace(string(rawAttempts)))
+	}
+
+	logOutput := logs.String()
+	if !strings.Contains(logOutput, "Cover trop volumineuse pour l'embed detectee. Reprise automatique sans --og-cover, tentative 2") {
+		t.Fatalf("expected og-cover fallback log in output, got: %s", logOutput)
+	}
+}
+
+func TestRunQobuzDownloadCommandCapturesDirectoryFromProgressLine(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("wrapper qobuz-dl de test non implemente sur Windows")
+	}
+
+	binDir := t.TempDir()
+	stateFile := filepath.Join(binDir, "attempts.txt")
+	writeQobuzTestWrapper(t, filepath.Join(binDir, "qobuz-dl"), "emit-dir", stateFile)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	r := &Runner{processRunner: &sys.Runner{}}
+	result, err := r.runQobuzDownloadCommand(context.Background(), []string{"dl", "https://play.qobuz.com/album/123456"}, binDir, "", "", "", false, RunCallbacks{})
+	if err != nil {
+		t.Fatalf("runQobuzDownloadCommand returned error: %v", err)
+	}
+	wantDir := "/tmp/qobuz/Artist Demo/Artist Demo - Album Demo (2026) [24B-44.1kHz]"
+	if result.Directory != wantDir {
+		t.Fatalf("unexpected download directory: got=%q want=%q", result.Directory, wantDir)
+	}
+}
+
+func TestDiscoverQobuzDirectoryByDownloadLabelPrefersMatchingDirectory(t *testing.T) {
+	root := t.TempDir()
+	monroevilleDir := filepath.Join(root, "Rilès - The Monroeville Sound (2023) [16B-44.1kHz]")
+	hourDir := filepath.Join(root, "Rilès - THE 25TH HOUR (2025) [24B-48kHz]")
+	if err := os.MkdirAll(monroevilleDir, 0o755); err != nil {
+		t.Fatalf("mkdir monroeville failed: %v", err)
+	}
+	if err := os.MkdirAll(hourDir, 0o755); err != nil {
+		t.Fatalf("mkdir 25th hour failed: %v", err)
+	}
+	base := time.Now().UTC()
+	if err := os.Chtimes(monroevilleDir, base.Add(-2*time.Hour), base.Add(-2*time.Hour)); err != nil {
+		t.Fatalf("chtimes monroeville failed: %v", err)
+	}
+	if err := os.Chtimes(hourDir, base, base); err != nil {
+		t.Fatalf("chtimes 25th hour failed: %v", err)
+	}
+
+	got := discoverQobuzDirectoryByDownloadLabel(root, "The Monroeville Sound")
+	if !samePath(got, monroevilleDir) {
+		t.Fatalf("unexpected directory selection: got=%q want=%q", got, monroevilleDir)
+	}
+}
+
 func TestShouldTranslateAllowsSingleTranscript(t *testing.T) {
 	job := core.JobRequest{
 		ContentType:               core.ContentVideo,
@@ -685,6 +1086,79 @@ func TestFindPreferredSidecarForCompletionFallsBackToAnyTaggedVariant(t *testing
 	}
 }
 
+func TestBuildWhisperArgsIncludesAdvancedOptions(t *testing.T) {
+	job := core.JobRequest{
+		TranscriptionLanguage:        "fr",
+		WhisperVADEnabled:            true,
+		WhisperVADThreshold:          0.62,
+		WhisperVADMinSpeechDuration:  320,
+		WhisperVADMinSilenceDuration: 180,
+		WhisperVADSpeechPad:          80,
+		WhisperMaxSegmentLength:      42,
+		WhisperSplitOnWord:           true,
+		WhisperInitialPrompt:         "Podcast demo",
+		WhisperCarryInitialPrompt:    true,
+		WhisperExtraArguments:        "--print-progress",
+	}
+	args, artifacts, err := buildWhisperArgs(job, "/tmp/input.wav", "/tmp/ggml-small.en-tdrz.bin", "/tmp/ggml-silero-v6.2.0.bin", whisperInvocationOptions{
+		OutputBase:         "/tmp/transcription.tdrz",
+		GenerateTranscript: true,
+		GenerateJSONFull:   true,
+		Tinydiarize:        true,
+	})
+	if err != nil {
+		t.Fatalf("buildWhisperArgs returned error: %v", err)
+	}
+	joined := strings.Join(args, " ")
+	for _, expected := range []string{
+		"--vad",
+		"--vad-model /tmp/ggml-silero-v6.2.0.bin",
+		"--vad-threshold 0.62",
+		"--vad-min-speech-duration-ms 320",
+		"--vad-min-silence-duration-ms 180",
+		"--vad-speech-pad-ms 80",
+		"-ml 42",
+		"-sow",
+		"--prompt Podcast demo",
+		"--carry-initial-prompt",
+		"-ojf",
+		"-tdrz",
+		"--print-progress",
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected args to contain %q, got=%q", expected, joined)
+		}
+	}
+	if artifacts.JSONPath != "/tmp/transcription.tdrz.json" {
+		t.Fatalf("unexpected json artifact path: %q", artifacts.JSONPath)
+	}
+	if artifacts.TranscriptPath != "/tmp/transcription.tdrz.txt" {
+		t.Fatalf("unexpected transcript artifact path: %q", artifacts.TranscriptPath)
+	}
+}
+
+func TestBuildWhisperArgsRejectsVADWithoutModel(t *testing.T) {
+	_, _, err := buildWhisperArgs(core.JobRequest{WhisperVADEnabled: true}, "/tmp/input.wav", "/tmp/ggml-base.bin", "", whisperInvocationOptions{
+		OutputBase:         "/tmp/transcription",
+		GenerateSubtitle:   true,
+		GenerateTranscript: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "VAD activé") {
+		t.Fatalf("expected explicit VAD validation error, got=%v", err)
+	}
+}
+
+func TestBuildWhisperArgsRejectsTinydiarizeWithoutCompatibleModel(t *testing.T) {
+	_, _, err := buildWhisperArgs(core.JobRequest{}, "/tmp/input.wav", "/tmp/ggml-base.bin", "", whisperInvocationOptions{
+		OutputBase:       "/tmp/transcription.tdrz",
+		GenerateJSONFull: true,
+		Tinydiarize:      true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "*-tdrz") {
+		t.Fatalf("expected explicit tinydiarize validation error, got=%v", err)
+	}
+}
+
 func TestFindExistingRSSOutputMatchesSelectedEpisode(t *testing.T) {
 	outputRoot := t.TempDir()
 	episodeDir := filepath.Join(outputRoot, "RSS", "Podcast Demo", "Episode 01")
@@ -747,6 +1221,56 @@ func TestFindExistingRSSOutputMatchesSelectedEpisode(t *testing.T) {
 	}
 	if !samePath(got.TranscriptPath, transcriptPath) {
 		t.Fatalf("unexpected transcript path: got=%q want=%q", got.TranscriptPath, transcriptPath)
+	}
+}
+
+func TestFindExistingRSSOutputDoesNotReuseDifferentEpisodeFromSamePodcast(t *testing.T) {
+	outputRoot := t.TempDir()
+	episodeDir := filepath.Join(outputRoot, "RSS", "Podcast Demo", "Episode 01")
+	if err := os.MkdirAll(episodeDir, 0o755); err != nil {
+		t.Fatalf("mkdir failed: %v", err)
+	}
+
+	mediaPath := filepath.Join(episodeDir, "Episode 01.mp3")
+	subtitlePath := filepath.Join(episodeDir, "Episode 01.srt")
+	transcriptPath := filepath.Join(episodeDir, "Episode 01.txt")
+	metadataPath := filepath.Join(episodeDir, "Episode 01.json")
+	for _, file := range []string{mediaPath, subtitlePath, transcriptPath} {
+		if err := os.WriteFile(file, []byte("demo"), 0o644); err != nil {
+			t.Fatalf("write artifact failed: %v", err)
+		}
+	}
+	meta := MediaMetadata{
+		Title:            "Episode 01",
+		SourceName:       "Podcast Demo",
+		SourceKind:       core.SourceRSS,
+		OriginalInputURL: "https://cdn.example.com/podcast/episode-01.mp3",
+		MediaPath:        mediaPath,
+		SubtitlePath:     subtitlePath,
+		TranscriptPath:   transcriptPath,
+	}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal metadata failed: %v", err)
+	}
+	if err := os.WriteFile(metadataPath, data, 0o644); err != nil {
+		t.Fatalf("write metadata failed: %v", err)
+	}
+
+	r := &Runner{}
+	job := core.JobRequest{
+		SourceKind: core.SourceRSS,
+		InputURL:   "https://cdn.example.com/podcast/episode-02.mp3",
+		SelectedRSSEpisode: &core.RSSEpisodeSelection{
+			Title:        "Episode 02",
+			PodcastTitle: "Podcast Demo",
+			MediaURL:     "https://cdn.example.com/podcast/episode-02.mp3",
+		},
+	}
+
+	got := r.findExistingRSSOutput(job, outputRoot)
+	if got.MediaPath != "" || got.SubtitlePath != "" || got.TranscriptPath != "" {
+		t.Fatalf("expected no reuse for a different RSS episode, got=%+v", got)
 	}
 }
 
@@ -816,6 +1340,21 @@ func TestShouldFetchLyricsSupportsYouTubeMusic(t *testing.T) {
 	}
 }
 
+func TestShouldTranscribeSupportsMusicWhenEnabled(t *testing.T) {
+	job := core.JobRequest{
+		SourceKind:          core.SourceYouTube,
+		ContentType:         core.ContentMusic,
+		EnableTranscription: true,
+		EnableTranslation:   true,
+	}
+	if !shouldTranscribe(job) {
+		t.Fatalf("expected music jobs to support transcription when enabled")
+	}
+	if !shouldTranslate(job, "/tmp/transcription.srt", "/tmp/transcription.txt") {
+		t.Fatalf("expected translated subtitles/transcript to stay available for music jobs")
+	}
+}
+
 func TestShouldFetchLyricsRequiresMusicAndEnabledFlag(t *testing.T) {
 	job := core.JobRequest{
 		SourceKind:   core.SourceQobuz,
@@ -878,6 +1417,84 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func TestQobuzRunnerHelperProcess(t *testing.T) {
+	helperIndex := -1
+	for i, arg := range os.Args {
+		if arg == qobuzRunnerHelperFlag {
+			helperIndex = i
+			break
+		}
+	}
+	if helperIndex == -1 {
+		return
+	}
+	if helperIndex+2 >= len(os.Args) {
+		os.Exit(2)
+	}
+
+	mode := os.Args[helperIndex+1]
+	stateFile := os.Args[helperIndex+2]
+	attempt := readHelperAttempt(stateFile) + 1
+	if err := os.WriteFile(stateFile, []byte(strconv.Itoa(attempt)), 0o644); err != nil {
+		os.Exit(2)
+	}
+	helperArgs := os.Args[helperIndex+3:]
+
+	switch mode {
+	case "retry-once":
+		_, _ = os.Stdout.WriteString("Downloading: Album Demo\n")
+		if attempt == 1 {
+			_, _ = os.Stdout.WriteString("Error getting release: ('Connection broken: IncompleteRead(1 bytes read, 52476484 more expected)', IncompleteRead(1 bytes read, 52476484 more expected)). Skipping...\n")
+		}
+		os.Exit(0)
+	case "retry-always":
+		_, _ = os.Stdout.WriteString("Downloading: Album Demo\n")
+		_, _ = os.Stdout.WriteString("Error getting release: ('Connection broken: IncompleteRead(1 bytes read, 52476484 more expected)', IncompleteRead(1 bytes read, 52476484 more expected)). Skipping...\n")
+		os.Exit(0)
+	case "fallback-og-cover":
+		_, _ = os.Stdout.WriteString("Downloading: Album Demo\n")
+		if qobuzArgsContainOGCover(helperArgs) {
+			_, _ = os.Stdout.WriteString("Error embedding image: downloaded cover size too large to embed. turn off `og_cover` to avoid error\n")
+			os.Exit(1)
+		}
+		os.Exit(0)
+	case "emit-dir":
+		_, _ = os.Stdout.WriteString("Downloading: Album Demo\n")
+		_, _ = os.Stdout.WriteString("0.00/44.7M /// /tmp/qobuz/Artist Demo/Artist Demo - Album Demo (2026) [24B-44.1kHz]/Disc 2/.24.tmp353k/44.7M\n")
+		os.Exit(0)
+	default:
+		os.Exit(2)
+	}
+}
+
+func writeQobuzTestWrapper(t *testing.T, path, mode, stateFile string) {
+	t.Helper()
+	content := "#!/bin/sh\nexec " + shellQuote(os.Args[0]) +
+		" -test.run=TestQobuzRunnerHelperProcess -- " +
+		shellQuote(qobuzRunnerHelperFlag) + " " +
+		shellQuote(mode) + " " +
+		shellQuote(stateFile) + ` "$@"` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+		t.Fatalf("write qobuz test wrapper failed: %v", err)
+	}
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
+func readHelperAttempt(path string) int {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		return 0
+	}
+	return value
 }
 
 func assertFileContains(t *testing.T, path string, want string) {

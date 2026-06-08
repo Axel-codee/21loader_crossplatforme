@@ -28,6 +28,14 @@ Selon `internal/core/models.go` et `internal/jobs/runner.go`:
 - le pipeline remonte maintenant explicitement les etapes `reutilisees` en mode `completer`, au-dela des seuls logs texte
 - l'UI des jobs affiche maintenant le vrai `currentStepProgress` pendant `transcription`, ce qui evite un pourcentage global fige autour de `43%`
 - un doublon logique exact est refuse a l'enqueue quand la collision est en mode `completer`; pour relancer volontairement la meme source, il faut choisir `rename`/`overwrite` ou changer le nom cible
+- la transcription continue de convertir le media en WAV mono 16 kHz temporaire avant l'appel a `whisper-cli`; dans ce lot, cela justifie l'usage de `tinydiarize` mais pas de `--diarize`
+- les options Whisper avancees vivent maintenant dans le pipeline backend: VAD (`--vad` + modele Silero), segmentation SRT (`-ml`, `-sow`), prompt initial (`--prompt`, `--carry-initial-prompt`), JSON complet (`-ojf`) et `tinydiarize` (`-tdrz`)
+- quand `tinydiarize` est active, le pipeline garde les sorties standard `.txt` / `.srt` comme artefacts principaux et lance un second passage dedie pour produire le JSON diarise, puis optionnellement des variantes `.whisper-tdrz.txt` et `.whisper-tdrz.srt`
+- la diarisation est maintenant selectionnee via un provider generique (`none`, `tinydiarize`, `pyannote`) avec compatibilite implicite pour les anciens reglages bases uniquement sur `WhisperTinydiarizeEnabled`
+- quand `pyannote` est active, le pipeline force en interne le JSON Whisper segmente si necessaire, lance un wrapper Python local sur le WAV 16 kHz temporaire, puis fusionne le JSON Whisper et le JSON pyannote en attribuant un speaker dominant a chaque segment Whisper
+- la priorite du prompt Whisper est stricte: prompt de job, sinon prompt memorise sur le podcast RSS favori, sinon prompt global moteur
+- les nouveaux artefacts Whisper sont organises avec un nommage stable: `.whisper-full.json`, `.whisper-tdrz.json`, `.whisper-tdrz.txt`, `.whisper-tdrz.srt`, `.pyannote.json`, `.pyannote.txt`, `.pyannote.srt`; ils remontent dans `JobResult`, `JobResultDTO` et `MediaMetadata`
+- la v1 `pyannote` reste volontairement a la granularite des segments Whisper: elle n'effectue pas de decoupage mot a mot ni de partage fin d'un meme segment entre plusieurs speakers
 
 ## Tests notables reperes
 

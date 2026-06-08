@@ -1,5 +1,12 @@
 # Log du wiki
 
+## [2026-06-08] feat | commande terminal et updater GitHub Releases
+
+- Ajout d'une CLI `21loader` avec sous-commande `21loader update`.
+- Ajout d'un updater qui selectionne l'asset compatible dans la derniere GitHub Release.
+- Mise a jour des scripts de packaging Windows/macOS et ajout d'un workflow GitHub Actions de publication.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-15`.
+
 ## [2026-04-07] bootstrap | creation du wiki projet
 
 - Creation de la structure `wiki/` avec index, schema, log et pages de synthese.
@@ -40,6 +47,19 @@
 - Ajout d'une source de connaissance sur l'integration du logo web et du favicon navigateur.
 - Mise a jour du domaine [frontend-ui.md](./domains/frontend-ui.md) avec les points d'ancrage techniques du branding web.
 
+## [2026-04-17] feat | favoris RSS dans le formulaire de job
+
+- Mise a jour de `internal/core/models.go` et `internal/jobs/coordinator.go` pour persister une liste de podcasts RSS favoris dans les reglages web existants.
+- Mise a jour de `web/index.html` pour ajouter un bouton d'ajout/retrait de favori a droite de l'URL RSS et une modale `Podcasts preferes` qui remplit le flux puis ouvre la selection d'episodes.
+- Ajout de tests backend sur la normalisation des favoris RSS et synchronisation de `TODO.md` ainsi que du backlog wiki.
+
+## [2026-04-17] feat | options whisper avancees et modeles VAD
+
+- Extension de `internal/core/models.go`, `internal/jobs/coordinator.go`, `internal/jobs/runner.go` et `internal/jobs/organizer.go` pour supporter VAD, segmentation SRT, prompt initial, JSON complet Whisper et tinydiarize avec artefacts supplementaires.
+- Ajout d'un gestionnaire de modeles VAD dedie (`internal/services/vad_models.go`, routes `/api/whisper/vad-models*`) sur le meme principe que le gestionnaire de modeles Whisper.
+- Mise a jour de `web/index.html` pour exposer tous les reglages Whisper cote job et cote `Reglages moteur`, ajouter le manager VAD et permettre de memoriser un prompt Whisper par podcast RSS favori.
+- Ajout de tests sur l'assemblage des arguments Whisper, la priorite `job > podcast > global`, la persistance des nouveaux reglages et l'organisation des nouveaux artefacts.
+
 ## [2026-04-10] maintain | split UI creation suivi
 
 - Mise a jour de `TODO.md` pour refleter le split de l'interface telechargement entre `Ajouter un job` et `Jobs en cours`.
@@ -61,3 +81,9 @@
 - Mise a jour de `web/index.html` pour afficher la progression reelle de l'etape `transcription` a partir de `currentStepProgress`, plutot qu'un pourcentage global du pipeline fige autour de `43%`.
 - Mise a jour de `internal/jobs/coordinator.go` pour refuser l'ajout d'un job logiquement identique quand la collision est en mode `completer`.
 - Synchronisation de `TODO.md`, du backlog wiki et du domaine [jobs-pipeline.md](./domains/jobs-pipeline.md).
+
+## [2026-05-02] feat | diarisation pyannote additive
+
+- Extension de `internal/core/models.go`, `internal/jobs/coordinator.go`, `internal/jobs/runner.go`, `internal/jobs/organizer.go` et `internal/services/diagnostics.go` pour introduire un provider de diarisation generique (`none`, `tinydiarize`, `pyannote`) avec compatibilite implicite pour les anciens reglages `tinydiarize`.
+- Ajout d'un runtime Python dedie `pyannote` (`internal/util/pyannote.go`), d'un wrapper local `assets/scripts/pyannote_diarize.py`, d'un merge segment-par-segment Whisper/pyannote et de nouveaux artefacts `.pyannote.json/.txt/.srt` separes des artefacts `tinydiarize`.
+- Mise a jour de `web/index.html` pour passer a un bloc `Diarisation` generique, ajouter la carte de preparation `Pyannote` dans `Reglages`, griser l'option tant que le runtime/acces modele n'est pas pret, puis synchroniser `TODO.md` et les domaines wiki relies.

@@ -3,6 +3,8 @@ package services
 import (
 	"bufio"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,9 +21,16 @@ import (
 )
 
 const qobuzJSONMarker = "__LOADER21_QOBUZ_JSON__"
+const qobuzErrorMarker = "__LOADER21_QOBUZ_ERROR__"
+const qobuzEmailEnv = "LOADER21_QOBUZ_EMAIL"
+const qobuzPasswordRawEnv = "LOADER21_QOBUZ_PASSWORD_RAW"
+const qobuzPasswordMD5Env = "LOADER21_QOBUZ_PASSWORD_MD5"
+const qobuzUserAuthTokenEnv = "LOADER21_QOBUZ_USER_AUTH_TOKEN"
+const qobuzDisableTokenAuthEnv = "LOADER21_QOBUZ_DISABLE_TOKEN_AUTH"
 
 type QobuzService struct {
 	runner         *sys.Runner
+	authScript     string
 	artistScript   string
 	searchScript   string
 	tracksScript   string
@@ -31,11 +40,18 @@ type QobuzService struct {
 func NewQobuzService(r *sys.Runner, baseDir string) *QobuzService {
 	return &QobuzService{
 		runner:         r,
+		authScript:     filepath.Join(baseDir, "assets", "scripts", "qobuz_auth_check.py"),
 		artistScript:   filepath.Join(baseDir, "assets", "scripts", "qobuz_artist_catalog.py"),
 		searchScript:   filepath.Join(baseDir, "assets", "scripts", "qobuz_artist_search.py"),
 		tracksScript:   filepath.Join(baseDir, "assets", "scripts", "qobuz_album_tracks.py"),
 		playlistScript: filepath.Join(baseDir, "assets", "scripts", "qobuz_playlist_catalog.py"),
 	}
+}
+
+type qobuzAuthCheckScriptOutput struct {
+	MembershipLabel string `json:"membership_label"`
+	AuthMode        string `json:"auth_mode"`
+	UserAuthToken   string `json:"user_auth_token"`
 }
 
 type qobuzArtistScriptOutput struct {
@@ -118,7 +134,7 @@ type qobuzPlaylistScriptOutput struct {
 	} `json:"artists"`
 }
 
-func (s *QobuzService) SearchArtists(ctx context.Context, query string, limit int, qobuzEmail, qobuzPassword string) (core.QobuzArtistSearchAPIResponse, error) {
+func (s *QobuzService) SearchArtists(ctx context.Context, query string, limit int, qobuzEmail, qobuzPassword, qobuzUserAuthToken string, useUserAuthToken bool) (core.QobuzArtistSearchAPIResponse, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return core.QobuzArtistSearchAPIResponse{}, fmt.Errorf("recherche artiste Qobuz invalide")
@@ -129,7 +145,7 @@ func (s *QobuzService) SearchArtists(ctx context.Context, query string, limit in
 	if limit > 50 {
 		limit = 50
 	}
-	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword); err != nil {
+	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken); err != nil {
 		return core.QobuzArtistSearchAPIResponse{}, err
 	}
 	python, err := resolveQobuzPythonRuntime()
@@ -140,10 +156,11 @@ func (s *QobuzService) SearchArtists(ctx context.Context, query string, limit in
 	output, err := s.runner.Run(ctx, sys.RunOptions{
 		Executable:    python.Exec,
 		Args:          args,
+		Environment:   qobuzScriptEnvironment(qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken),
 		CaptureOutput: true,
 	})
 	if err != nil {
-		return core.QobuzArtistSearchAPIResponse{}, fmt.Errorf("la recherche d'artistes Qobuz a echoue: %w", err)
+		return core.QobuzArtistSearchAPIResponse{}, wrapQobuzProcessError("la recherche d'artistes Qobuz a echoue", output, err)
 	}
 	jsonPayload, ok := extractQobuzJSON(output)
 	if !ok {
@@ -203,7 +220,57 @@ func (s *QobuzService) SearchArtists(ctx context.Context, query string, limit in
 	return core.QobuzArtistSearchAPIResponse{Artists: artists}, nil
 }
 
-func (s *QobuzService) FetchArtistCatalog(ctx context.Context, artistURL, qobuzEmail, qobuzPassword string) (core.QobuzArtistCatalogAPIResponse, error) {
+func (s *QobuzService) VerifyCredentials(ctx context.Context, qobuzEmail, qobuzPassword, qobuzUserAuthToken string, useUserAuthToken bool) (core.QobuzCredentialsCheckAPIResponse, error) {
+	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken); err != nil {
+		return core.QobuzCredentialsCheckAPIResponse{}, err
+	}
+	python, err := resolveQobuzPythonRuntime()
+	if err != nil {
+		return core.QobuzCredentialsCheckAPIResponse{}, err
+	}
+	args := append(append([]string{}, python.PrefixArgs...), s.authScript)
+	output, err := s.runner.Run(ctx, sys.RunOptions{
+		Executable:    python.Exec,
+		Args:          args,
+		Environment:   qobuzScriptEnvironment(qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken),
+		CaptureOutput: true,
+	})
+	if err != nil {
+		return core.QobuzCredentialsCheckAPIResponse{}, wrapQobuzProcessError("la verification des identifiants Qobuz a echoue", output, err)
+	}
+	jsonPayload, ok := extractQobuzJSON(output)
+	if !ok {
+		return core.QobuzCredentialsCheckAPIResponse{}, fmt.Errorf("impossible de verifier les identifiants Qobuz")
+	}
+	var parsed qobuzAuthCheckScriptOutput
+	if err := json.Unmarshal([]byte(jsonPayload), &parsed); err != nil {
+		return core.QobuzCredentialsCheckAPIResponse{}, fmt.Errorf("impossible de verifier les identifiants Qobuz")
+	}
+
+	email := strings.TrimSpace(qobuzEmail)
+	authMode := strings.TrimSpace(parsed.AuthMode)
+	message := "Connexion Qobuz valide."
+	if authMode == "token" {
+		message = "Connexion Qobuz valide via token de session."
+	} else if email != "" {
+		message = "Connexion Qobuz valide pour " + email + "."
+	}
+	membership := strings.TrimSpace(parsed.MembershipLabel)
+	if membership != "" {
+		message += " Abonnement: " + membership + "."
+	}
+
+	return core.QobuzCredentialsCheckAPIResponse{
+		OK:                     true,
+		Message:                message,
+		Email:                  email,
+		MembershipLabel:        membership,
+		AuthMode:               authMode,
+		RefreshedUserAuthToken: strings.TrimSpace(parsed.UserAuthToken),
+	}, nil
+}
+
+func (s *QobuzService) FetchArtistCatalog(ctx context.Context, artistURL, qobuzEmail, qobuzPassword, qobuzUserAuthToken string, useUserAuthToken bool) (core.QobuzArtistCatalogAPIResponse, error) {
 	rt, ok := util.QobuzResourceTypeFromURL(artistURL)
 	if !ok || rt != util.QobuzArtist {
 		return core.QobuzArtistCatalogAPIResponse{}, fmt.Errorf("URL artiste Qobuz invalide")
@@ -212,7 +279,7 @@ func (s *QobuzService) FetchArtistCatalog(ctx context.Context, artistURL, qobuzE
 	if !ok || artistID == "" {
 		return core.QobuzArtistCatalogAPIResponse{}, fmt.Errorf("URL artiste Qobuz invalide")
 	}
-	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword); err != nil {
+	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken); err != nil {
 		return core.QobuzArtistCatalogAPIResponse{}, err
 	}
 	python, err := resolveQobuzPythonRuntime()
@@ -223,10 +290,11 @@ func (s *QobuzService) FetchArtistCatalog(ctx context.Context, artistURL, qobuzE
 	output, err := s.runner.Run(ctx, sys.RunOptions{
 		Executable:    python.Exec,
 		Args:          args,
+		Environment:   qobuzScriptEnvironment(qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken),
 		CaptureOutput: true,
 	})
 	if err != nil {
-		return core.QobuzArtistCatalogAPIResponse{}, fmt.Errorf("la recuperation de la discographie Qobuz a echoue: %w", err)
+		return core.QobuzArtistCatalogAPIResponse{}, wrapQobuzProcessError("la recuperation de la discographie Qobuz a echoue", output, err)
 	}
 	jsonPayload, ok := extractQobuzJSON(output)
 	if !ok {
@@ -268,12 +336,12 @@ func (s *QobuzService) FetchArtistCatalog(ctx context.Context, artistURL, qobuzE
 	return core.QobuzArtistCatalogAPIResponse{ArtistName: artist, Albums: albums}, nil
 }
 
-func (s *QobuzService) FetchAlbumTracks(ctx context.Context, albumID, qobuzEmail, qobuzPassword string) (core.QobuzAlbumTracksAPIResponse, error) {
+func (s *QobuzService) FetchAlbumTracks(ctx context.Context, albumID, qobuzEmail, qobuzPassword, qobuzUserAuthToken string, useUserAuthToken bool) (core.QobuzAlbumTracksAPIResponse, error) {
 	albumID = strings.TrimSpace(albumID)
 	if albumID == "" {
 		return core.QobuzAlbumTracksAPIResponse{}, fmt.Errorf("identifiant d'album Qobuz invalide")
 	}
-	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword); err != nil {
+	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken); err != nil {
 		return core.QobuzAlbumTracksAPIResponse{}, err
 	}
 	python, err := resolveQobuzPythonRuntime()
@@ -284,10 +352,11 @@ func (s *QobuzService) FetchAlbumTracks(ctx context.Context, albumID, qobuzEmail
 	output, err := s.runner.Run(ctx, sys.RunOptions{
 		Executable:    python.Exec,
 		Args:          args,
+		Environment:   qobuzScriptEnvironment(qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken),
 		CaptureOutput: true,
 	})
 	if err != nil {
-		return core.QobuzAlbumTracksAPIResponse{}, fmt.Errorf("la recuperation des titres Qobuz a echoue: %w", err)
+		return core.QobuzAlbumTracksAPIResponse{}, wrapQobuzProcessError("la recuperation des titres Qobuz a echoue", output, err)
 	}
 	jsonPayload, ok := extractQobuzJSON(output)
 	if !ok {
@@ -317,7 +386,7 @@ func (s *QobuzService) FetchAlbumTracks(ctx context.Context, albumID, qobuzEmail
 	return core.QobuzAlbumTracksAPIResponse{AlbumID: albumID, Tracks: tracks}, nil
 }
 
-func (s *QobuzService) FetchPlaylistCatalog(ctx context.Context, playlistURL, qobuzEmail, qobuzPassword string) (core.QobuzPlaylistCatalogAPIResponse, error) {
+func (s *QobuzService) FetchPlaylistCatalog(ctx context.Context, playlistURL, qobuzEmail, qobuzPassword, qobuzUserAuthToken string, useUserAuthToken bool) (core.QobuzPlaylistCatalogAPIResponse, error) {
 	rt, ok := util.QobuzResourceTypeFromURL(playlistURL)
 	if !ok || rt != util.QobuzPlaylist {
 		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("URL playlist Qobuz invalide")
@@ -326,7 +395,7 @@ func (s *QobuzService) FetchPlaylistCatalog(ctx context.Context, playlistURL, qo
 	if !ok || playlistID == "" {
 		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("URL playlist Qobuz invalide")
 	}
-	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword); err != nil {
+	if err := s.ensureConfigured(ctx, qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken); err != nil {
 		return core.QobuzPlaylistCatalogAPIResponse{}, err
 	}
 	python, err := resolveQobuzPythonRuntime()
@@ -337,10 +406,11 @@ func (s *QobuzService) FetchPlaylistCatalog(ctx context.Context, playlistURL, qo
 	output, err := s.runner.Run(ctx, sys.RunOptions{
 		Executable:    python.Exec,
 		Args:          args,
+		Environment:   qobuzScriptEnvironment(qobuzEmail, qobuzPassword, qobuzUserAuthToken, useUserAuthToken),
 		CaptureOutput: true,
 	})
 	if err != nil {
-		return core.QobuzPlaylistCatalogAPIResponse{}, fmt.Errorf("la recuperation de la playlist Qobuz a echoue: %w", err)
+		return core.QobuzPlaylistCatalogAPIResponse{}, wrapQobuzProcessError("la recuperation de la playlist Qobuz a echoue", output, err)
 	}
 	jsonPayload, ok := extractQobuzJSON(output)
 	if !ok {
@@ -466,7 +536,16 @@ func (s *QobuzService) FetchPlaylistCatalog(ctx context.Context, playlistURL, qo
 	}, nil
 }
 
-func (s *QobuzService) ensureConfigured(ctx context.Context, email, password string) error {
+func (s *QobuzService) ensureConfigured(ctx context.Context, email, password, userAuthToken string, useUserAuthToken bool) error {
+	if useUserAuthToken {
+		if strings.TrimSpace(userAuthToken) == "" {
+			return fmt.Errorf("renseigne un token de session Qobuz pour activer le contournement")
+		}
+		if _, _, err := util.ResolveToolExecutable("qobuz-dl"); err != nil {
+			return fmt.Errorf("qobuz-dl introuvable. Installe-le depuis Systeme > Diagnostics")
+		}
+		return nil
+	}
 	cfgFile, err := qobuzConfigFilePath()
 	if err == nil {
 		if _, err := os.Stat(cfgFile); err == nil {
@@ -480,7 +559,7 @@ func (s *QobuzService) ensureConfigured(ctx context.Context, email, password str
 	if resolveErr != nil {
 		return fmt.Errorf("qobuz-dl introuvable. Installe-le depuis Systeme > Diagnostics")
 	}
-	stdin := strings.TrimSpace(email) + "\n" + strings.TrimSpace(password) + "\n\n27\n"
+	stdin := strings.TrimSpace(email) + "\n" + password + "\n\n27\n"
 	_, err = s.runner.Run(ctx, sys.RunOptions{
 		Executable:    qobuzExec,
 		Args:          []string{"-r"},
@@ -648,4 +727,46 @@ func extractQobuzJSON(output string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func extractQobuzError(output string) string {
+	if idx := strings.LastIndex(output, qobuzErrorMarker); idx >= 0 {
+		payload := output[idx+len(qobuzErrorMarker):]
+		if end := strings.IndexAny(payload, "\r\n"); end >= 0 {
+			payload = payload[:end]
+		}
+		message := strings.TrimSpace(payload)
+		if message != "" {
+			return message
+		}
+	}
+	return ""
+}
+
+func wrapQobuzProcessError(action, output string, err error) error {
+	if message := extractQobuzError(output); message != "" {
+		return fmt.Errorf("%s: %s", action, message)
+	}
+	return fmt.Errorf("%s: %w", action, err)
+}
+
+func qobuzScriptEnvironment(email, password, userAuthToken string, useUserAuthToken bool) map[string]string {
+	env := map[string]string{}
+	if !useUserAuthToken {
+		env[qobuzDisableTokenAuthEnv] = "1"
+	}
+	if trimmedEmail := strings.TrimSpace(email); trimmedEmail != "" {
+		env[qobuzEmailEnv] = trimmedEmail
+	}
+	if useUserAuthToken {
+		if trimmedToken := strings.TrimSpace(userAuthToken); trimmedToken != "" {
+			env[qobuzUserAuthTokenEnv] = trimmedToken
+		}
+	}
+	if strings.TrimSpace(password) != "" {
+		env[qobuzPasswordRawEnv] = password
+		sum := md5.Sum([]byte(password))
+		env[qobuzPasswordMD5Env] = hex.EncodeToString(sum[:])
+	}
+	return env
 }

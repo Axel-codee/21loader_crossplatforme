@@ -31,6 +31,7 @@ var whisperModelCatalog = []whisperModelSpec{
 	{ID: "base.en", Name: "Base English", FileName: "ggml-base.en.bin", DownloadURL: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin", ApproximateSizeMB: 142},
 	{ID: "small", Name: "Small (multilang)", FileName: "ggml-small.bin", DownloadURL: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin", ApproximateSizeMB: 466},
 	{ID: "small.en", Name: "Small English", FileName: "ggml-small.en.bin", DownloadURL: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin", ApproximateSizeMB: 466},
+	{ID: "small.en-tdrz", Name: "Small English + tinydiarize", FileName: "ggml-small.en-tdrz.bin", DownloadURL: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en-tdrz.bin", ApproximateSizeMB: 466},
 	{ID: "medium", Name: "Medium (multilang)", FileName: "ggml-medium.bin", DownloadURL: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin", ApproximateSizeMB: 1500},
 	{ID: "medium.en", Name: "Medium English", FileName: "ggml-medium.en.bin", DownloadURL: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.en.bin", ApproximateSizeMB: 1500},
 	{ID: "large-v1", Name: "Large v1", FileName: "ggml-large-v1.bin", DownloadURL: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v1.bin", ApproximateSizeMB: 2900},

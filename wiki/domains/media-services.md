@@ -1,0 +1,62 @@
+# Domaine | services media
+
+## Role
+
+Ce domaine couvre les integrations media et de post-traitement hors Qobuz strict.
+
+## Services reperes
+
+- `internal/services/youtube.go`
+- `internal/services/rss.go`
+- `internal/services/translation_languages.go`
+- `internal/services/whisper_models.go`
+- `internal/services/vad_models.go`
+- `internal/services/diagnostics.go`
+- `internal/services/artwork.go`
+
+## API associee
+
+Routes notables relevees dans `internal/httpapi/router.go`:
+
+- `/api/rss/episodes`
+- `/api/youtube/catalog`
+- `/api/youtube/dates`
+- `/api/lyrics/lrclib/search`
+- `/api/translation/languages`
+- `/api/whisper/models`
+- `/api/whisper/vad-models`
+- `/api/diagnostics`
+
+## Capacites actuellement connues
+
+- exploration YouTube pour certaines URL de chaine ou playlist
+- exploration RSS pour choisir des episodes
+- memorisation de flux RSS favoris pour les recharger plus vite depuis l'UI
+- recherche LRCLIB pour les lyrics
+- installation de paires de traduction Argos
+- gestion de modeles Whisper
+- gestion de modeles VAD Silero compatibles `whisper.cpp`
+- runtime Python dedie pour `pyannote.audio`, verification d'acces au pipeline `community-1` et installation automatique du venv applicatif associe
+- diagnostics et installation de dependances
+
+## Connaissance durable
+
+- en mode de collision `completer`, un job RSS doit reutiliser une sortie existante uniquement si l'URL media de l'episode correspond reellement au job courant; partager seulement le meme podcast n'est pas un critere suffisant
+- les podcasts RSS favoris ne demandent pas de nouvelle API dediee: ils sont persistes dans `WebSettings` et exploites via la route existante `/api/settings`, tandis que les episodes restent charges a la demande via `/api/rss/episodes`
+- le catalogue VAD applicatif est volontairement petit dans cette v1: modeles Silero `ggml-silero-v5.1.2.bin` et `ggml-silero-v6.2.0.bin`, installes dans un dossier applicatif separe des modeles Whisper (`.../bin/models/vad`)
+- VAD et tinydiarize sont deux fonctions differentes dans l'app: le VAD sert a detecter les segments de parole pour accelerer/fiabiliser la transcription, tandis que tinydiarize sert a marquer les tours de parole et exige un modele Whisper `*-tdrz`
+- `pyannote` est maintenant un troisieme etat de diarisation, additif par rapport a `tinydiarize`: il s'appuie sur un venv Python dedie, charge localement `pyannote/speaker-diarization-community-1`, garde la telemetrie desactivee et ne pousse pas l'audio vers un service cloud
+- le diagnostic `pyannote` distingue runtime Python absent, module `pyannote.audio` absent, token/acces modele manquant, et runtime completement pret; l'installation auto ne couvre que le runtime local, pas l'acceptation manuelle du modele Hugging Face
+
+## Limites / sujets ouverts
+
+- mode `youtube_description` mentionne comme prepare cote UI mais encore non executable selon le scan initial
+- choix explicite `mp3` / `mp4` / les deux pour YouTube non encore expose clairement comme fonctionnalite finalisee
+- telechargement uniquement des sous-titres encore attendu
+
+## Pages liees
+
+- [../project-overview.md](../project-overview.md)
+- [../issues/functional-gap-backlog.md](../issues/functional-gap-backlog.md)
+- [./jobs-pipeline.md](./jobs-pipeline.md)
+- [./frontend-ui.md](./frontend-ui.md)

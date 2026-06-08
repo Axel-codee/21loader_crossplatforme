@@ -228,6 +228,179 @@
       color: #0f172a;
     }
 
+    .whisper-job-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .whisper-job-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .whisper-job-column {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      min-width: 0;
+    }
+
+    .whisper-job-card {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid #dbe5f4;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .whisper-job-card--wide {
+      grid-column: 1 / -1;
+    }
+
+    .whisper-job-card--accent {
+      border-color: #cfe0ff;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.98)),
+        linear-gradient(135deg, #eef4ff, #f9fbff);
+    }
+
+    .whisper-job-card-head {
+      display: grid;
+      gap: 4px;
+    }
+
+    .whisper-job-card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .whisper-job-card-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 750;
+      letter-spacing: 0.01em;
+      color: #0f172a;
+    }
+
+    .whisper-job-card-copy {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #5f6f88;
+    }
+
+    .whisper-job-card-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #e9f1ff;
+      color: #1f4a9a;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .whisper-job-card-divider {
+      height: 1px;
+      background: linear-gradient(90deg, #dbe5f4, transparent);
+    }
+
+    .whisper-job-card .hint {
+      margin: 0;
+    }
+
+    .whisper-job-card .checkbox {
+      color: #475569;
+      font-weight: 550;
+    }
+
+    .whisper-job-inline-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .whisper-job-card details {
+      border: 1px solid #e3eaf6;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 10px 12px;
+    }
+
+    .whisper-job-card details summary {
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: #23324a;
+      list-style: none;
+    }
+
+    .whisper-job-card details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .settings-form {
+      gap: 18px;
+      width: 100%;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+
+    .settings-section {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid #dbe4f3;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fcfdff, #f6f9ff);
+    }
+
+    .settings-section-head {
+      display: grid;
+      gap: 4px;
+    }
+
+    .settings-section-eyebrow {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #5b6e8c;
+    }
+
+    .settings-section-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 750;
+      color: #0f172a;
+      letter-spacing: 0.01em;
+    }
+
+    .settings-section-copy {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #5f6f88;
+    }
+
+    .settings-submit-row {
+      justify-content: flex-end;
+      padding-top: 2px;
+    }
+
     .job-builder-form {
       gap: 14px;
       width: 100%;
@@ -545,6 +718,29 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+    }
+
+    .source-url-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, max-content);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .source-url-row input {
+      min-width: 0;
+    }
+
+    .favorite-rss-row {
+      grid-template-columns: minmax(0, 1fr) min-content;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .favorite-rss-feed {
+      font-size: 11px;
+      color: #64748b;
+      word-break: break-all;
     }
 
     .qobuz-inline-summary {
@@ -1281,6 +1477,9 @@
       .qobuz-filter-row {
         grid-template-columns: 1fr;
       }
+      .source-url-row {
+        grid-template-columns: 1fr;
+      }
       .picker-card {
         width: min(96vw, 820px);
         max-height: 90vh;
@@ -1292,6 +1491,11 @@
       }
       .view-nav button {
         flex: 1 1 180px;
+      }
+      .whisper-job-columns,
+      .whisper-job-column,
+      .whisper-job-inline-grid {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -1423,7 +1627,12 @@
             </div>
             <div id="inputURLField" class="field">
               <label for="inputURL">URL source</label>
-              <input id="inputURL" placeholder="https://..." required />
+              <div class="source-url-row">
+                <input id="inputURL" placeholder="https://..." required />
+                <button id="rssFavoriteToggle" class="btn-ghost" type="button" hidden>Ajouter podcast</button>
+                <button id="openRSSFavorites" class="btn-ghost" type="button" hidden>Podcasts préférés</button>
+              </div>
+              <div id="rssFavoriteCurrentSummary" class="qobuz-inline-summary" hidden></div>
             </div>
             <div id="qobuzArtistField" class="field">
               <label for="qobuzArtistName">Artiste Qobuz (optionnel)</label>
@@ -1484,6 +1693,21 @@
               </div>
               <div id="rssSelectionSummary" class="qobuz-inline-summary">Aucun épisode sélectionné.</div>
               <div id="rssPodcastSummary" class="qobuz-inline-summary"></div>
+              <div id="rssFavoritePromptEditor" class="job-option-group" hidden>
+                <div class="job-option-group-head">
+                  <h5 class="job-option-group-title">Prompt mémorisé pour ce podcast</h5>
+                  <p class="hint">Préremplit les prochains jobs RSS de ce flux.</p>
+                </div>
+                <div class="field">
+                  <label for="rssFavoriteWhisperInitialPrompt">Prompt podcast</label>
+                  <textarea id="rssFavoriteWhisperInitialPrompt" placeholder="Contexte spécifique au podcast..."></textarea>
+                </div>
+                <label class="checkbox">
+                  <input type="checkbox" id="rssFavoriteWhisperCarryInitialPrompt" />
+                  Conserver ce prompt pendant la transcription
+                </label>
+                <button id="saveRSSFavoritePrompt" class="btn-ghost" type="button">Enregistrer pour ce podcast</button>
+              </div>
             </div>
           </section>
 
@@ -1506,17 +1730,197 @@
                 </label>
               </div>
 
-              <div id="transcriptionLanguageField" class="field">
-                <label for="transcriptionLanguage">Langue transcription</label>
-                <input id="transcriptionLanguage" value="auto" />
-              </div>
+              <div id="jobWhisperSettingsGroup" class="whisper-job-grid">
+                <section class="whisper-job-card whisper-job-card--accent whisper-job-card--wide">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Base Whisper</h6>
+                      <span class="whisper-job-card-badge">essentiel</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Choisis la langue de transcription et le modèle Whisper à utiliser pour ce job.</p>
+                  </div>
+                  <div class="whisper-job-inline-grid">
+                    <div id="transcriptionLanguageField" class="field">
+                      <label for="transcriptionLanguage">Langue transcription</label>
+                      <select id="transcriptionLanguage"></select>
+                    </div>
 
-              <div id="transcriptionModelField" class="field">
-                <label for="jobWhisperModelPath">Modele Whisper</label>
-                <select id="jobWhisperModelPath">
-                  <option value="">Modele par defaut (reglages moteur)</option>
-                </select>
-                <p class="hint">Choix par job. Laisse "par defaut" pour utiliser le modele moteur.</p>
+                    <div id="transcriptionModelField" class="field">
+                      <label for="jobWhisperModelPath">Modele Whisper</label>
+                      <select id="jobWhisperModelPath">
+                        <option value="">Modele par defaut (reglages moteur)</option>
+                      </select>
+                      <p class="hint">Laisse "par defaut" pour reprendre le réglage moteur.</p>
+                    </div>
+                  </div>
+                </section>
+
+                <div class="whisper-job-columns">
+                  <div class="whisper-job-column">
+                    <section class="whisper-job-card">
+                      <div class="whisper-job-card-head">
+                        <div class="whisper-job-card-title-row">
+                          <h6 class="whisper-job-card-title">Prompt initial</h6>
+                          <span class="whisper-job-card-badge">contexte</span>
+                        </div>
+                        <p class="whisper-job-card-copy">Aide Whisper sur les noms propres, le vocabulaire métier et le ton attendu.</p>
+                      </div>
+                      <div class="whisper-job-card-divider"></div>
+                      <label class="checkbox" id="jobWhisperPromptEnabledRow">
+                        <input type="checkbox" id="jobWhisperPromptEnabled" />
+                        Utiliser un prompt initial Whisper
+                      </label>
+                      <div id="jobWhisperPromptFields" hidden>
+                        <div class="field">
+                          <label for="jobWhisperInitialPrompt">Texte du prompt initial</label>
+                          <textarea id="jobWhisperInitialPrompt" placeholder="Vocabulaire, noms propres, contexte attendu..."></textarea>
+                          <p class="hint">Vide = prompt podcast RSS puis global.</p>
+                        </div>
+
+                        <label class="checkbox">
+                          <input type="checkbox" id="jobWhisperCarryInitialPrompt" />
+                          Conserver le prompt initial pendant la transcription
+                        </label>
+                      </div>
+                    </section>
+
+                    <section class="whisper-job-card">
+                      <div class="whisper-job-card-head">
+                        <div class="whisper-job-card-title-row">
+                          <h6 class="whisper-job-card-title">Sorties supplémentaires</h6>
+                          <span class="whisper-job-card-badge">fichiers</span>
+                        </div>
+                        <p class="whisper-job-card-copy">Conserve des artefacts Whisper plus détaillés en plus du `.txt` et du `.srt` standard.</p>
+                      </div>
+                      <div class="whisper-job-card-divider"></div>
+                      <label class="checkbox">
+                        <input type="checkbox" id="jobWhisperOutputJSONFull" />
+                        Générer aussi le JSON complet Whisper
+                      </label>
+                    </section>
+
+                    <section class="whisper-job-card">
+                      <div class="whisper-job-card-head">
+                        <div class="whisper-job-card-title-row">
+                          <h6 class="whisper-job-card-title">Diarisation</h6>
+                          <span class="whisper-job-card-badge">intervenants</span>
+                        </div>
+                        <p class="whisper-job-card-copy">Choisis le moteur de diarisation à lancer après la transcription Whisper, sans remplacer les sorties standard du job.</p>
+                      </div>
+                      <div class="whisper-job-card-divider"></div>
+                      <div class="field">
+                        <label for="jobDiarizationProvider">Moteur de diarisation</label>
+                        <select id="jobDiarizationProvider">
+                          <option value="none">Aucun</option>
+                          <option value="tinydiarize">Tinydiarize</option>
+                          <option value="pyannote">Pyannote</option>
+                        </select>
+                      </div>
+                      <p id="jobDiarizationAvailabilityHint" class="hint">Aucune diarisation supplémentaire pour ce job.</p>
+                      <div id="jobTinydiarizeControls" hidden>
+                        <div class="field">
+                          <label for="jobWhisperTinydiarizeModelPath">Modèle Whisper tinydiarize</label>
+                          <select id="jobWhisperTinydiarizeModelPath">
+                            <option value="">Modèle tinydiarize par défaut (réglages)</option>
+                          </select>
+                        </div>
+                        <p id="jobTinydiarizeCompatibilityHint" class="hint">Tinydiarize lance une seconde passe Whisper. Le modèle utilisé doit être compatible `*-tdrz`.</p>
+                        <div id="jobTinydiarizeOutputs" class="whisper-job-inline-grid" hidden>
+                          <label class="checkbox">
+                            <input type="checkbox" id="jobWhisperTinydiarizeOutputTXT" />
+                            Variante TXT annotée
+                          </label>
+                          <label class="checkbox">
+                            <input type="checkbox" id="jobWhisperTinydiarizeOutputSRT" />
+                            Variante SRT annotée
+                          </label>
+                        </div>
+                      </div>
+                      <div id="jobPyannoteControls" hidden>
+                        <p class="hint">Pyannote identifie qui parle quand, puis annote la transcription Whisper. Cette passe reste locale sur votre machine.</p>
+                        <p class="hint">La précision reste limitée à la granularité des segments Whisper actuels: cette v1 attribue un speaker dominant par segment, sans séparation mot à mot.</p>
+                        <div class="whisper-job-inline-grid">
+                          <label class="checkbox">
+                            <input type="checkbox" id="jobPyannoteOutputTXT" />
+                            Variante TXT annotée
+                          </label>
+                          <label class="checkbox">
+                            <input type="checkbox" id="jobPyannoteOutputSRT" />
+                            Variante SRT annotée
+                          </label>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+
+                  <div class="whisper-job-column">
+                    <section class="whisper-job-card">
+                      <div class="whisper-job-card-head">
+                        <div class="whisper-job-card-title-row">
+                          <h6 class="whisper-job-card-title">Segmentation SRT</h6>
+                          <span class="whisper-job-card-badge">lecture</span>
+                        </div>
+                        <p class="whisper-job-card-copy">Ajuste le découpage des sous-titres pour obtenir des segments plus lisibles.</p>
+                      </div>
+                      <div class="whisper-job-card-divider"></div>
+                      <div class="field">
+                        <label for="jobWhisperMaxSegmentLength">Longueur max segment SRT</label>
+                        <input id="jobWhisperMaxSegmentLength" type="number" min="0" step="1" placeholder="0 = défaut Whisper" />
+                      </div>
+                      <label class="checkbox">
+                        <input type="checkbox" id="jobWhisperSplitOnWord" />
+                        Couper de préférence sur les mots
+                      </label>
+                    </section>
+
+                    <section class="whisper-job-card">
+                      <div class="whisper-job-card-head">
+                        <div class="whisper-job-card-title-row">
+                          <h6 class="whisper-job-card-title">VAD</h6>
+                          <span class="whisper-job-card-badge">silences</span>
+                        </div>
+                        <p class="whisper-job-card-copy">Le VAD détecte les zones de parole et aide à ignorer les silences.</p>
+                      </div>
+                      <div class="whisper-job-card-divider"></div>
+                      <label class="checkbox">
+                        <input type="checkbox" id="jobWhisperVADEnabled" />
+                        Activer le VAD
+                      </label>
+                      <div class="field">
+                        <label for="jobWhisperVADModelPath">Modele VAD</label>
+                        <select id="jobWhisperVADModelPath">
+                          <option value="">Modele VAD par defaut (reglages moteur)</option>
+                        </select>
+                        <p class="hint">Requis si VAD est activé.</p>
+                      </div>
+                      <details id="jobWhisperVADAdvancedWrap">
+                        <summary>Réglages VAD détaillés</summary>
+                        <div class="form" style="padding:10px 0 0;">
+                          <div class="row2">
+                            <div class="field">
+                              <label for="jobWhisperVADThreshold">Seuil VAD</label>
+                              <input id="jobWhisperVADThreshold" type="number" min="0" step="0.01" placeholder="0 = défaut" />
+                            </div>
+                            <div class="field">
+                              <label for="jobWhisperVADSpeechPad">Speech pad (ms)</label>
+                              <input id="jobWhisperVADSpeechPad" type="number" min="0" step="1" placeholder="0 = défaut" />
+                            </div>
+                          </div>
+                          <div class="row2">
+                            <div class="field">
+                              <label for="jobWhisperVADMinSpeechDuration">Min speech (ms)</label>
+                              <input id="jobWhisperVADMinSpeechDuration" type="number" min="0" step="1" placeholder="0 = défaut" />
+                            </div>
+                            <div class="field">
+                              <label for="jobWhisperVADMinSilenceDuration">Min silence (ms)</label>
+                              <input id="jobWhisperVADMinSilenceDuration" type="number" min="0" step="1" placeholder="0 = défaut" />
+                            </div>
+                          </div>
+                        </div>
+                      </details>
+                    </section>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1654,58 +2058,359 @@
 
       <div class="panel" id="panelSettings">
         <div class="panel-head">
-          <h3 class="panel-title">Réglages moteur</h3>
+          <div class="panel-head-copy">
+            <h3 class="panel-title">Réglages globaux</h3>
+            <p class="panel-subtitle">Retrouve plus vite les options générales, Whisper et Qobuz dans des blocs séparés.</p>
+          </div>
         </div>
-        <form id="settingsForm" class="form">
-          <div class="field">
-            <label for="whisperDefaultModelSelect">Modèle Whisper par défaut</label>
-            <select id="whisperDefaultModelSelect">
-              <option value="">Détection auto / chemin manuel</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="whisperModelPath">Chemin modèle Whisper (avancé)</label>
-            <input id="whisperModelPath" placeholder="/opt/homebrew/share/whisper/models/ggml-medium.bin" />
-          </div>
-          <div class="field">
-            <label for="defaultOutputRoot">Dossier de sortie par défaut</label>
-            <div class="path-picker">
-              <input id="defaultOutputRoot" />
-              <button id="pickDefaultOutputRoot" class="btn-ghost" type="button">Parcourir...</button>
+        <form id="settingsForm" class="form settings-form">
+          <section class="settings-section">
+            <div class="settings-section-head">
+              <p class="settings-section-eyebrow">Base</p>
+              <h4 class="settings-section-title">Réglages généraux</h4>
+              <p class="settings-section-copy">Définis le dossier de sortie global et le comportement par défaut des prochains jobs.</p>
             </div>
-          </div>
-          <div class="row2">
-            <div class="field">
-              <label for="qobuzEmail">Qobuz email</label>
-              <input id="qobuzEmail" />
+            <div class="whisper-job-columns">
+              <div class="whisper-job-column">
+                <section class="whisper-job-card whisper-job-card--accent">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Sortie par défaut</h6>
+                      <span class="whisper-job-card-badge">dossiers</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Chemin repris automatiquement quand un nouveau job ne précise pas de destination.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="field">
+                    <label for="defaultOutputRoot">Dossier de sortie par défaut</label>
+                    <div class="path-picker">
+                      <input id="defaultOutputRoot" />
+                      <button id="pickDefaultOutputRoot" class="btn-ghost" type="button">Parcourir...</button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <div class="whisper-job-column">
+                <section class="whisper-job-card">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Depannage</h6>
+                      <span class="whisper-job-card-badge">debug</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Conserve les fichiers de travail seulement quand un job echoue, pour pouvoir inspecter ce qui a ete produit.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <label class="checkbox">
+                    <input type="checkbox" id="keepTemporaryFilesOnFailure" />
+                    Conserver les temporaires en cas d'échec
+                  </label>
+                  <p class="hint">Garde le workspace temporaire du job dans le cache local apres un echec. En cas de succes, ces fichiers restent supprimes normalement.</p>
+                </section>
+              </div>
             </div>
-            <div class="field">
-              <label for="qobuzPassword">Qobuz mot de passe</label>
-              <input id="qobuzPassword" type="password" />
+          </section>
+
+          <section class="settings-section">
+            <div class="settings-section-head">
+              <p class="settings-section-eyebrow">Telechargement</p>
+              <h4 class="settings-section-title">Réglages yt-dlp</h4>
+              <p class="settings-section-copy">Regroupe les options globales utiles aux téléchargements YouTube et aux protections anti-bot.</p>
             </div>
+            <div class="whisper-job-columns">
+              <section class="whisper-job-card whisper-job-card--accent whisper-job-card--wide">
+                <div class="whisper-job-card-head">
+                  <div class="whisper-job-card-title-row">
+                    <h6 class="whisper-job-card-title">Cookies navigateur</h6>
+                    <span class="whisper-job-card-badge">youtube</span>
+                  </div>
+                  <p class="whisper-job-card-copy">Option utile surtout quand YouTube demande une verification anti-bot pendant le telechargement.</p>
+                </div>
+                <div class="whisper-job-card-divider"></div>
+                <label class="checkbox">
+                  <input type="checkbox" id="useFirefoxCookies" />
+                  Utiliser cookies Firefox
+                </label>
+                <p class="hint">Ajoute automatiquement <code>--cookies-from-browser firefox</code> a <code>yt-dlp</code>. Sert aux telechargements YouTube, pas a Qobuz.</p>
+              </section>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <div class="settings-section-head">
+              <p class="settings-section-eyebrow">Transcription</p>
+              <h4 class="settings-section-title">Réglages Whisper</h4>
+              <p class="settings-section-copy">Organise les préférences de transcription, les sorties enrichies, la segmentation et le VAD.</p>
+            </div>
+            <div class="whisper-job-columns">
+              <div class="whisper-job-column">
+                <section class="whisper-job-card whisper-job-card--accent">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Base Whisper</h6>
+                      <span class="whisper-job-card-badge">essentiel</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Choisis le modèle global à reprendre par défaut dans les nouveaux jobs.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="field">
+                    <label for="whisperDefaultModelSelect">Modèle Whisper par défaut</label>
+                    <select id="whisperDefaultModelSelect">
+                      <option value="">Détection auto / chemin manuel</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="whisperModelPath">Chemin modèle Whisper (avancé)</label>
+                    <input id="whisperModelPath" placeholder="/opt/homebrew/share/whisper/models/ggml-medium.bin" />
+                  </div>
+                </section>
+
+                <section class="whisper-job-card">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Prompt global</h6>
+                      <span class="whisper-job-card-badge">contexte</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Précharge un vocabulaire, des noms propres ou un cadre éditorial pour tous les jobs.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="field">
+                    <label for="whisperInitialPrompt">Prompt Whisper global</label>
+                    <textarea id="whisperInitialPrompt" placeholder="Contexte global, noms propres, vocabulaire..."></textarea>
+                  </div>
+                  <label class="checkbox">
+                    <input type="checkbox" id="whisperCarryInitialPrompt" />
+                    Conserver le prompt initial global pendant la transcription
+                  </label>
+                </section>
+
+                <section class="whisper-job-card">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Diarisation</h6>
+                      <span class="whisper-job-card-badge">intervenants</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Choisis le moteur de diarisation repris par défaut dans les nouveaux jobs. Tinydiarize reste disponible, pyannote s’ajoute de façon optionnelle.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="field">
+                    <label for="diarizationProvider">Moteur de diarisation par défaut</label>
+                    <select id="diarizationProvider">
+                      <option value="none">Aucun</option>
+                      <option value="tinydiarize">Tinydiarize</option>
+                      <option value="pyannote">Pyannote</option>
+                    </select>
+                  </div>
+                  <p id="settingsDiarizationAvailabilityHint" class="hint">Aucune diarisation supplémentaire activée par défaut.</p>
+                  <div id="settingsTinydiarizeControls" hidden>
+                    <div class="field">
+                      <label for="whisperTinydiarizeModelPath">Modèle Whisper tinydiarize</label>
+                      <select id="whisperTinydiarizeModelPath">
+                        <option value="">Même modèle que Whisper principal</option>
+                      </select>
+                      <p id="settingsTinydiarizeCompatibilityHint" class="hint">Si vide, tinydiarize reprend le modèle Whisper principal. Le modèle utilisé doit être compatible `*-tdrz`.</p>
+                    </div>
+                    <div class="whisper-job-inline-grid">
+                      <label class="checkbox">
+                        <input type="checkbox" id="whisperTinydiarizeOutputTXT" />
+                        Variante TXT annotée par défaut
+                      </label>
+                      <label class="checkbox">
+                        <input type="checkbox" id="whisperTinydiarizeOutputSRT" />
+                        Variante SRT annotée par défaut
+                      </label>
+                    </div>
+                  </div>
+                  <div id="settingsPyannoteDefaultOutputs" hidden>
+                    <div class="whisper-job-inline-grid">
+                      <label class="checkbox">
+                        <input type="checkbox" id="pyannoteOutputTXT" />
+                        Variante TXT annotée par défaut
+                      </label>
+                      <label class="checkbox">
+                        <input type="checkbox" id="pyannoteOutputSRT" />
+                        Variante SRT annotée par défaut
+                      </label>
+                    </div>
+                    <p class="hint">Le JSON de diarisation pyannote est toujours généré quand ce moteur est actif.</p>
+                  </div>
+                </section>
+
+                <section class="whisper-job-card">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Pyannote</h6>
+                      <span id="pyannoteStatusBadge" class="whisper-job-card-badge">à préparer</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Prépare le runtime Python dédié, colle un token Hugging Face si nécessaire, puis vérifie l’accès au pipeline `community-1` sans quitter l’app.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="toolbar">
+                    <button id="installPyannoteRuntime" class="btn-ghost" type="button">Installer le runtime pyannote</button>
+                    <button id="verifyPyannoteAccess" class="btn-ghost" type="button">Vérifier l’accès</button>
+                  </div>
+                  <div class="whisper-job-inline-grid">
+                    <div class="field">
+                      <label for="pyannoteHuggingFaceToken">Token Hugging Face</label>
+                      <input id="pyannoteHuggingFaceToken" type="password" autocomplete="off" />
+                    </div>
+                    <div class="field">
+                      <label for="pyannoteLocalPipelinePath">Pipeline local (avancé)</label>
+                      <input id="pyannoteLocalPipelinePath" placeholder="/Users/.../pyannote-speaker-diarization-community-1" />
+                    </div>
+                  </div>
+                  <p id="pyannoteAccessHint" class="hint">Installe le runtime dédié, accepte le modèle community-1 sur Hugging Face, puis colle un token ou un chemin de pipeline local.</p>
+                  <details>
+                    <summary>Assistant pas à pas</summary>
+                    <div class="form" style="padding:10px 0 0;">
+                      <p class="hint">1. Ouvre la page du modèle <code>pyannote/speaker-diarization-community-1</code> sur Hugging Face et accepte les conditions d’accès.</p>
+                      <p class="hint">2. Crée un token d’accès sur <code>hf.co/settings/tokens</code>.</p>
+                      <p class="hint">3. Clique sur “Installer le runtime pyannote” pour créer le venv dédié et installer <code>pyannote.audio</code>.</p>
+                      <p class="hint">4. Colle le token ci-dessus, ou renseigne un clone local du pipeline comme fallback avancé.</p>
+                      <p class="hint">5. Clique sur “Vérifier l’accès” pour confirmer que le modèle est téléchargeable et prêt localement.</p>
+                    </div>
+                  </details>
+                </section>
+              </div>
+
+              <div class="whisper-job-column">
+                <section class="whisper-job-card">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Segmentation et sorties</h6>
+                      <span class="whisper-job-card-badge">lecture</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Ajuste le découpage SRT et conserve au besoin des artefacts Whisper plus détaillés.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="field">
+                    <label for="whisperMaxSegmentLength">Longueur max segment SRT</label>
+                    <input id="whisperMaxSegmentLength" type="number" min="0" step="1" placeholder="0 = défaut Whisper" />
+                  </div>
+                  <label class="checkbox">
+                    <input type="checkbox" id="whisperSplitOnWord" />
+                    Couper de préférence sur les mots
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" id="whisperOutputJSONFull" />
+                    Générer le JSON complet Whisper par défaut
+                  </label>
+                </section>
+
+                <section class="whisper-job-card">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">VAD</h6>
+                      <span class="whisper-job-card-badge">silences</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Définis la détection de parole globale et ses paramètres fins pour les jobs suivants.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="field">
+                    <label for="vadDefaultModelSelect">Modèle VAD par défaut</label>
+                    <select id="vadDefaultModelSelect">
+                      <option value="">Aucun / chemin manuel</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="whisperVADModelPath">Chemin modèle VAD (avancé)</label>
+                    <input id="whisperVADModelPath" placeholder="/Users/.../ggml-silero-v6.2.0.bin" />
+                  </div>
+                  <label class="checkbox">
+                    <input type="checkbox" id="whisperVADEnabled" />
+                    Activer le VAD par défaut
+                  </label>
+                  <details>
+                    <summary>Réglages VAD détaillés</summary>
+                    <div class="form" style="padding:10px 0 0;">
+                      <div class="row2">
+                        <div class="field">
+                          <label for="whisperVADThreshold">Seuil VAD</label>
+                          <input id="whisperVADThreshold" type="number" min="0" step="0.01" placeholder="0 = défaut Whisper" />
+                        </div>
+                        <div class="field">
+                          <label for="whisperVADSpeechPad">Speech pad (ms)</label>
+                          <input id="whisperVADSpeechPad" type="number" min="0" step="1" placeholder="0 = défaut Whisper" />
+                        </div>
+                      </div>
+                      <div class="row2">
+                        <div class="field">
+                          <label for="whisperVADMinSpeechDuration">Min speech (ms)</label>
+                          <input id="whisperVADMinSpeechDuration" type="number" min="0" step="1" placeholder="0 = défaut Whisper" />
+                        </div>
+                        <div class="field">
+                          <label for="whisperVADMinSilenceDuration">Min silence (ms)</label>
+                          <input id="whisperVADMinSilenceDuration" type="number" min="0" step="1" placeholder="0 = défaut Whisper" />
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <div class="settings-section-head">
+              <p class="settings-section-eyebrow">Catalogue</p>
+              <h4 class="settings-section-title">Réglages Qobuz</h4>
+              <p class="settings-section-copy">Centralise les identifiants qobuz-dl, le test de connexion et le mode de secours par token.</p>
+            </div>
+            <div class="whisper-job-columns">
+              <div class="whisper-job-column">
+                <section class="whisper-job-card whisper-job-card--accent">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Identifiants</h6>
+                      <span class="whisper-job-card-badge">connexion</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Configure l'authentification classique utilisée par qobuz-dl puis vérifie-la sans quitter l'onglet.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <div class="whisper-job-inline-grid">
+                    <div class="field">
+                      <label for="qobuzEmail">Qobuz email</label>
+                      <input id="qobuzEmail" />
+                    </div>
+                    <div class="field">
+                      <label for="qobuzPassword">Qobuz mot de passe</label>
+                      <input id="qobuzPassword" type="password" />
+                    </div>
+                  </div>
+                  <div class="toolbar">
+                    <button id="verifyQobuzCredentials" class="btn-ghost" type="button">Tester la connexion Qobuz</button>
+                  </div>
+                  <p id="qobuzCredentialsCheckHint" class="hint">Teste la connexion Qobuz utilisée par qobuz-dl. Un échec peut venir des identifiants, de la configuration locale ou d'un changement côté Qobuz.</p>
+                </section>
+              </div>
+
+              <div class="whisper-job-column">
+                <section class="whisper-job-card">
+                  <div class="whisper-job-card-head">
+                    <div class="whisper-job-card-title-row">
+                      <h6 class="whisper-job-card-title">Contournement par token</h6>
+                      <span class="whisper-job-card-badge">secours</span>
+                    </div>
+                    <p class="whisper-job-card-copy">Active uniquement si la connexion standard échoue et que tu dois réutiliser un token de session web.</p>
+                  </div>
+                  <div class="whisper-job-card-divider"></div>
+                  <label id="qobuzTokenWorkaroundToggleRow" class="checkbox" hidden>
+                    <input type="checkbox" id="qobuzUseTokenWorkaround" />
+                    Activer le contournement Qobuz par token de session
+                  </label>
+                  <div id="qobuzTokenWorkaroundFields" class="field" hidden>
+                    <label for="qobuzUserAuthToken">Token de session Qobuz</label>
+                    <input id="qobuzUserAuthToken" type="password" autocomplete="off" />
+                    <p class="hint">À utiliser uniquement si le test classique échoue. Récupération manuelle: Qobuz web, DevTools, Réseau, requête <code>user/login</code>, puis copie de <code>user_auth_token</code>.</p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <div class="toolbar settings-submit-row">
+            <button class="btn-ghost" type="submit">Enregistrer les réglages</button>
           </div>
-          <div class="toolbar">
-            <button id="verifyQobuzCredentials" class="btn-ghost" type="button">Tester la connexion Qobuz</button>
-          </div>
-          <p id="qobuzCredentialsCheckHint" class="hint">Teste la connexion Qobuz utilisée par qobuz-dl. Un échec peut venir des identifiants, de la configuration locale ou d'un changement côté Qobuz.</p>
-          <label id="qobuzTokenWorkaroundToggleRow" class="checkbox" hidden>
-            <input type="checkbox" id="qobuzUseTokenWorkaround" />
-            Activer le contournement Qobuz par token de session
-          </label>
-          <div id="qobuzTokenWorkaroundFields" class="field" hidden>
-            <label for="qobuzUserAuthToken">Token de session Qobuz</label>
-            <input id="qobuzUserAuthToken" type="password" autocomplete="off" />
-            <p class="hint">À utiliser uniquement si le test classique échoue. Récupération manuelle: Qobuz web, DevTools, Réseau, requête <code>user/login</code>, puis copie de <code>user_auth_token</code>.</p>
-          </div>
-          <label class="checkbox">
-            <input type="checkbox" id="useFirefoxCookies" />
-            Utiliser cookies Firefox
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" id="keepTemporaryFilesOnFailure" />
-            Conserver les temporaires en cas d'échec
-          </label>
-          <button class="btn-ghost" type="submit">Enregistrer les réglages</button>
         </form>
       </div>
 
@@ -1758,6 +2463,19 @@
         <div class="form">
           <p class="hint" id="whisperModelsHint">Chargement des modèles...</p>
           <div id="whisperModelsBody" class="whisper-model-list">
+            <div class="hint">Aucun modèle chargé.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panelVAD">
+        <div class="panel-head">
+          <h3 class="panel-title">Gestionnaire de modèles VAD</h3>
+          <button id="refreshVADModels" class="btn-ghost" type="button">Rafraîchir</button>
+        </div>
+        <div class="form">
+          <p class="hint" id="vadModelsHint">Chargement des modèles...</p>
+          <div id="vadModelsBody" class="whisper-model-list">
             <div class="hint">Aucun modèle chargé.</div>
           </div>
         </div>
@@ -1917,6 +2635,25 @@
     </section>
   </div>
 
+  <div id="rssFavoritesModal" class="picker-modal" hidden>
+    <section class="picker-card" role="dialog" aria-modal="true" aria-labelledby="rssFavoritesTitle">
+      <div class="picker-head">
+        <h3 id="rssFavoritesTitle" class="picker-title">Podcasts préférés</h3>
+        <button id="rssFavoritesClose" class="btn-ghost" type="button">Fermer</button>
+      </div>
+      <div class="picker-meta">
+        <span id="rssFavoritesCount">0 podcast(s) favori(s)</span>
+        <span id="rssFavoritesCurrent"></span>
+      </div>
+      <div id="rssFavoritesBody" class="picker-list">
+        <div class="hint">Ajoute un flux RSS depuis le champ URL pour le retrouver ici.</div>
+      </div>
+      <div class="picker-foot">
+        <button id="rssFavoritesCancel" class="btn-ghost" type="button">Fermer</button>
+      </div>
+    </section>
+  </div>
+
   <div id="youtubeSelectionModal" class="picker-modal" hidden>
     <section class="picker-card" role="dialog" aria-modal="true" aria-labelledby="youtubeSelectionTitle">
       <div class="picker-head">
@@ -2031,6 +2768,11 @@
       whisperInstallProgressByModelID: {},
       whisperInstallPollTimerByModelID: {},
       whisperModelUninstallInProgress: new Set(),
+      vadModelsResponse: null,
+      vadModelInstallInProgress: new Set(),
+      vadInstallProgressByModelID: {},
+      vadInstallPollTimerByModelID: {},
+      vadModelUninstallInProgress: new Set(),
       youtubeCatalog: null,
       youtubeCollectionURL: null,
       selectedYouTubeVideoIDs: new Set(),
@@ -2050,6 +2792,9 @@
       isVerifyingQobuzCredentials: false,
       qobuzCredentialsCheckTone: "idle",
       qobuzCredentialsCheckMessage: "",
+      isVerifyingPyannoteAccess: false,
+      pyannoteAccessCheckTone: "idle",
+      pyannoteAccessCheckMessage: "",
       qobuzTokenWorkaroundAvailable: false,
       selectedQobuzAlbumIDs: new Set(),
       expandedQobuzAlbumIDs: new Set(),
@@ -2058,6 +2803,7 @@
       qobuzTrackLoadingAlbumIDs: new Set(),
       isLoadingQobuzCatalog: false,
       isLoadingQobuzPlaylistCatalog: false,
+      favoriteRSSPodcasts: [],
       rssCatalog: null,
       rssFeedURL: null,
       rssFeedSourceURL: null,
@@ -2067,7 +2813,7 @@
       rssArtworkRetryInProgress: false,
     };
 
-    const DEPENDENCY_TOOLS = ["yt-dlp", "ffmpeg", "qobuz-dl", "whisper-cli", "argostranslate"];
+    const DEPENDENCY_TOOLS = ["yt-dlp", "ffmpeg", "qobuz-dl", "whisper-cli", "argostranslate", "pyannote"];
     const FALLBACK_TRANSLATION_LANGUAGES = [
       { code: "en", name: "English" },
       { code: "fr", name: "French" },
@@ -2086,6 +2832,7 @@
     const RSS_ARTWORK_RETRY_MAX_DELAY_MS = 12000;
     const RSS_ARTWORK_LOAD_TIMEOUT_MS = 9000;
     const DEFAULT_QOBUZ_CREDENTIALS_CHECK_HINT = "Teste la connexion Qobuz utilisée par qobuz-dl. Un échec peut venir des identifiants, de la configuration locale ou d'un changement côté Qobuz.";
+    const DEFAULT_PYANNOTE_ACCESS_HINT = "Installe le runtime dédié, accepte le modèle community-1 sur Hugging Face, puis colle un token ou un chemin de pipeline local.";
 
     function escapeHtml(value) {
       return String(value || "")
@@ -2110,6 +2857,244 @@
     function setChecked(id, value) {
       $(id).checked = Boolean(value);
     }
+
+    function normalizeNumberOrNull(value) {
+	      const raw = String(value ?? "").trim();
+	      if (!raw) return null;
+	      const parsed = Number(raw);
+	      return Number.isFinite(parsed) ? parsed : null;
+	    }
+
+	    function currentGlobalWhisperPromptDefaults() {
+	      return {
+	        prompt: inputValue("whisperInitialPrompt") || "",
+	        carry: $("whisperCarryInitialPrompt")?.checked || false,
+	      };
+	    }
+
+	    function setJobWhisperPromptState(prompt, carry) {
+	      const normalizedPrompt = String(prompt || "").trim();
+	      const enabled = normalizedPrompt !== "";
+	      setChecked("jobWhisperPromptEnabled", enabled);
+	      setInput("jobWhisperInitialPrompt", normalizedPrompt);
+	      setChecked("jobWhisperCarryInitialPrompt", enabled && Boolean(carry));
+	    }
+
+	    function applyRSSFavoritePromptToJobForm(favorite = null) {
+	      const resolvedFavorite = favorite || currentRSSFavoritePodcast();
+	      const fallback = currentGlobalWhisperPromptDefaults();
+	      const prompt = resolvedFavorite?.whisperInitialPrompt || fallback.prompt || "";
+	      const carry = resolvedFavorite?.whisperInitialPrompt
+	        ? Boolean(resolvedFavorite?.whisperCarryInitialPrompt)
+	        : Boolean(fallback.carry);
+	      setJobWhisperPromptState(prompt, carry);
+	      renderWhisperOptionVisibility();
+	    }
+
+	    function normalizeDiarizationProvider(value) {
+	      const normalized = String(value || "").trim().toLowerCase();
+	      if (normalized === "tinydiarize" || normalized === "pyannote" || normalized === "none") {
+	        return normalized;
+	      }
+	      return "none";
+	    }
+
+	    function currentSettingsDiarizationProvider() {
+	      const provider = normalizeDiarizationProvider(inputValue("diarizationProvider") || "none");
+	      return provider === "pyannote" && pyannoteUnavailable() ? "none" : provider;
+	    }
+
+	    function currentJobDiarizationProvider() {
+	      const provider = normalizeDiarizationProvider(inputValue("jobDiarizationProvider") || inputValue("diarizationProvider") || "none");
+	      return provider === "pyannote" && pyannoteUnavailable() ? "none" : provider;
+	    }
+
+	    function pyannoteDiagnostic() {
+	      return dependencyDiagnosticByName(state.latestDiagnosticsReport || {}).pyannote || null;
+	    }
+
+	    function pyannoteReady() {
+	      const diag = pyannoteDiagnostic();
+	      return Boolean(diag?.available) && String(diag?.state || "") === "ready";
+	    }
+
+	    function pyannoteUnavailable() {
+	      const diag = pyannoteDiagnostic();
+	      return Boolean(diag) && !pyannoteReady();
+	    }
+
+	    function pyannoteStateLabel(stateValue) {
+	      switch (String(stateValue || "").toLowerCase()) {
+	        case "ready":
+	          return "prêt";
+	        case "token_required":
+	          return "token requis";
+	        case "missing_module":
+	          return "module absent";
+	        case "missing_runtime":
+	          return "python absent";
+	        case "error":
+	          return "à vérifier";
+	        default:
+	          return "à préparer";
+	      }
+	    }
+
+	    function ensureTinydiarizeOutputDefaults(scope = "job") {
+	      const provider = scope === "settings" ? currentSettingsDiarizationProvider() : currentJobDiarizationProvider();
+	      const txtID = scope === "settings" ? "whisperTinydiarizeOutputTXT" : "jobWhisperTinydiarizeOutputTXT";
+	      const srtID = scope === "settings" ? "whisperTinydiarizeOutputSRT" : "jobWhisperTinydiarizeOutputSRT";
+	      if (provider !== "tinydiarize") return;
+	      if (!$(txtID).checked && !$(srtID).checked) {
+	        setChecked(txtID, true);
+	        setChecked(srtID, false);
+	      }
+	    }
+
+	    function whisperModelSupportsTinydiarizePath(modelPath) {
+	      const base = String(modelPath || "").trim().split(/[/\\]/).pop()?.toLowerCase() || "";
+	      return base.includes("tdrz");
+	    }
+
+	    function whisperModelOptionLabel(modelPath) {
+	      const normalized = String(modelPath || "").trim();
+	      if (!normalized) return "Aucun modèle";
+	      const model = installedWhisperModels().find((entry) => entry.installedPath === normalized);
+	      if (model) {
+	        return `${model.name} (${model.fileName})`;
+	      }
+	      const fileName = normalized.split(/[/\\]/).pop() || normalized;
+	      return `Chemin personnalisé (${fileName})`;
+	    }
+
+	    function effectiveSettingsWhisperModelPath() {
+	      return inputValue("whisperModelPath") || "";
+	    }
+
+	    function effectiveSettingsTinydiarizeModelPath() {
+	      return inputValue("whisperTinydiarizeModelPath") || effectiveSettingsWhisperModelPath();
+	    }
+
+	    function effectiveJobWhisperModelPath() {
+	      return inputValue("jobWhisperModelPath") || effectiveSettingsWhisperModelPath();
+	    }
+
+	    function effectiveJobTinydiarizeModelPath() {
+	      return inputValue("jobWhisperTinydiarizeModelPath") || inputValue("whisperTinydiarizeModelPath") || effectiveJobWhisperModelPath();
+	    }
+
+	    function renderTinydiarizeModelHints() {
+	      const settingsHint = $("settingsTinydiarizeCompatibilityHint");
+	      const jobHint = $("jobTinydiarizeCompatibilityHint");
+	      const settingsPath = effectiveSettingsTinydiarizeModelPath();
+	      const jobPath = effectiveJobTinydiarizeModelPath();
+	      const settingsCompatible = whisperModelSupportsTinydiarizePath(settingsPath);
+	      const jobCompatible = whisperModelSupportsTinydiarizePath(jobPath);
+
+	      if (settingsHint) {
+	        const inherited = !inputValue("whisperTinydiarizeModelPath");
+	        settingsHint.innerHTML = inherited
+	          ? `Tinydiarize reprendra le modèle Whisper principal: <code>${escapeHtml(whisperModelOptionLabel(settingsPath))}</code>. ${settingsCompatible ? "Compatible `*-tdrz`." : "Incompatible `*-tdrz` pour tinydiarize."}`
+	          : `Modèle tinydiarize par défaut: <code>${escapeHtml(whisperModelOptionLabel(settingsPath))}</code>. ${settingsCompatible ? "Compatible `*-tdrz`." : "Incompatible `*-tdrz` pour tinydiarize."}`;
+	      }
+
+	      if (jobHint) {
+	        const inherited = !inputValue("jobWhisperTinydiarizeModelPath");
+	        jobHint.innerHTML = inherited
+	          ? `Tinydiarize lance une seconde passe Whisper et utilisera <code>${escapeHtml(whisperModelOptionLabel(jobPath))}</code>${inputValue("whisperTinydiarizeModelPath") ? " via le réglage par défaut tinydiarize" : " en reprenant le modèle Whisper courant"}. ${jobCompatible ? "Compatible `*-tdrz`." : "Incompatible `*-tdrz` pour tinydiarize."}`
+	          : `Tinydiarize lance une seconde passe Whisper et remplacera le modèle courant par <code>${escapeHtml(whisperModelOptionLabel(jobPath))}</code>. ${jobCompatible ? "Compatible `*-tdrz`." : "Incompatible `*-tdrz` pour tinydiarize."}`;
+	      }
+	    }
+
+	    function syncDiarizationProviderSelectors() {
+	      const ready = pyannoteReady();
+	      const unavailable = pyannoteUnavailable();
+	      ["diarizationProvider", "jobDiarizationProvider"].forEach((id) => {
+	        const select = $(id);
+	        if (!select) return;
+	        const option = select.querySelector('option[value="pyannote"]');
+	        if (!option) return;
+	        option.disabled = !ready;
+	        option.textContent = ready ? "Pyannote" : "Pyannote (indisponible)";
+	        if (unavailable && select.value === "pyannote") {
+	          select.value = "none";
+	        }
+	      });
+	    }
+
+	    function renderPyannoteStatus() {
+	      const diag = pyannoteDiagnostic();
+	      const badge = $("pyannoteStatusBadge");
+	      const hint = $("pyannoteAccessHint");
+	      const installButton = $("installPyannoteRuntime");
+	      const verifyButton = $("verifyPyannoteAccess");
+	      const activeTool = String(state.dependencyInstallProgress?.tool || "").trim();
+	      const pyannoteInstallRunning = state.isInstallingDependencies && (activeTool === "pyannote" || (state.dependencyInstallRequestedTools || []).includes("pyannote"));
+
+	      if (badge) {
+	        badge.textContent = pyannoteStateLabel(diag?.state);
+	      }
+	      if (installButton) {
+	        installButton.disabled = state.isInstallingDependencies;
+	        installButton.textContent = pyannoteInstallRunning ? "Installation..." : "Installer le runtime pyannote";
+	      }
+	      if (verifyButton) {
+	        verifyButton.disabled = state.isVerifyingPyannoteAccess || state.isInstallingDependencies;
+	        verifyButton.textContent = state.isVerifyingPyannoteAccess ? "Vérification..." : "Vérifier l’accès";
+	      }
+	      if (hint) {
+	        if (state.isVerifyingPyannoteAccess) {
+	          hint.textContent = "Vérification pyannote en cours...";
+	        } else {
+	          hint.textContent = state.pyannoteAccessCheckMessage || diag?.notes || DEFAULT_PYANNOTE_ACCESS_HINT;
+	        }
+	        hint.classList.toggle("is-error", state.pyannoteAccessCheckTone === "error");
+	        hint.classList.toggle("is-success", state.pyannoteAccessCheckTone === "success");
+	      }
+	      syncDiarizationProviderSelectors();
+	    }
+
+	    function renderWhisperOptionVisibility() {
+	      const transcriptionEnabled = $("enableTranscription")?.checked;
+	      const promptEnabled = $("jobWhisperPromptEnabled")?.checked;
+	      const settingsProvider = currentSettingsDiarizationProvider();
+	      const jobProvider = currentJobDiarizationProvider();
+	      $("jobWhisperSettingsGroup").hidden = !transcriptionEnabled;
+	      $("jobWhisperPromptFields").hidden = !transcriptionEnabled || !promptEnabled;
+	      $("jobTinydiarizeControls").hidden = !transcriptionEnabled || jobProvider !== "tinydiarize";
+	      $("jobTinydiarizeOutputs").hidden = !transcriptionEnabled || jobProvider !== "tinydiarize";
+	      $("jobPyannoteControls").hidden = !transcriptionEnabled || jobProvider !== "pyannote";
+	      $("settingsTinydiarizeControls").hidden = settingsProvider !== "tinydiarize";
+	      $("settingsPyannoteDefaultOutputs").hidden = settingsProvider !== "pyannote";
+	      const settingsHint = $("settingsDiarizationAvailabilityHint");
+	      if (settingsHint) {
+	        if (settingsProvider === "tinydiarize") {
+	          settingsHint.textContent = "Tinydiarize devient le moteur de diarisation par défaut pour les nouveaux jobs.";
+	        } else if (settingsProvider === "pyannote") {
+	          settingsHint.textContent = pyannoteReady()
+	            ? "Pyannote annotera les segments Whisper avec un speaker dominant par segment."
+	            : "Pyannote reste visible mais indisponible tant que le runtime et l’accès au modèle ne sont pas prêts.";
+	        } else {
+	          settingsHint.textContent = "Aucune diarisation supplémentaire activée par défaut.";
+	        }
+	      }
+	      const jobHint = $("jobDiarizationAvailabilityHint");
+	      if (jobHint) {
+	        if (jobProvider === "tinydiarize") {
+	          jobHint.textContent = "Tinydiarize lance une seconde passe Whisper avec un modèle compatible `*-tdrz`.";
+	        } else if (jobProvider === "pyannote") {
+	          jobHint.textContent = pyannoteReady()
+	            ? "Pyannote ajoutera un speaker dominant par segment Whisper et produira des artefacts séparés JSON/TXT/SRT."
+	            : "Pyannote reste grisé tant que le runtime et l’accès au modèle community-1 ne sont pas prêts.";
+	        } else {
+	          jobHint.textContent = "Aucune diarisation supplémentaire pour ce job.";
+	        }
+	      }
+	      ensureTinydiarizeOutputDefaults("job");
+	      ensureTinydiarizeOutputDefaults("settings");
+	      renderTinydiarizeModelHints();
+	      renderPyannoteStatus();
+	    }
 
     function qobuzUseTokenWorkaroundEnabled() {
       return Boolean($("qobuzUseTokenWorkaround")?.checked);
@@ -2413,7 +3398,7 @@
       },
       system: {
         layout: "single",
-        visiblePanels: ["panelIntro", "panelDiagnostics", "panelWhisper"],
+        visiblePanels: ["panelIntro", "panelDiagnostics", "panelWhisper", "panelVAD"],
       },
     };
 
@@ -2423,6 +3408,7 @@
       "panelSettings",
       "panelDiagnostics",
       "panelWhisper",
+      "panelVAD",
       "panelJobs",
     ];
 
@@ -2445,9 +3431,86 @@
       system: {
         eyebrow: "Maintenance",
         title: "Système et dépendances",
-        subtitle: "Vérifie l'environnement local, les dépendances installées, les mises à jour et les modèles Whisper.",
+        subtitle: "Vérifie l'environnement local, les dépendances installées, les mises à jour et les modèles Whisper/VAD.",
       },
     };
+
+    const WHISPER_LANGUAGE_CATALOG = [
+      { code: "auto", label: "Auto-détection" },
+      { code: "fr", label: "Français" },
+      { code: "en", label: "English" },
+      { code: "de", label: "Deutsch" },
+      { code: "es", label: "Español" },
+      { code: "it", label: "Italiano" },
+      { code: "pt", label: "Português" },
+      { code: "ru", label: "Русский" },
+      { code: "ja", label: "日本語" },
+      { code: "zh", label: "中文" },
+      { code: "uk", label: "Українська" },
+      { code: "pl", label: "Polski" },
+      { code: "nl", label: "Nederlands" },
+      { code: "cs", label: "Čeština" },
+      { code: "sv", label: "Svenska" },
+      { code: "tr", label: "Türkçe" },
+      { code: "ar", label: "العربية" },
+      { code: "ko", label: "한국어" },
+      { code: "hi", label: "हिन्दी" },
+      { code: "fi", label: "Suomi" },
+      { code: "da", label: "Dansk" },
+      { code: "el", label: "Ελληνικά" },
+      { code: "he", label: "עברית" },
+      { code: "hu", label: "Magyar" },
+      { code: "id", label: "Bahasa Indonesia" },
+      { code: "no", label: "Norsk" },
+      { code: "ro", label: "Română" },
+      { code: "sk", label: "Slovenčina" },
+      { code: "th", label: "ไทย" },
+      { code: "vi", label: "Tiếng Việt" },
+      { code: "ca", label: "Català" },
+      { code: "hr", label: "Hrvatski" },
+      { code: "bg", label: "Български" },
+      { code: "ms", label: "Bahasa Melayu" },
+      { code: "sl", label: "Slovenščina" },
+      { code: "lt", label: "Lietuvių" },
+      { code: "lv", label: "Latviešu" },
+      { code: "et", label: "Eesti" },
+      { code: "fa", label: "فارسی" },
+      { code: "sr", label: "Српски" },
+      { code: "bn", label: "বাংলা" },
+      { code: "ta", label: "தமிழ்" },
+      { code: "te", label: "తెలుగు" },
+      { code: "ml", label: "മലയാളം" },
+      { code: "mr", label: "मराठी" },
+      { code: "ne", label: "नेपाली" },
+      { code: "ur", label: "اردو" },
+      { code: "sw", label: "Kiswahili" },
+      { code: "af", label: "Afrikaans" },
+      { code: "sq", label: "Shqip" },
+      { code: "am", label: "አማርኛ" },
+      { code: "az", label: "Azərbaycanca" },
+      { code: "be", label: "Беларуская" },
+      { code: "bs", label: "Bosanski" },
+      { code: "eu", label: "Euskara" },
+      { code: "gl", label: "Galego" },
+      { code: "gu", label: "ગુજરાતી" },
+      { code: "hy", label: "Հայերեն" },
+      { code: "is", label: "Íslenska" },
+      { code: "jv", label: "Basa Jawa" },
+      { code: "kn", label: "ಕನ್ನಡ" },
+      { code: "kk", label: "Қазақша" },
+      { code: "km", label: "ខ្មែរ" },
+      { code: "lo", label: "ລາວ" },
+      { code: "mk", label: "Македонски" },
+      { code: "mt", label: "Malti" },
+      { code: "mi", label: "Māori" },
+      { code: "mn", label: "Монгол" },
+      { code: "pa", label: "ਪੰਜਾਬੀ" },
+      { code: "si", label: "සිංහල" },
+      { code: "tl", label: "Tagalog" },
+      { code: "cy", label: "Cymraeg" },
+      { code: "yo", label: "Yorùbá" },
+      { code: "zu", label: "isiZulu" },
+    ];
 
     function normalizedPage(value) {
       const key = String(value || "").trim().toLowerCase();
@@ -2463,6 +3526,31 @@
       $("introTitle").textContent = config.title;
       $("introSubtitle").textContent = config.subtitle;
     }
+
+    function renderWhisperLanguageSelector() {
+	      const select = $("transcriptionLanguage");
+	      if (!select) return;
+
+	      const currentValue = String(select.value || select.dataset.currentValue || "auto").trim().toLowerCase() || "auto";
+	      const options = [];
+	      const seen = new Set();
+
+	      WHISPER_LANGUAGE_CATALOG.forEach((entry) => {
+	        const code = String(entry?.code || "").trim().toLowerCase();
+	        const label = String(entry?.label || code).trim();
+	        if (!code || seen.has(code)) return;
+	        seen.add(code);
+	        options.push(`<option value="${escapeHtml(code)}">${escapeHtml(label)}</option>`);
+	      });
+
+	      if (currentValue && !seen.has(currentValue)) {
+	        options.push(`<option value="${escapeHtml(currentValue)}">${escapeHtml(currentValue)}</option>`);
+	      }
+
+	      select.innerHTML = options.join("");
+	      select.value = seen.has(currentValue) ? currentValue : (currentValue || "auto");
+	      select.dataset.currentValue = select.value;
+	    }
 
     function applyPage(page, options = {}) {
       const pageKey = normalizedPage(page);
@@ -2516,6 +3604,7 @@
       const anyModalOpen = !$("qobuzSelectionModal").hidden
         || !$("qobuzArtistSelectionModal").hidden
         || !$("rssSelectionModal").hidden
+        || !$("rssFavoritesModal").hidden
         || !$("youtubeSelectionModal").hidden
         || !$("lyricsSelectionModal").hidden;
       document.body.style.overflow = anyModalOpen ? "hidden" : "";
@@ -2551,6 +3640,17 @@
     function closeRSSSelectionModal() {
       $("rssSelectionModal").hidden = true;
       clearRSSArtworkRetryTimer();
+      updateModalScrollLock();
+    }
+
+    function openRSSFavoritesModal() {
+      $("rssFavoritesModal").hidden = false;
+      renderRSSFavorites();
+      updateModalScrollLock();
+    }
+
+    function closeRSSFavoritesModal() {
+      $("rssFavoritesModal").hidden = true;
       updateModalScrollLock();
     }
 
@@ -2607,6 +3707,56 @@
       } catch {
         return raw.toLowerCase().replace(/\/+$/, "");
       }
+    }
+
+    function normalizeRSSFeedURL(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      try {
+        const parsed = new URL(raw);
+        parsed.hash = "";
+        parsed.hostname = parsed.hostname.toLowerCase();
+        if ((parsed.protocol === "https:" && parsed.port === "443") || (parsed.protocol === "http:" && parsed.port === "80")) {
+          parsed.port = "";
+        }
+        return parsed.toString();
+      } catch {
+        return raw;
+      }
+    }
+
+    function normalizeFavoriteRSSPodcast(podcast) {
+      const feedURL = normalizeRSSFeedURL(podcast?.feedURL);
+      if (!feedURL) return null;
+      const podcastTitle = String(podcast?.podcastTitle || "").trim() || feedURL;
+      return {
+        feedURL,
+        podcastTitle,
+        podcastArtworkURL: String(podcast?.podcastArtworkURL || "").trim(),
+        whisperInitialPrompt: String(podcast?.whisperInitialPrompt || "").trim(),
+        whisperCarryInitialPrompt: Boolean(podcast?.whisperCarryInitialPrompt),
+      };
+    }
+
+    function normalizeFavoriteRSSPodcastsList(podcasts) {
+      const normalized = [];
+      const seen = new Set();
+      for (const podcast of Array.isArray(podcasts) ? podcasts : []) {
+        const favorite = normalizeFavoriteRSSPodcast(podcast);
+        if (!favorite || seen.has(favorite.feedURL)) {
+          continue;
+        }
+        seen.add(favorite.feedURL);
+        normalized.push(favorite);
+      }
+      normalized.sort((left, right) => {
+        const titleCompare = String(left.podcastTitle || "").localeCompare(String(right.podcastTitle || ""), undefined, { sensitivity: "base" });
+        if (titleCompare !== 0) {
+          return titleCompare;
+        }
+        return String(left.feedURL || "").localeCompare(String(right.feedURL || ""), undefined, { sensitivity: "base" });
+      });
+      return normalized;
     }
 
     function normalizeYouTubeCollectionURL(value) {
@@ -3610,6 +4760,7 @@
       if (translationEnabled && !state.translationLanguageCatalog && !state.isLoadingTranslationLanguageCatalog) {
         refreshTranslationLanguages({ silent: true });
       }
+	      renderWhisperOptionVisibility();
       updateTranslationPairStatus();
       renderLRCLIBSearchResults();
     }
@@ -4982,6 +6133,230 @@
       renderYouTubeVideos();
     }
 
+    function favoriteRSSPodcasts() {
+      return Array.isArray(state.favoriteRSSPodcasts) ? state.favoriteRSSPodcasts : [];
+    }
+
+    function currentRSSFavoritePodcast() {
+      const currentFeedURL = normalizeRSSFeedURL(inputValue("inputURL"));
+      if (!currentFeedURL) {
+        return null;
+      }
+      return favoriteRSSPodcasts().find((podcast) => normalizeRSSFeedURL(podcast.feedURL) === currentFeedURL) || null;
+    }
+
+    function setFavoriteRSSPodcasts(podcasts) {
+      state.favoriteRSSPodcasts = normalizeFavoriteRSSPodcastsList(podcasts);
+      renderRSSFavoriteControls();
+      renderRSSFavorites();
+    }
+
+    function renderRSSFavoriteControls() {
+      const toggle = $("rssFavoriteToggle");
+      const openFavorites = $("openRSSFavorites");
+      const summary = $("rssFavoriteCurrentSummary");
+      const promptEditor = $("rssFavoritePromptEditor");
+      if (!toggle || !openFavorites || !summary || !promptEditor) {
+        return;
+      }
+
+      const shouldShow = isRSSContext();
+      toggle.hidden = !shouldShow;
+      openFavorites.hidden = !shouldShow;
+      if (!shouldShow) {
+        summary.hidden = true;
+        summary.textContent = "";
+	        promptEditor.hidden = true;
+        return;
+      }
+
+      const favorites = favoriteRSSPodcasts();
+      const currentFavorite = currentRSSFavoritePodcast();
+      openFavorites.disabled = favorites.length === 0;
+      openFavorites.textContent = favorites.length > 0
+        ? `Podcasts préférés (${favorites.length})`
+        : "Podcasts préférés";
+
+      toggle.disabled = !inputValue("inputURL");
+      toggle.textContent = currentFavorite ? "Retirer favori" : "Ajouter podcast";
+
+      summary.hidden = !currentFavorite;
+      summary.textContent = currentFavorite
+        ? `Podcast favori : ${currentFavorite.podcastTitle || currentFavorite.feedURL}`
+        : "";
+	      promptEditor.hidden = !currentFavorite;
+	      if (currentFavorite) {
+	        setInput("rssFavoriteWhisperInitialPrompt", currentFavorite.whisperInitialPrompt || "");
+	        setChecked("rssFavoriteWhisperCarryInitialPrompt", currentFavorite.whisperCarryInitialPrompt);
+	      }
+    }
+
+    function renderRSSFavorites() {
+      const count = $("rssFavoritesCount");
+      const current = $("rssFavoritesCurrent");
+      const body = $("rssFavoritesBody");
+      if (!count || !current || !body) {
+        return;
+      }
+
+      const favorites = favoriteRSSPodcasts();
+      const currentFavorite = currentRSSFavoritePodcast();
+      count.textContent = `${favorites.length} podcast(s) favori(s)`;
+      current.textContent = currentFavorite
+        ? `Actuel : ${currentFavorite.podcastTitle || currentFavorite.feedURL}`
+        : "";
+
+      if (!favorites.length) {
+        body.innerHTML = `<div class="hint">Ajoute un flux RSS depuis le champ URL pour le retrouver ici.</div>`;
+        return;
+      }
+
+      body.innerHTML = favorites.map((podcast) => {
+        const feedURL = String(podcast.feedURL || "").trim();
+        const podcastTitle = String(podcast.podcastTitle || feedURL).trim() || feedURL;
+        const artworkURL = String(podcast.podcastArtworkURL || "").trim();
+        const isCurrent = currentFavorite && normalizeRSSFeedURL(currentFavorite.feedURL) === normalizeRSSFeedURL(feedURL);
+        const selectedClass = isCurrent ? "is-selected" : "";
+        const checkLabel = isCurrent ? "●" : "○";
+        const artwork = artworkURL
+          ? `<img class="picker-row-art" src="${escapeHtml(artworkURL)}" alt="" loading="lazy" decoding="async" />`
+          : `<div class="picker-row-art is-placeholder" aria-hidden="true">♪</div>`;
+        return `
+          <article class="picker-row favorite-rss-row ${selectedClass}">
+            <button class="picker-row-select" type="button" data-rss-favorite-feed-url="${escapeHtml(feedURL)}">
+              <div class="picker-row-main">
+                ${artwork}
+                <div>
+                  <div class="picker-row-title">${escapeHtml(podcastTitle)}</div>
+                  <div class="favorite-rss-feed">${escapeHtml(feedURL)}</div>
+                </div>
+              </div>
+              <span class="picker-check">${checkLabel}</span>
+            </button>
+            <button class="btn-danger" type="button" data-rss-favorite-remove="${escapeHtml(feedURL)}">Retirer</button>
+          </article>
+        `;
+      }).join("");
+
+      body.querySelectorAll("[data-rss-favorite-feed-url]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          await applyRSSFavoriteSelection(button.getAttribute("data-rss-favorite-feed-url"));
+        });
+      });
+      body.querySelectorAll("[data-rss-favorite-remove]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          await removeRSSFavorite(button.getAttribute("data-rss-favorite-remove"));
+        });
+      });
+    }
+
+    async function saveFavoriteRSSPodcasts(podcasts, successMessage = "") {
+      const saved = await api("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          favoriteRSSPodcasts: normalizeFavoriteRSSPodcastsList(podcasts),
+        }),
+      });
+      setFavoriteRSSPodcasts(saved?.favoriteRSSPodcasts || []);
+      if (successMessage) {
+        setFlash(successMessage);
+      }
+      return saved;
+    }
+
+	    async function saveCurrentRSSFavoritePrompt() {
+	      const favorite = currentRSSFavoritePodcast();
+	      if (!favorite) {
+	        setFlash("Sélectionne d'abord un podcast RSS favori.", true);
+	        return;
+	      }
+	      const updated = favoriteRSSPodcasts().map((podcast) => {
+	        if (normalizeRSSFeedURL(podcast.feedURL) !== normalizeRSSFeedURL(favorite.feedURL)) {
+	          return podcast;
+	        }
+	        return {
+	          ...podcast,
+	          whisperInitialPrompt: inputValue("rssFavoriteWhisperInitialPrompt") || "",
+	          whisperCarryInitialPrompt: $("rssFavoriteWhisperCarryInitialPrompt").checked,
+	        };
+	      });
+	      await saveFavoriteRSSPodcasts(updated, `Prompt RSS mis à jour pour ${favorite.podcastTitle || favorite.feedURL}.`);
+	      applyRSSFavoritePromptToJobForm(currentRSSFavoritePodcast());
+	    }
+
+    async function fetchRSSCatalog(feedURL) {
+      return api("/api/rss/episodes", {
+        method: "POST",
+        body: JSON.stringify({
+          feedURL,
+        }),
+      });
+    }
+
+    async function addCurrentRSSPodcastToFavorites() {
+      try {
+        const feedURL = String(inputValue("inputURL") || "").trim();
+        if (!feedURL) {
+          setFlash("Renseigne d'abord une URL RSS.", true);
+          return;
+        }
+
+        const existing = currentRSSFavoritePodcast();
+        if (existing) {
+          await removeRSSFavorite(existing.feedURL);
+          return;
+        }
+
+        const normalizedFeedURL = normalizeRSSFeedURL(feedURL);
+        const currentCatalogMatches = normalizeRSSFeedURL(state.rssFeedSourceURL || "") === normalizedFeedURL;
+        const catalog = currentCatalogMatches && state.rssCatalog
+          ? state.rssCatalog
+          : await fetchRSSCatalog(feedURL);
+        const podcastTitle = String(catalog?.podcastTitle || feedURL).trim() || feedURL;
+
+        await saveFavoriteRSSPodcasts([
+          ...favoriteRSSPodcasts(),
+          {
+            feedURL,
+            podcastTitle,
+            podcastArtworkURL: String(catalog?.podcastArtworkURL || "").trim(),
+          },
+        ], `Podcast favori ajouté : ${podcastTitle}.`);
+      } catch (error) {
+        setFlash(error.message, true);
+      }
+    }
+
+    async function removeRSSFavorite(feedURL) {
+      try {
+        const normalizedFeedURL = normalizeRSSFeedURL(feedURL);
+        if (!normalizedFeedURL) {
+          setFlash("Aucun podcast favori à retirer.", true);
+          return;
+        }
+        const currentFavorite = favoriteRSSPodcasts().find((podcast) => normalizeRSSFeedURL(podcast.feedURL) === normalizedFeedURL);
+        const remaining = favoriteRSSPodcasts().filter((podcast) => normalizeRSSFeedURL(podcast.feedURL) !== normalizedFeedURL);
+        await saveFavoriteRSSPodcasts(remaining, `Podcast retiré des favoris : ${currentFavorite?.podcastTitle || normalizedFeedURL}.`);
+      } catch (error) {
+        setFlash(error.message, true);
+      }
+    }
+
+    async function applyRSSFavoriteSelection(feedURL) {
+      const favorite = favoriteRSSPodcasts().find((podcast) => normalizeRSSFeedURL(podcast.feedURL) === normalizeRSSFeedURL(feedURL));
+      if (!favorite) {
+        setFlash("Podcast favori introuvable.", true);
+        return;
+      }
+      setInput("sourceKind", "rss");
+      setInput("contentType", "audio");
+      setInput("inputURL", favorite.feedURL);
+	      applyRSSFavoritePromptToJobForm(favorite);
+      closeRSSFavoritesModal();
+      refreshNewJobFormContext();
+      await openRSSSelection();
+    }
+
     function filteredRSSEpisodes() {
       const episodes = state.rssCatalog?.episodes || [];
       const query = normalizeForSearch(inputValue("rssEpisodeSearch"));
@@ -5095,6 +6470,7 @@
       const tools = $("rssTools");
       const shouldShow = isRSSContext();
       tools.hidden = !shouldShow;
+      renderRSSFavoriteControls();
 
       if (!shouldShow) {
         if (state.rssCatalog || state.selectedRSSEpisodeIDs.size > 0) {
@@ -5127,12 +6503,7 @@
       $("rssLoadEpisodes").textContent = "Chargement...";
 
       try {
-        const catalog = await api("/api/rss/episodes", {
-          method: "POST",
-          body: JSON.stringify({
-            feedURL,
-          }),
-        });
+        const catalog = await fetchRSSCatalog(feedURL);
 
         state.rssCatalog = catalog;
         state.rssFeedURL = normalizeArtistURL(feedURL);
@@ -6052,10 +7423,30 @@
         activeBadge.textContent = "Aucun job actif";
       }
 
-      if (!state.settingsLoaded) {
-        const s = status.settings || {};
-        setInput("whisperModelPath", s.whisperModelPath || "");
-        setInput("defaultOutputRoot", s.defaultOutputRoot || "");
+	      if (!state.settingsLoaded) {
+	        const s = status.settings || {};
+	        setInput("whisperModelPath", s.whisperModelPath || "");
+	        const resolvedDiarizationProvider = normalizeDiarizationProvider(s.diarizationProvider || (s.whisperTinydiarizeEnabled ? "tinydiarize" : "none"));
+	        setInput("diarizationProvider", resolvedDiarizationProvider);
+	        setInput("whisperTinydiarizeModelPath", s.whisperTinydiarizeModelPath || "");
+	        setInput("whisperVADModelPath", s.whisperVADModelPath || "");
+	        setChecked("whisperVADEnabled", s.whisperVADEnabled);
+	        setInput("whisperVADThreshold", s.whisperVADThreshold || "");
+	        setInput("whisperVADMinSpeechDuration", s.whisperVADMinSpeechDuration || "");
+	        setInput("whisperVADMinSilenceDuration", s.whisperVADMinSilenceDuration || "");
+	        setInput("whisperVADSpeechPad", s.whisperVADSpeechPad || "");
+	        setInput("whisperMaxSegmentLength", s.whisperMaxSegmentLength || "");
+	        setChecked("whisperSplitOnWord", s.whisperSplitOnWord);
+	        setInput("whisperInitialPrompt", s.whisperInitialPrompt || "");
+	        setChecked("whisperCarryInitialPrompt", s.whisperCarryInitialPrompt);
+	        setChecked("whisperOutputJSONFull", s.whisperOutputJSONFull);
+	        setChecked("whisperTinydiarizeOutputTXT", s.whisperTinydiarizeOutputTXT ?? true);
+	        setChecked("whisperTinydiarizeOutputSRT", s.whisperTinydiarizeOutputSRT);
+	        setInput("pyannoteHuggingFaceToken", s.pyannoteHuggingFaceToken || "");
+	        setInput("pyannoteLocalPipelinePath", s.pyannoteLocalPipelinePath || "");
+	        setChecked("pyannoteOutputTXT", s.pyannoteOutputTXT ?? true);
+	        setChecked("pyannoteOutputSRT", s.pyannoteOutputSRT ?? true);
+	        setInput("defaultOutputRoot", s.defaultOutputRoot || "");
         setInput("qobuzEmail", s.qobuzEmail || "");
         setInput("qobuzPassword", s.qobuzPassword || "");
         setChecked("qobuzUseTokenWorkaround", s.qobuzUseUserAuthToken);
@@ -6064,10 +7455,28 @@
         renderQobuzTokenWorkaround();
         setChecked("useFirefoxCookies", s.useFirefoxCookies);
         setChecked("keepTemporaryFilesOnFailure", s.keepTemporaryFilesOnFailure);
-        if (!inputValue("outputRootPath") && s.defaultOutputRoot) {
-          setInput("outputRootPath", s.defaultOutputRoot);
-        }
+        setFavoriteRSSPodcasts(s.favoriteRSSPodcasts || []);
+	        setChecked("jobWhisperVADEnabled", s.whisperVADEnabled);
+	        setInput("jobWhisperVADThreshold", s.whisperVADThreshold || "");
+	        setInput("jobWhisperVADMinSpeechDuration", s.whisperVADMinSpeechDuration || "");
+	        setInput("jobWhisperVADMinSilenceDuration", s.whisperVADMinSilenceDuration || "");
+	        setInput("jobWhisperVADSpeechPad", s.whisperVADSpeechPad || "");
+	        setInput("jobWhisperMaxSegmentLength", s.whisperMaxSegmentLength || "");
+	        setChecked("jobWhisperSplitOnWord", s.whisperSplitOnWord);
+	        setJobWhisperPromptState(s.whisperInitialPrompt || "", s.whisperCarryInitialPrompt);
+	        setChecked("jobWhisperOutputJSONFull", s.whisperOutputJSONFull);
+	        setInput("jobDiarizationProvider", resolvedDiarizationProvider);
+	        setInput("jobWhisperTinydiarizeModelPath", "");
+	        setChecked("jobWhisperTinydiarizeOutputTXT", s.whisperTinydiarizeOutputTXT ?? true);
+	        setChecked("jobWhisperTinydiarizeOutputSRT", s.whisperTinydiarizeOutputSRT);
+	        setChecked("jobPyannoteOutputTXT", s.pyannoteOutputTXT ?? true);
+	        setChecked("jobPyannoteOutputSRT", s.pyannoteOutputSRT ?? true);
+	        if (!inputValue("outputRootPath") && s.defaultOutputRoot) {
+	          setInput("outputRootPath", s.defaultOutputRoot);
+	        }
         syncWhisperModelSelectors();
+	        syncVADModelSelectors();
+	        renderWhisperOptionVisibility();
         state.settingsLoaded = true;
       }
 
@@ -6196,6 +7605,22 @@
       return lines;
     }
 
+	    function artifactSummaryLine(result) {
+	      if (!result) return "";
+	      const labels = [];
+	      if (result.subtitlePath) labels.push("SRT");
+	      if (result.transcriptPath) labels.push("TXT");
+	      if (result.jsonPath) labels.push("JSON complet");
+	      if (result.tinydiarizeJSONPath) labels.push("tinydiarize JSON");
+	      if (result.tinydiarizeTranscriptPath) labels.push("tinydiarize TXT");
+	      if (result.tinydiarizeSubtitlePath) labels.push("tinydiarize SRT");
+	      if (result.pyannoteJSONPath) labels.push("pyannote JSON");
+	      if (result.pyannoteTranscriptPath) labels.push("pyannote TXT");
+	      if (result.pyannoteSubtitlePath) labels.push("pyannote SRT");
+	      if (!labels.length) return "";
+	      return `Sorties: ${labels.join(" • ")}`;
+	    }
+
     function makeSingleSummaryLines(job) {
       const lines = [];
       const downloadStatus = stepStatusLabel(job, "download");
@@ -6205,6 +7630,8 @@
       lines.push(`Telechargement: ${downloadStatus} | ${stepTimeLabel(downloadStatus, Number(job.downloadElapsedSeconds || 0))}`);
       lines.push(`Transcription: ${transcriptionStatus} | ${stepTimeLabel(transcriptionStatus, Number(job.transcriptionElapsedSeconds || 0))}`);
       lines.push(`Traduction: ${translationStatus} | ${stepTimeLabel(translationStatus, Number(job.translationElapsedSeconds || 0))}`);
+	      const artifacts = artifactSummaryLine(job.result);
+	      if (artifacts) lines.push(artifacts);
       return lines;
     }
 
@@ -6405,6 +7832,7 @@
       const contentType = inferredContentType(sourceKind, inputValue("contentType"));
       const activeLyricsMode = lyricsMode();
       const collisionPolicy = inputValue("collisionPolicy") || "rename";
+      const jobProvider = currentJobDiarizationProvider();
       const payload = {
         inputURL: inputValue("inputURL"),
         sourceKind: sourceKind === "unknown" ? (inputValue("sourceKind") || "auto") : sourceKind,
@@ -6429,7 +7857,28 @@
         manualLyricsAlbumName: null,
         manualLyricsPlain: null,
         manualLyricsSynced: null,
-        whisperModelPath: inputValue("jobWhisperModelPath") || "",
+	        whisperModelPath: inputValue("jobWhisperModelPath") || "",
+	        diarizationProvider: jobProvider,
+	        whisperVADEnabled: $("jobWhisperVADEnabled").checked,
+	        whisperVADModelPath: inputValue("jobWhisperVADModelPath") || "",
+	        whisperVADThreshold: normalizeNumberOrNull($("jobWhisperVADThreshold").value),
+	        whisperVADMinSpeechDuration: normalizeNumberOrNull($("jobWhisperVADMinSpeechDuration").value),
+	        whisperVADMinSilenceDuration: normalizeNumberOrNull($("jobWhisperVADMinSilenceDuration").value),
+	        whisperVADSpeechPad: normalizeNumberOrNull($("jobWhisperVADSpeechPad").value),
+	        whisperMaxSegmentLength: normalizeNumberOrNull($("jobWhisperMaxSegmentLength").value),
+	        whisperSplitOnWord: $("jobWhisperSplitOnWord").checked,
+	        whisperPromptEnabled: $("jobWhisperPromptEnabled").checked,
+	        whisperInitialPrompt: $("jobWhisperPromptEnabled").checked ? (inputValue("jobWhisperInitialPrompt") || "") : "",
+	        whisperCarryInitialPrompt: $("jobWhisperPromptEnabled").checked && $("jobWhisperCarryInitialPrompt").checked,
+	        whisperOutputJSONFull: $("jobWhisperOutputJSONFull").checked,
+	        whisperTinydiarizeEnabled: jobProvider === "tinydiarize",
+	        whisperTinydiarizeModelPath: jobProvider === "tinydiarize" ? (inputValue("jobWhisperTinydiarizeModelPath") || "") : "",
+	        whisperTinydiarizeOutputTXT: jobProvider === "tinydiarize" && $("jobWhisperTinydiarizeOutputTXT").checked,
+	        whisperTinydiarizeOutputSRT: jobProvider === "tinydiarize" && $("jobWhisperTinydiarizeOutputSRT").checked,
+	        pyannoteHuggingFaceToken: jobProvider === "pyannote" ? (inputValue("pyannoteHuggingFaceToken") || "") : "",
+	        pyannoteLocalPipelinePath: jobProvider === "pyannote" ? (inputValue("pyannoteLocalPipelinePath") || "") : "",
+	        pyannoteOutputTXT: jobProvider === "pyannote" && $("jobPyannoteOutputTXT").checked,
+	        pyannoteOutputSRT: jobProvider === "pyannote" && $("jobPyannoteOutputSRT").checked,
         ytDlpExtraArguments: inputValue("ytDlpExtraArguments") || null,
         whisperExtraArguments: inputValue("whisperExtraArguments") || null,
         ffmpegExtraArguments: inputValue("ffmpegExtraArguments") || null,
@@ -6493,6 +7942,7 @@
                 title: episode.title,
                 publicationDate: episode.publicationDate || null,
                 mediaURL,
+	                feedURL: state.rssFeedSourceURL || inputValue("inputURL") || null,
                 podcastTitle,
                 artworkURL: episode.artworkURL || state.rssCatalog?.podcastArtworkURL || null,
               },
@@ -6791,8 +8241,29 @@
 
     async function saveSettings(event) {
       event.preventDefault();
+      const settingsProvider = currentSettingsDiarizationProvider();
       const payload = {
         whisperModelPath: inputValue("whisperModelPath"),
+	        whisperVADEnabled: $("whisperVADEnabled").checked,
+	        whisperVADModelPath: inputValue("whisperVADModelPath"),
+	        whisperVADThreshold: normalizeNumberOrNull($("whisperVADThreshold").value) ?? 0,
+	        whisperVADMinSpeechDuration: normalizeNumberOrNull($("whisperVADMinSpeechDuration").value) ?? 0,
+	        whisperVADMinSilenceDuration: normalizeNumberOrNull($("whisperVADMinSilenceDuration").value) ?? 0,
+	        whisperVADSpeechPad: normalizeNumberOrNull($("whisperVADSpeechPad").value) ?? 0,
+	        whisperMaxSegmentLength: normalizeNumberOrNull($("whisperMaxSegmentLength").value) ?? 0,
+	        whisperSplitOnWord: $("whisperSplitOnWord").checked,
+	        whisperInitialPrompt: inputValue("whisperInitialPrompt"),
+	        whisperCarryInitialPrompt: $("whisperCarryInitialPrompt").checked,
+	        whisperOutputJSONFull: $("whisperOutputJSONFull").checked,
+	        diarizationProvider: settingsProvider,
+	        whisperTinydiarizeEnabled: settingsProvider === "tinydiarize",
+	        whisperTinydiarizeModelPath: inputValue("whisperTinydiarizeModelPath"),
+	        whisperTinydiarizeOutputTXT: $("whisperTinydiarizeOutputTXT").checked,
+	        whisperTinydiarizeOutputSRT: $("whisperTinydiarizeOutputSRT").checked,
+	        pyannoteHuggingFaceToken: inputValue("pyannoteHuggingFaceToken"),
+	        pyannoteLocalPipelinePath: inputValue("pyannoteLocalPipelinePath"),
+	        pyannoteOutputTXT: $("pyannoteOutputTXT").checked,
+	        pyannoteOutputSRT: $("pyannoteOutputSRT").checked,
         defaultOutputRoot: inputValue("defaultOutputRoot"),
         ...currentQobuzAuthPayload(),
         useFirefoxCookies: $("useFirefoxCookies").checked,
@@ -6805,13 +8276,19 @@
           body: JSON.stringify(payload),
         });
         state.settingsLoaded = true;
+        state.pyannoteAccessCheckTone = "idle";
+        state.pyannoteAccessCheckMessage = "";
         state.qobuzTokenWorkaroundAvailable = Boolean(saved.qobuzUseUserAuthToken || saved.qobuzUserAuthToken);
         renderQobuzTokenWorkaround();
+        setFavoriteRSSPodcasts(saved.favoriteRSSPodcasts || state.favoriteRSSPodcasts || []);
         setFlash("Réglages enregistrés.");
         if (!inputValue("outputRootPath") && saved.defaultOutputRoot) {
           setInput("outputRootPath", saved.defaultOutputRoot);
         }
         await refreshWhisperModels({ silent: true });
+	        await refreshVADModels({ silent: true });
+	        await refreshDiagnostics();
+	        renderWhisperOptionVisibility();
       } catch (error) {
         setFlash(error.message, true);
       }
@@ -6893,6 +8370,57 @@
       }
     }
 
+	    function currentPyannoteAccessPayload() {
+	      return {
+	        token: inputValue("pyannoteHuggingFaceToken") || "",
+	        localPipelinePath: inputValue("pyannoteLocalPipelinePath") || "",
+	      };
+	    }
+
+	    async function verifyPyannoteAccess() {
+	      if (state.isVerifyingPyannoteAccess) {
+	        return;
+	      }
+	      state.isVerifyingPyannoteAccess = true;
+	      state.pyannoteAccessCheckTone = "idle";
+	      state.pyannoteAccessCheckMessage = "";
+	      renderPyannoteStatus();
+
+	      try {
+	        const response = await api("/api/pyannote/verify-access", {
+	          method: "POST",
+	          body: JSON.stringify(currentPyannoteAccessPayload()),
+	        });
+	        if (response?.diagnostic?.name) {
+	          const report = state.latestDiagnosticsReport || { tools: [] };
+	          const tools = Array.isArray(report.tools) ? [...report.tools] : [];
+	          const index = tools.findIndex((tool) => String(tool?.name || "") === String(response.diagnostic.name));
+	          if (index >= 0) {
+	            tools[index] = response.diagnostic;
+	          } else {
+	            tools.push(response.diagnostic);
+	          }
+	          state.latestDiagnosticsReport = { ...report, tools };
+	        }
+	        if (response?.ok) {
+	          state.pyannoteAccessCheckTone = "success";
+	          state.pyannoteAccessCheckMessage = response?.message || "Accès pyannote valide.";
+	          setFlash(state.pyannoteAccessCheckMessage);
+	        } else {
+	          state.pyannoteAccessCheckTone = "error";
+	          state.pyannoteAccessCheckMessage = response?.message || "Accès pyannote indisponible.";
+	          setFlash(state.pyannoteAccessCheckMessage, true);
+	        }
+	      } catch (error) {
+	        state.pyannoteAccessCheckTone = "error";
+	        state.pyannoteAccessCheckMessage = error.message || "Impossible de vérifier l’accès pyannote.";
+	        setFlash(state.pyannoteAccessCheckMessage, true);
+	      } finally {
+	        state.isVerifyingPyannoteAccess = false;
+	        renderWhisperOptionVisibility();
+	      }
+	    }
+
     function installedWhisperModels() {
       const models = state.whisperModelsResponse?.models || [];
       return models
@@ -6903,11 +8431,16 @@
     function syncWhisperModelSelectors() {
       const defaultSelect = $("whisperDefaultModelSelect");
       const jobSelect = $("jobWhisperModelPath");
-      if (!defaultSelect || !jobSelect) return;
+      const settingsTinydiarizeSelect = $("whisperTinydiarizeModelPath");
+      const jobTinydiarizeSelect = $("jobWhisperTinydiarizeModelPath");
+      if (!defaultSelect || !jobSelect || !settingsTinydiarizeSelect || !jobTinydiarizeSelect) return;
 
       const installed = installedWhisperModels();
+      const compatible = installed.filter((model) => whisperModelSupportsTinydiarizePath(model.installedPath || model.fileName || ""));
       const settingsPath = inputValue("whisperModelPath");
       const jobPath = inputValue("jobWhisperModelPath");
+      const settingsTinydiarizePath = inputValue("whisperTinydiarizeModelPath");
+      const jobTinydiarizePath = inputValue("jobWhisperTinydiarizeModelPath");
 
       const defaultOptions = [
         `<option value="">Détection auto / chemin manuel</option>`,
@@ -6928,6 +8461,27 @@
       }
       jobSelect.innerHTML = jobOptions.join("");
       jobSelect.value = jobPath;
+
+      const settingsTinydiarizeOptions = [
+        `<option value="">Même modèle que Whisper principal</option>`,
+        ...compatible.map((model) => `<option value="${escapeHtml(model.installedPath)}">${escapeHtml(model.name)} (${escapeHtml(model.fileName)})</option>`),
+      ];
+      if (settingsTinydiarizePath && !compatible.some((model) => model.installedPath === settingsTinydiarizePath)) {
+        settingsTinydiarizeOptions.push(`<option value="${escapeHtml(settingsTinydiarizePath)}">Chemin personnalisé (${escapeHtml(settingsTinydiarizePath)})</option>`);
+      }
+      settingsTinydiarizeSelect.innerHTML = settingsTinydiarizeOptions.join("");
+      settingsTinydiarizeSelect.value = settingsTinydiarizePath;
+
+      const jobTinydiarizeOptions = [
+        `<option value="">Modèle tinydiarize par défaut (réglages)</option>`,
+        ...compatible.map((model) => `<option value="${escapeHtml(model.installedPath)}">${escapeHtml(model.name)} (${escapeHtml(model.fileName)})</option>`),
+      ];
+      if (jobTinydiarizePath && !compatible.some((model) => model.installedPath === jobTinydiarizePath)) {
+        jobTinydiarizeOptions.push(`<option value="${escapeHtml(jobTinydiarizePath)}">Chemin personnalisé (${escapeHtml(jobTinydiarizePath)})</option>`);
+      }
+      jobTinydiarizeSelect.innerHTML = jobTinydiarizeOptions.join("");
+      jobTinydiarizeSelect.value = jobTinydiarizePath;
+      renderTinydiarizeModelHints();
     }
 
     function formatBytes(value) {
@@ -7201,8 +8755,14 @@
         if (response?.clearedDefaultSelection) {
           setInput("whisperModelPath", "");
         }
+        if (removedPath && inputValue("whisperTinydiarizeModelPath") === removedPath) {
+          setInput("whisperTinydiarizeModelPath", "");
+        }
         if (removedPath && inputValue("jobWhisperModelPath") === removedPath) {
           setInput("jobWhisperModelPath", "");
+        }
+        if (removedPath && inputValue("jobWhisperTinydiarizeModelPath") === removedPath) {
+          setInput("jobWhisperTinydiarizeModelPath", "");
         }
         setFlash(response.message || `Modèle ${id} supprimé.`);
         await refreshWhisperModels({ silent: true });
@@ -7213,6 +8773,228 @@
         renderWhisperModels();
       }
     }
+
+	    function installedVADModels() {
+	      const models = state.vadModelsResponse?.models || [];
+	      return models
+	        .filter((model) => model && model.installed && model.installedPath)
+	        .sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), undefined, { sensitivity: "base" }));
+	    }
+
+	    function syncVADModelSelectors() {
+	      const defaultSelect = $("vadDefaultModelSelect");
+	      const jobSelect = $("jobWhisperVADModelPath");
+	      if (!defaultSelect || !jobSelect) return;
+
+	      const installed = installedVADModels();
+	      const settingsPath = inputValue("whisperVADModelPath");
+	      const jobPath = inputValue("jobWhisperVADModelPath");
+
+	      const defaultOptions = [
+	        `<option value="">Aucun / chemin manuel</option>`,
+	        ...installed.map((model) => `<option value="${escapeHtml(model.installedPath)}">${escapeHtml(model.name)} (${escapeHtml(model.fileName)})</option>`),
+	      ];
+	      if (settingsPath && !installed.some((model) => model.installedPath === settingsPath)) {
+	        defaultOptions.push(`<option value="${escapeHtml(settingsPath)}">Chemin personnalisé (${escapeHtml(settingsPath)})</option>`);
+	      }
+	      defaultSelect.innerHTML = defaultOptions.join("");
+	      defaultSelect.value = settingsPath;
+
+	      const jobOptions = [
+	        `<option value="">Modele VAD par défaut (réglages moteur)</option>`,
+	        ...installed.map((model) => `<option value="${escapeHtml(model.installedPath)}">${escapeHtml(model.name)} (${escapeHtml(model.fileName)})</option>`),
+	      ];
+	      if (jobPath && !installed.some((model) => model.installedPath === jobPath)) {
+	        jobOptions.push(`<option value="${escapeHtml(jobPath)}">Chemin personnalisé (${escapeHtml(jobPath)})</option>`);
+	      }
+	      jobSelect.innerHTML = jobOptions.join("");
+	      jobSelect.value = jobPath;
+	    }
+
+	    function startVADInstallProgressPolling(modelID) {
+	      const id = String(modelID || "").trim();
+	      if (!id) return;
+	      stopVADInstallProgressPolling(id);
+	      state.vadInstallPollTimerByModelID[id] = window.setInterval(() => {
+	        refreshVADInstallProgress(id);
+	      }, 450);
+	    }
+
+	    function stopVADInstallProgressPolling(modelID) {
+	      const id = String(modelID || "").trim();
+	      if (!id) return;
+	      const timer = state.vadInstallPollTimerByModelID[id];
+	      if (timer) {
+	        window.clearInterval(timer);
+	      }
+	      delete state.vadInstallPollTimerByModelID[id];
+	    }
+
+	    async function refreshVADInstallProgress(modelID) {
+	      const id = String(modelID || "").trim();
+	      if (!id) return null;
+	      try {
+	        const response = await api(`/api/whisper/vad-models/install-progress?modelID=${encodeURIComponent(id)}`);
+	        state.vadInstallProgressByModelID[id] = response || {};
+	        renderVADModels();
+	        return response;
+	      } catch {
+	        return null;
+	      }
+	    }
+
+	    function renderVADModels() {
+	      const hint = $("vadModelsHint");
+	      const body = $("vadModelsBody");
+	      const report = state.vadModelsResponse;
+	      if (!hint || !body) return;
+
+	      if (!report) {
+	        hint.textContent = "Chargement des modèles...";
+	        body.innerHTML = `<div class="hint">Aucun modèle chargé.</div>`;
+	        syncVADModelSelectors();
+	        return;
+	      }
+
+	      const models = Array.isArray(report.models) ? report.models : [];
+	      const installedCount = models.filter((model) => model?.installed).length;
+	      const dir = String(report.modelDirectory || "").trim() || "-";
+	      hint.textContent = `${installedCount}/${models.length} modèle(s) installé(s). Dossier: ${dir}`;
+
+	      body.innerHTML = models.map((model) => {
+	        const installing = state.vadModelInstallInProgress.has(model.id);
+	        const uninstalling = state.vadModelUninstallInProgress.has(model.id);
+	        const busy = installing || uninstalling;
+	        const installed = Boolean(model.installed);
+	        const managedByApp = Boolean(model.managedByApp);
+	        const progress = state.vadInstallProgressByModelID[model.id] || null;
+	        const selectedPath = String(report.selectedModelPath || "").trim();
+	        const selectedID = String(report.selectedModelID || "").trim();
+	        const selected = (selectedPath && model.installedPath && model.installedPath === selectedPath) || (selectedID && selectedID === model.id);
+	        const details = [
+	          `Fichier: ${model.fileName || "-"}`,
+	          `Taille: ${Number(model.approximateSizeMB) > 0 ? `~${model.approximateSizeMB} MB` : "taille inconnue"}`,
+	        ];
+	        if (model.installedPath) details.push(`Chemin: ${model.installedPath}`);
+	        if (installed && managedByApp) details.push("Installé via l'app");
+	        else if (installed) details.push("Installation externe");
+	        if (selected) details.push("Modèle VAD actif");
+	        const progressPercent = Math.max(0, Math.min(100, Math.round(Number(progress?.progressPercent || 0))));
+	        const progressDetails = Number(progress?.totalBytes) > 0
+	          ? `${formatBytes(Number(progress?.downloadedBytes || 0))} / ${formatBytes(Number(progress?.totalBytes || 0))}`
+	          : "";
+	        const showProgress = installing || (progress && (progress.active || String(progress.stage || "") === "completed"));
+	        return `
+	          <article class="whisper-model-item">
+	            <div>
+	              <div class="whisper-model-name">${escapeHtml(model.name || model.id || "Modele")}</div>
+	              <div class="whisper-model-meta">${escapeHtml(details.join(" • "))}</div>
+	              ${showProgress ? `
+	                <div class="whisper-progress">
+	                  <div class="whisper-progress-track">
+	                    <div class="whisper-progress-fill" style="width:${progressPercent}%;"></div>
+	                  </div>
+	                  <div class="whisper-progress-meta">
+	                    <span>${escapeHtml(whisperProgressLabel(progress?.stage, "Installation"))} ${escapeHtml(`${progressPercent}%`)}</span>
+	                    ${progressDetails ? `<span>${escapeHtml(progressDetails)}</span>` : ""}
+	                    ${progress?.message ? `<span>${escapeHtml(String(progress.message || ""))}</span>` : ""}
+	                  </div>
+	                </div>
+	              ` : ""}
+	            </div>
+	            <div class="mini-actions">
+	              <span class="status ${installed ? "completed" : "queued"}">${installed ? "installé" : "non installé"}</span>
+	              <button class="btn-ghost" type="button" data-vad-install="${escapeHtml(model.id || "")}" ${installed || busy ? "disabled" : ""}>${installing ? "Installation..." : (installed ? "Installé" : "Installer")}</button>
+	              ${installed && managedByApp
+	                ? `<button class="btn-danger" type="button" data-vad-uninstall="${escapeHtml(model.id || "")}" ${busy ? "disabled" : ""}>${uninstalling ? "Suppression..." : "Supprimer"}</button>`
+	                : ""}
+	            </div>
+	          </article>
+	        `;
+	      }).join("");
+
+	      body.querySelectorAll("[data-vad-install]").forEach((button) => {
+	        button.addEventListener("click", () => installVADModel(button.getAttribute("data-vad-install")));
+	      });
+	      body.querySelectorAll("[data-vad-uninstall]").forEach((button) => {
+	        button.addEventListener("click", () => uninstallVADModel(button.getAttribute("data-vad-uninstall")));
+	      });
+
+	      syncVADModelSelectors();
+	    }
+
+	    async function refreshVADModels(options = {}) {
+	      const silent = Boolean(options?.silent);
+	      if (!silent) {
+	        $("vadModelsHint").textContent = "Chargement des modèles...";
+	        $("vadModelsBody").innerHTML = `<div class="hint">Récupération du catalogue...</div>`;
+	      }
+	      try {
+	        state.vadModelsResponse = await api("/api/whisper/vad-models");
+	        renderVADModels();
+	      } catch (error) {
+	        $("vadModelsHint").textContent = "Erreur chargement modèles";
+	        $("vadModelsBody").innerHTML = `<div class="hint" style="color:#9a1d1d;">${escapeHtml(error.message)}</div>`;
+	        if (!silent) setFlash(error.message, true);
+	      }
+	    }
+
+	    async function installVADModel(modelID) {
+	      const id = String(modelID || "").trim();
+	      if (!id || state.vadModelInstallInProgress.has(id) || state.vadModelUninstallInProgress.has(id)) return;
+	      state.vadModelInstallInProgress.add(id);
+	      state.vadInstallProgressByModelID[id] = { modelID: id, active: true, stage: "preparing", message: "Préparation...", progressPercent: 0 };
+	      startVADInstallProgressPolling(id);
+	      void refreshVADInstallProgress(id);
+	      renderVADModels();
+	      try {
+	        const response = await api("/api/whisper/vad-models/install", {
+	          method: "POST",
+	          body: JSON.stringify({ modelID: id }),
+	        });
+	        if (!inputValue("whisperVADModelPath") && response?.model?.installedPath) {
+	          setInput("whisperVADModelPath", response.model.installedPath);
+	        }
+	        setFlash(response.message || `Modèle VAD ${id} installé.`);
+	        await refreshVADModels({ silent: true });
+	      } catch (error) {
+	        setFlash(error.message, true);
+	      } finally {
+	        await refreshVADInstallProgress(id);
+	        stopVADInstallProgressPolling(id);
+	        state.vadModelInstallInProgress.delete(id);
+	        renderVADModels();
+	      }
+	    }
+
+	    async function uninstallVADModel(modelID) {
+	      const id = String(modelID || "").trim();
+	      if (!id || state.vadModelUninstallInProgress.has(id) || state.vadModelInstallInProgress.has(id)) return;
+	      const model = (state.vadModelsResponse?.models || []).find((entry) => entry?.id === id);
+	      if (!model || !model.installed || !model.managedByApp) {
+	        setFlash("Ce modèle VAD n'est pas supprimable depuis l'application.", true);
+	        return;
+	      }
+	      if (!window.confirm(`Supprimer ${String(model.name || id).trim()} du dossier des modèles VAD de l'application ?`)) return;
+	      state.vadModelUninstallInProgress.add(id);
+	      renderVADModels();
+	      try {
+	        const response = await api("/api/whisper/vad-models/uninstall", {
+	          method: "POST",
+	          body: JSON.stringify({ modelID: id }),
+	        });
+	        const removedPath = String(response?.removedPath || "").trim();
+	        if (response?.clearedDefaultSelection) setInput("whisperVADModelPath", "");
+	        if (removedPath && inputValue("jobWhisperVADModelPath") === removedPath) setInput("jobWhisperVADModelPath", "");
+	        setFlash(response.message || `Modèle VAD ${id} supprimé.`);
+	        await refreshVADModels({ silent: true });
+	      } catch (error) {
+	        setFlash(error.message, true);
+	      } finally {
+	        state.vadModelUninstallInProgress.delete(id);
+	        renderVADModels();
+	      }
+	    }
 
     function humanPlatformName(platform) {
       switch (String(platform || "").toLowerCase()) {
@@ -7276,6 +9058,17 @@
     }
 
     function dependencyStatus(diag) {
+	      const stateValue = String(diag?.state || "").toLowerCase();
+	      if (stateValue === "token_required") {
+	        return {
+	          key: "tokenRequired",
+	          className: "paused",
+	          label: "token requis",
+	          action: null,
+	          actionLabel: "",
+	          actionClass: "",
+	        };
+	      }
       if (!diag || !diag.available) {
         return {
           key: "missing",
@@ -7820,6 +9613,7 @@
 
       renderDependencyInstaller();
       renderAppUpdateControls();
+      renderPyannoteStatus();
       if (state.isInstallingDependencies && state.dependencyInstallProgress) {
         renderDependencyInstallProgress(state.dependencyInstallProgress);
       } else {
@@ -7838,6 +9632,7 @@
         $("diagStamp").textContent = "Erreur diagnostics";
         body.innerHTML = `<div class="hint" style="color:#9a1d1d;">${escapeHtml(error.message)}</div>`;
         renderAppUpdateControls();
+	        renderPyannoteStatus();
       }
     }
 
@@ -7845,6 +9640,7 @@
       refreshStatus().catch((error) => setFlash(error.message, true));
       refreshDiagnostics();
       refreshWhisperModels({ silent: true });
+	      refreshVADModels({ silent: true });
       refreshTranslationLanguages({ silent: true });
       syncDetectedSourceAndTypeFromURL();
       applyDefaultTranscriptionForSelectedContentType({ force: true });
@@ -7920,8 +9716,14 @@
       closeLyricsSelectionModal();
       refreshNewJobFormContext();
     });
+    $("transcriptionLanguage").addEventListener("change", () => {
+      $("transcriptionLanguage").dataset.currentValue = inputValue("transcriptionLanguage") || "auto";
+    });
     $("enableTranscription").addEventListener("change", () => {
       updateContentSpecificOptionsVisibility();
+    });
+    $("jobWhisperPromptEnabled").addEventListener("change", () => {
+      renderWhisperOptionVisibility();
     });
     $("enableTranslation").addEventListener("change", () => {
       updateContentSpecificOptionsVisibility();
@@ -7997,6 +9799,53 @@
     $("whisperModelPath").addEventListener("change", () => {
       syncWhisperModelSelectors();
     });
+	    $("whisperTinydiarizeModelPath").addEventListener("change", () => {
+	      renderTinydiarizeModelHints();
+	    });
+	    $("diarizationProvider").addEventListener("change", () => {
+	      renderWhisperOptionVisibility();
+	    });
+	    $("jobWhisperModelPath").addEventListener("change", () => {
+	      renderTinydiarizeModelHints();
+	    });
+	    $("jobDiarizationProvider").addEventListener("change", () => {
+	      renderWhisperOptionVisibility();
+	    });
+	    $("jobWhisperTinydiarizeModelPath").addEventListener("change", () => {
+	      renderTinydiarizeModelHints();
+	    });
+	    $("installPyannoteRuntime").addEventListener("click", () => {
+	      runDependencyInstall(["pyannote"]);
+	    });
+	    $("verifyPyannoteAccess").addEventListener("click", () => {
+	      verifyPyannoteAccess();
+	    });
+	    ["pyannoteHuggingFaceToken", "pyannoteLocalPipelinePath"].forEach((id) => {
+	      $(id).addEventListener("input", () => {
+	        state.pyannoteAccessCheckTone = "idle";
+	        state.pyannoteAccessCheckMessage = "";
+	        renderPyannoteStatus();
+	      });
+	    });
+	    $("vadDefaultModelSelect").addEventListener("change", () => {
+	      setInput("whisperVADModelPath", $("vadDefaultModelSelect").value || "");
+	      syncVADModelSelectors();
+	    });
+	    $("whisperVADModelPath").addEventListener("change", () => {
+	      syncVADModelSelectors();
+	    });
+	    [
+	      "jobWhisperTinydiarizeOutputTXT",
+	      "jobWhisperTinydiarizeOutputSRT",
+	      "jobPyannoteOutputTXT",
+	      "jobPyannoteOutputSRT",
+	      "whisperTinydiarizeOutputTXT",
+	      "whisperTinydiarizeOutputSRT",
+	      "pyannoteOutputTXT",
+	      "pyannoteOutputSRT",
+	    ].forEach((id) => {
+	      $(id).addEventListener("change", renderWhisperOptionVisibility);
+	    });
     $("inputURL").addEventListener("input", () => {
       resetLyricsManualSelections();
       closeLyricsSelectionModal();
@@ -8084,6 +9933,15 @@
       refreshNewJobFormContext();
     });
     $("rssEpisodeSearch").addEventListener("input", renderRSSEpisodes);
+    $("rssFavoriteToggle").addEventListener("click", async () => {
+      await addCurrentRSSPodcastToFavorites();
+    });
+	    $("saveRSSFavoritePrompt").addEventListener("click", async () => {
+	      await saveCurrentRSSFavoritePrompt();
+	    });
+    $("openRSSFavorites").addEventListener("click", () => {
+      openRSSFavoritesModal();
+    });
     $("rssLoadEpisodes").addEventListener("click", () => {
       openRSSSelection();
     });
@@ -8095,6 +9953,8 @@
       closeRSSSelectionModal();
       setFlash(`${state.selectedRSSEpisodeIDs.size} épisode(s) retenu(s).`);
     });
+    $("rssFavoritesClose").addEventListener("click", closeRSSFavoritesModal);
+    $("rssFavoritesCancel").addEventListener("click", closeRSSFavoritesModal);
     $("youtubeSelectionModal").addEventListener("click", (event) => {
       if (event.target === $("youtubeSelectionModal")) {
         closeYouTubeSelectionModal();
@@ -8120,6 +9980,11 @@
         closeRSSSelectionModal();
       }
     });
+    $("rssFavoritesModal").addEventListener("click", (event) => {
+      if (event.target === $("rssFavoritesModal")) {
+        closeRSSFavoritesModal();
+      }
+    });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !$("youtubeSelectionModal").hidden) {
         closeYouTubeSelectionModal();
@@ -8135,6 +10000,9 @@
       }
       if (event.key === "Escape" && !$("rssSelectionModal").hidden) {
         closeRSSSelectionModal();
+      }
+      if (event.key === "Escape" && !$("rssFavoritesModal").hidden) {
+        closeRSSFavoritesModal();
       }
     });
     $("manualRefresh").addEventListener("click", () => {
@@ -8158,10 +10026,16 @@
     $("refreshWhisperModels").addEventListener("click", () => {
       refreshWhisperModels();
     });
+	    $("refreshVADModels").addEventListener("click", () => {
+	      refreshVADModels();
+	    });
     renderDependencyInstaller();
     renderAppUpdateControls();
     renderDependencyInstallResponse(null);
+    renderWhisperLanguageSelector();
     renderWhisperModels();
+	    renderVADModels();
+	    renderWhisperOptionVisibility();
     renderTranslationLanguageSelectors();
     startPolling();
   </script>

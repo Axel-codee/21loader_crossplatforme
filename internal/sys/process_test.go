@@ -43,6 +43,9 @@ func TestRunnerHelperProcess(t *testing.T) {
 			}
 		}
 		os.Exit(0)
+	case "print-env":
+		_, _ = os.Stdout.WriteString(os.Getenv("RUNNER_TEST_ENV"))
+		os.Exit(0)
 	default:
 		os.Exit(2)
 	}
@@ -133,6 +136,32 @@ func TestRunnerRunStreamsChunkProgressWithoutSeparators(t *testing.T) {
 	}
 	if !strings.Contains(output, "10%") || !strings.Contains(output, "50%") || !strings.Contains(output, "100%") {
 		t.Fatalf("expected captured output to contain all progress values, got: %q", output)
+	}
+}
+
+func TestRunnerRunPropagatesEnvironment(t *testing.T) {
+	runner := &Runner{}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	output, err := runner.Run(ctx, RunOptions{
+		Executable: os.Args[0],
+		Args: []string{
+			"-test.run=TestRunnerHelperProcess",
+			"--",
+			runnerHelperFlag,
+			"print-env",
+		},
+		Environment: map[string]string{
+			"RUNNER_TEST_ENV": "runner-env-ok",
+		},
+		CaptureOutput: true,
+	})
+	if err != nil {
+		t.Fatalf("runner.Run failed: %v", err)
+	}
+	if output != "runner-env-ok" {
+		t.Fatalf("unexpected environment output: got=%q want=%q", output, "runner-env-ok")
 	}
 }
 

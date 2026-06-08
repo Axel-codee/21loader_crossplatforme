@@ -16,6 +16,7 @@ func WhisperModelCandidateFiles() []string {
 		"ggml-base.en.bin",
 		"ggml-small.bin",
 		"ggml-small.en.bin",
+		"ggml-small.en-tdrz.bin",
 		"ggml-medium.bin",
 		"ggml-medium.en.bin",
 		"ggml-large-v1.bin",

@@ -30,6 +30,10 @@
 | `BACKLOG-09` | Choisir `mp3` / `mp4` ou les deux pour les musiques YouTube | `open` | services media | [../domains/media-services.md](../domains/media-services.md) |
 | `BACKLOG-10` | Obtenir les lyrics sur les musiques YouTube | `open` | services media | [../domains/media-services.md](../domains/media-services.md) |
 | `BACKLOG-11` | Empecher l'ajout d'un job identique deja present en mode `completer` | `done 2026-04-12` | jobs/pipeline | [../domains/jobs-pipeline.md](../domains/jobs-pipeline.md) |
+| `BACKLOG-12` | Ajouter des podcasts RSS favoris selectionnables depuis `Ajouter un job` | `done 2026-04-17` | frontend/ui | [../domains/frontend-ui.md](../domains/frontend-ui.md), [../domains/media-services.md](../domains/media-services.md) |
+| `BACKLOG-13` | Pouvoir regler le nombre de threads utilises par Whisper | `open` | services media | [../domains/media-services.md](../domains/media-services.md) |
+| `BACKLOG-14` | Ajouter pyannote comme moteur de diarisation optionnel | `done 2026-05-02` | services media / jobs-pipeline / frontend/ui | [../domains/media-services.md](../domains/media-services.md), [../domains/jobs-pipeline.md](../domains/jobs-pipeline.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
+| `BACKLOG-15` | Ajouter la commande terminal `21loader` et `21loader update` | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 
 ## Zones de code probablement concernees
 
@@ -40,6 +44,11 @@
 - `internal/services/youtube.go`
 - `internal/httpapi/router.go`
 - `web/index.html`
+- `cmd/server/main.go`
+- `internal/updater/`
+- `scripts/windows/`
+- `scripts/macos/`
+- `.github/workflows/release.yml`
 
 ## Notes
 
@@ -48,6 +57,9 @@
 - `BACKLOG-05` a ete traite le `2026-04-09`; la ligne reste ici comme point de traceabilite pour le branding web.
 - `BACKLOG-04` a ete traite le `2026-04-12`; l'UI affiche maintenant le pourcentage reel de l'etape `transcription` au lieu du pourcentage global du pipeline.
 - `BACKLOG-11` a ete traite le `2026-04-12`; un doublon logique exact est maintenant refuse a l'enqueue quand la collision est en mode `completer`.
+- `BACKLOG-12` a ete traite le `2026-04-17`; les flux RSS favoris sont maintenant persistables dans les reglages web et reutilisables depuis la vue `Ajouter un job`.
+- `BACKLOG-14` a ete traite le `2026-05-02`; l'app expose maintenant un provider de diarisation generique avec `tinydiarize` et `pyannote`, un runtime Python dedie pour `pyannote`, un merge speaker-dominant par segment Whisper et des artefacts `.pyannote.json/.txt/.srt` separes.
+- `BACKLOG-15` a ete traite le `2026-06-08`; l'app expose `21loader` et `21loader update`, avec un updater qui consomme les GitHub Releases produites par GitHub Actions.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

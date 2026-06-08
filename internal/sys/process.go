@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -31,6 +33,7 @@ type RunOptions struct {
 	Executable    string
 	Args          []string
 	WorkingDir    string
+	Environment   map[string]string
 	StandardInput string
 	OnOutput      func(string)
 	CaptureOutput bool
@@ -46,6 +49,18 @@ func (r *Runner) Run(parent context.Context, opt RunOptions) (string, error) {
 	cmd := exec.CommandContext(ctx, opt.Executable, opt.Args...)
 	if opt.WorkingDir != "" {
 		cmd.Dir = opt.WorkingDir
+	}
+	if len(opt.Environment) > 0 {
+		env := os.Environ()
+		keys := make([]string, 0, len(opt.Environment))
+		for key := range opt.Environment {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			env = append(env, key+"="+opt.Environment[key])
+		}
+		cmd.Env = env
 	}
 
 	stdout, err := cmd.StdoutPipe()

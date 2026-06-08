@@ -90,9 +90,9 @@ TMP_BIN_DIR="$BUILD_DIR/tmp-bin"
 mkdir -p "$TMP_BIN_DIR"
 
 GO111MODULE=on CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 \
-  go build -o "$TMP_BIN_DIR/${SERVER_BIN_NAME}-arm64" ./cmd/server
+  go build -trimpath -ldflags="-s -w -X main.appVersion=$VERSION" -o "$TMP_BIN_DIR/${SERVER_BIN_NAME}-arm64" ./cmd/server
 GO111MODULE=on CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 \
-  go build -o "$TMP_BIN_DIR/${SERVER_BIN_NAME}-amd64" ./cmd/server
+  go build -trimpath -ldflags="-s -w -X main.appVersion=$VERSION" -o "$TMP_BIN_DIR/${SERVER_BIN_NAME}-amd64" ./cmd/server
 
 lipo -create \
   -output "$MACOS_DIR/$SERVER_BIN_NAME" \
@@ -112,12 +112,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_PAYLOAD_DIR="$(cd "$SCRIPT_DIR/../Resources/app" && pwd)"
 SERVER_BIN="$SCRIPT_DIR/21loader-server"
 
+if [[ "${1:-}" == "update" || "${1:-}" == "version" || "${1:-}" == "--version" ]]; then
+  cd "$APP_PAYLOAD_DIR"
+  exec "$SERVER_BIN" "$@"
+fi
+
 HOST="${LOADER21_HOST:-127.0.0.1}"
 PORT="${LOADER21_PORT:-8080}"
 LOG_DIR="$HOME/Library/Logs/21loader"
 LOG_FILE="$LOG_DIR/server.log"
+USER_CLI_DIR="$HOME/.local/bin"
+USER_CLI="$USER_CLI_DIR/21loader"
 
 mkdir -p "$LOG_DIR"
+mkdir -p "$USER_CLI_DIR"
+ln -sf "$SCRIPT_DIR/21loader" "$USER_CLI" 2>/dev/null || true
 cd "$APP_PAYLOAD_DIR"
 
 "$SERVER_BIN" --host "$HOST" --port "$PORT" >>"$LOG_FILE" 2>&1 &
@@ -230,6 +239,31 @@ fi
 echo "Preparing dmg layout..."
 cp -R "$APP_DIR" "$STAGE_DIR/"
 ln -s /Applications "$STAGE_DIR/Applications"
+cat > "$STAGE_DIR/Install Terminal Command.command" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_LAUNCHER="/Applications/21loader.app/Contents/MacOS/21loader"
+TARGET="/usr/local/bin/21loader"
+
+if [[ ! -x "$APP_LAUNCHER" ]]; then
+  echo "21loader.app introuvable dans /Applications. Glisse d'abord 21loader.app dans Applications."
+  read -r -p "Appuie sur Entree pour fermer..." _
+  exit 1
+fi
+
+if [[ -w "$(dirname "$TARGET")" ]]; then
+  ln -sf "$APP_LAUNCHER" "$TARGET"
+else
+  sudo ln -sf "$APP_LAUNCHER" "$TARGET"
+fi
+
+echo "Commande installee: 21loader"
+echo "Tu peux lancer l'app avec: 21loader"
+echo "Tu peux mettre a jour avec: 21loader update"
+read -r -p "Appuie sur Entree pour fermer..." _
+EOF
+chmod +x "$STAGE_DIR/Install Terminal Command.command"
 
 rm -f "$DMG_PATH"
 echo "Creating dmg..."

@@ -261,8 +261,26 @@ Puis ouvrir:
 
 ```bash
 cd 21loader_crossplatforme
-go build ./cmd/server
+go build -o 21loader ./cmd/server
 ```
+
+### Commande terminal
+
+Une installation packagee expose la commande:
+
+```bash
+21loader
+```
+
+Elle lance le serveur local et ouvre l'UI dans le navigateur.
+
+Pour installer la derniere version publiee sur GitHub Releases:
+
+```bash
+21loader update
+```
+
+L'updater interroge `https://api.github.com/repos/Axel-codee/21loader_crossplatforme/releases/latest`, telecharge l'asset compatible avec l'OS courant, puis lance l'installation. Les builds officiels sont produits par GitHub Actions quand un tag `v*` est pousse.
 
 ### Export macOS (.dmg)
 
@@ -319,6 +337,13 @@ Sur Windows, lancer `21loader.cmd` (pas directement le `.exe`) pour:
 - demarrer le serveur local dans le bon dossier runtime (`app/`),
 - ouvrir automatiquement le navigateur.
 
+Le lanceur accepte aussi:
+
+```powershell
+21loader update
+21loader --version
+```
+
 ### Export Windows (.exe installable)
 
 Depuis la racine du projet:
@@ -338,11 +363,13 @@ L'installateur extrait l'application dans:
 Puis:
 
 - crée un raccourci `21loader` dans le menu Démarrer (avec icône),
+- ajoute le dossier d'installation au `PATH` utilisateur pour rendre `21loader` disponible dans un nouveau terminal,
 - lance automatiquement `21loader.cmd` à la fin de l'installation.
 
 Utilisation quotidienne (Windows):
 
 - ouvre `21loader` depuis le menu Démarrer (pas besoin de relancer le `setup.exe`).
+- ou lance `21loader` dans un nouveau terminal.
 
 Mise à jour locale (Windows):
 
@@ -350,10 +377,30 @@ Mise à jour locale (Windows):
 - choisir un fichier `*.zip` (package portable) ou `*-setup.exe`,
 - cliquer `Appliquer la mise à jour`.
 
+Mise a jour depuis GitHub Releases:
+
+```powershell
+21loader update
+```
+
+Fermer l'ancienne instance de 21loader avant de lancer l'update evite les fichiers verrouilles pendant le remplacement Windows.
+
+### Publication GitHub Releases
+
+Le workflow `.github/workflows/release.yml` publie les assets installables quand un tag `v*` est pousse:
+
+```bash
+git tag v2026.06.08
+git push origin v2026.06.08
+```
+
+GitHub Actions execute `go test ./...`, construit le setup/zip Windows et le DMG macOS, puis attache les fichiers a la release. `21loader update` consomme cette derniere release.
+
 ### Flags serveur
 
 - `--host` (defaut: `0.0.0.0`)
 - `--port` (defaut: `8080`)
+- `--open` (ouvre automatiquement le navigateur quand `/healthz` repond)
 
 ## Guide d'utilisation de l'UI
 
