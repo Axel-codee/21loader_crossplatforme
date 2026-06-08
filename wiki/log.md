@@ -1,5 +1,10 @@
 # Log du wiki
 
+## [2026-06-08] fix | fallback icone macOS CI
+
+- Le build macOS peut utiliser `assets/macos/AppIcon.icns` comme fallback si le runner CI n'a pas Pillow pour reconvertir `icone.png`.
+- Cette correction garde `icone.png` comme source canonique, mais evite de bloquer la release sur une dependance Python absente.
+
 ## [2026-06-08] feat | format audio YouTube par defaut
 
 - Ajout d'un reglage global `youtubeAudioFormat` pour les jobs YouTube Music/Audio.

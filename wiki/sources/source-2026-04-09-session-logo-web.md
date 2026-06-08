@@ -16,6 +16,7 @@
 - Servir le logo web via `/app-logo.png` a partir de `icone.png`.
 - Servir le favicon navigateur via `/favicon.ico` a partir de `icone.png`.
 - Regenerer `assets/ui/21loader-logo.png`, `assets/macos/AppIcon.icns` et `assets/windows/21loader.ico` depuis `icone.png` quand l'icone change.
+- Utiliser `assets/macos/AppIcon.icns` comme fallback du build macOS si Pillow n'est pas disponible pour reconvertir `icone.png` en CI.
 - Integrer le logo dans la barre haute de `web/index.html` afin qu'il reste visible en haut a gauche sur l'interface.
 
 ## Fichiers relies

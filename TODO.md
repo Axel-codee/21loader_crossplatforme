@@ -25,6 +25,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Le mode `youtube_description` apparait deja dans l'UI, mais le code signale explicitement qu'il n'est pas encore implemente.
 - Le logo web est maintenant branche via un asset runtime dedie et un favicon navigateur servi par le backend local.
 - Le backend sert directement `icone.png` pour `/app-logo.png` et `/favicon.ico`; les packages copient aussi `icone.png` dans le runtime.
+- Le packaging macOS regenere l'icone depuis `icone.png` quand Pillow est disponible, mais peut utiliser `assets/macos/AppIcon.icns` comme fallback CI.
 - L'interface telechargement est maintenant separee entre une vue `Ajouter un job` et une vue `Jobs en cours`, avec suivi de file et logs isoles du formulaire.
 - Le choix explicite `mp3/mp4/les deux` pour YouTube ne ressort pas dans l'UI actuelle; le backend choisit surtout selon le type de contenu (`audio` ou `video`).
 - Les jobs YouTube Music/Audio peuvent maintenant utiliser un format audio par defaut reglable (`mp3`, `m4a`, `opus`, `flac`, `wav`, `aac`) et extraient l'audio via `yt-dlp` au lieu de garder le conteneur natif `.webm`.

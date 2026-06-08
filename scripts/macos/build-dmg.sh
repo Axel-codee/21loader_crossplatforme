@@ -11,6 +11,7 @@ APP_NAME="21loader"
 BUNDLE_ID="com.21loader.desktop"
 
 DEFAULT_ICON="$ROOT_DIR/icone.png"
+FALLBACK_ICNS="$ROOT_DIR/assets/macos/AppIcon.icns"
 ICON_SOURCE="${LOADER21_ICON:-$DEFAULT_ICON}"
 VERSION="${LOADER21_VERSION:-$(date +%Y.%m.%d)}"
 
@@ -205,12 +206,15 @@ if [[ "$ICON_EXT_LOWER" == "icns" ]]; then
   cp "$ICON_SOURCE" "$RESOURCES_DIR/AppIcon.icns"
 else
   if ! command -v python3 >/dev/null 2>&1; then
-    echo "python3 is required to convert PNG icon to ICNS." >&2
-    echo "Either install python3 + Pillow, or pass an .icns file with --icon." >&2
-    exit 1
-  fi
-
-  if ! python3 - "$ICON_SOURCE" "$RESOURCES_DIR/AppIcon.icns" <<'PY'
+    if [[ "$ICON_SOURCE" == "$DEFAULT_ICON" && -f "$FALLBACK_ICNS" ]]; then
+      echo "python3 unavailable; using committed fallback icon: $FALLBACK_ICNS" >&2
+      cp "$FALLBACK_ICNS" "$RESOURCES_DIR/AppIcon.icns"
+    else
+      echo "python3 is required to convert PNG icon to ICNS." >&2
+      echo "Either install python3 + Pillow, or pass an .icns file with --icon." >&2
+      exit 1
+    fi
+  elif ! python3 - "$ICON_SOURCE" "$RESOURCES_DIR/AppIcon.icns" <<'PY'
 import sys
 
 try:
@@ -236,8 +240,13 @@ image.save(
 )
 PY
   then
-    echo "Icon conversion failed for: $ICON_SOURCE" >&2
-    exit 1
+    if [[ "$ICON_SOURCE" == "$DEFAULT_ICON" && -f "$FALLBACK_ICNS" ]]; then
+      echo "Icon conversion failed; using committed fallback icon: $FALLBACK_ICNS" >&2
+      cp "$FALLBACK_ICNS" "$RESOURCES_DIR/AppIcon.icns"
+    else
+      echo "Icon conversion failed for: $ICON_SOURCE" >&2
+      exit 1
+    fi
   fi
 fi
 
