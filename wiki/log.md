@@ -1,5 +1,11 @@
 # Log du wiki
 
+## [2026-06-08] fix | detection Homebrew depuis app macOS
+
+- Ajout d'une initialisation du `PATH` applicatif au demarrage pour couvrir `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` et les dossiers Python utilisateur.
+- Correction du cas ou `yt-dlp` installe via Homebrew est visible dans le terminal mais pas dans 21loader lance depuis Finder/Applications.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-16`.
+
 ## [2026-06-08] feat | commande terminal et updater GitHub Releases
 
 - Ajout d'une CLI `21loader` avec sous-commande `21loader update`.

@@ -28,6 +28,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Je n'ai pas repere de mode dedie pour `telecharger uniquement les sous-titres`; aujourd'hui les sous-titres sont produits via la transcription.
 - Le mode de collision `completer` doit comparer un job RSS a l'URL exacte de l'episode, pas seulement au podcast, sinon un episode peut etre reutilise a la place d'un autre.
 - La commande terminal `21loader` est exposee par les packages; `21loader update` consomme la derniere GitHub Release, pas le dernier commit brut de `main`.
+- Sur macOS, une app lancee depuis Finder n'herite pas toujours du `PATH` du terminal; 21loader enrichit maintenant son `PATH` avec les dossiers Homebrew/Python utilisateur usuels pour detecter les dependances deja installees.
 
 ## Zones de code probablement concernees par les prochains sujets
 
@@ -37,6 +38,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Organisation des dossiers de sortie: `internal/jobs/organizer.go`, `internal/util/paths.go`, `web/index.html`
 - Branding web et packaging d'icones: `web/index.html`, `internal/httpapi/router.go`, `assets/ui/`, `assets/macos/`, `assets/windows/`, scripts de packaging
 - Commande terminal et updater applicatif: `cmd/server/main.go`, `internal/updater/`, scripts de packaging, `.github/workflows/release.yml`
+- Resolution des dependances CLI: `internal/util/pathenv.go`, `internal/util/binresolve.go`, `internal/services/diagnostics.go`, `internal/jobs/runner.go`, `internal/services/youtube.go`
 
 ## Suivi fonctionnel
 
@@ -78,6 +80,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Installation automatique
 - [x] Ajouter pyannote comme moteur de diarisation optionnel avec merge par segments Whisper, runtime Python dedie et UI guidee
 - [x] Ajouter la commande terminal `21loader` et `21loader update` base sur GitHub Releases
+- [x] Detecter les dependances Homebrew deja installees quand 21loader est lance depuis Applications/Finder
 
 ## Notes
 

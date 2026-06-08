@@ -39,3 +39,4 @@
 - [solutions/README.md](./solutions/README.md): conventions des pages solution
 - [solutions/qobuz-hardening-options.md](./solutions/qobuz-hardening-options.md): pistes de durcissement pour les echecs Qobuz `IncompleteRead`
 - [solutions/terminal-cli-github-release-updater.md](./solutions/terminal-cli-github-release-updater.md): commande terminal `21loader` et updater base sur GitHub Releases
+- [solutions/macos-runtime-path-homebrew.md](./solutions/macos-runtime-path-homebrew.md): detection des dependances Homebrew depuis l'app macOS

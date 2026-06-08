@@ -282,6 +282,8 @@ Pour installer la derniere version publiee sur GitHub Releases:
 
 L'updater interroge `https://api.github.com/repos/Axel-codee/21loader_crossplatforme/releases/latest`, telecharge l'asset compatible avec l'OS courant, puis lance l'installation. Les builds officiels sont produits par GitHub Actions quand un tag `v*` est pousse.
 
+Sur macOS, l'application enrichit automatiquement son `PATH` au demarrage avec les emplacements usuels Homebrew et Python utilisateur (`/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, etc.). Les dependances deja installees via Homebrew, comme `yt-dlp` ou `ffmpeg`, sont donc detectees meme si 21loader est lance depuis Finder ou Applications.
+
 ### Export macOS (.dmg)
 
 Depuis la racine du projet:

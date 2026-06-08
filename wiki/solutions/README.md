@@ -19,3 +19,4 @@ Solutions actuellement indexees:
 
 - [qobuz-hardening-options.md](./qobuz-hardening-options.md)
 - [terminal-cli-github-release-updater.md](./terminal-cli-github-release-updater.md)
+- [macos-runtime-path-homebrew.md](./macos-runtime-path-homebrew.md)

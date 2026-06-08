@@ -24,6 +24,8 @@ import (
 var appVersion = "dev"
 
 func main() {
+	util.EnsureRuntimeSearchPath()
+
 	args := os.Args[1:]
 	if len(args) > 0 {
 		switch strings.ToLower(args[0]) {
