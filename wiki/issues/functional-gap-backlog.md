@@ -41,6 +41,7 @@
 | `BACKLOG-20` | Faire de `icone.png` la source canonique des icones | `done 2026-06-08` | frontend/ui / packaging | [../sources/source-2026-04-09-session-logo-web.md](../sources/source-2026-04-09-session-logo-web.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 | `BACKLOG-21` | Rappeler de proposer une mise a jour GitHub apres modification projet | `done 2026-06-08` | collaboration / release | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 | `BACKLOG-22` | Ajouter un reglage de format audio YouTube par defaut | `done 2026-06-08` | services media / frontend-ui | [../domains/media-services.md](../domains/media-services.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
+| `BACKLOG-23` | Arreter l'ancien serveur inactif apres update/lancement | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 
 ## Zones de code probablement concernees
 
@@ -77,6 +78,7 @@
 - `BACKLOG-20` a ete traite le `2026-06-08`; `icone.png` est desormais documente comme source canonique et les assets derives ont ete regeneres depuis cette image.
 - `BACKLOG-21` a ete traite le `2026-06-08`; `AGENTS.md` contient maintenant le rappel de proposer une mise a jour des releases GitHub apres modification projet terminee.
 - `BACKLOG-22` a ete traite le `2026-06-08`; les reglages exposent un format audio YouTube par defaut (`mp3`, `m4a`, `opus`, `flac`, `wav`, `aac`) et les jobs audio/music demandent a `yt-dlp` d'extraire/convertir l'audio au lieu de conserver un `.webm`.
+- `BACKLOG-23` a ete traite le `2026-06-08`; le healthcheck expose la version du serveur et le launcher macOS arrete un ancien serveur inactif avant de demarrer la nouvelle app, tandis que les scripts d'update stoppent le serveur avant copie.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

@@ -1,5 +1,12 @@
 # Log du wiki
 
+## [2026-06-08] fix | serveur obsolet apres update
+
+- Le healthcheck expose maintenant la version et le PID du serveur local.
+- Le launcher macOS ouvre le serveur deja lance si c'est la meme version, ou arrete un ancien serveur inactif avant de demarrer la nouvelle version.
+- Les scripts d'application d'update macOS/Windows stoppent `21loader-server` avant de copier les nouveaux fichiers.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-23`.
+
 ## [2026-06-08] fix | fallback icone macOS CI
 
 - Le build macOS peut utiliser `assets/macos/AppIcon.icns` comme fallback si le runner CI n'a pas Pillow pour reconvertir `icone.png`.

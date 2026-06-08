@@ -22,10 +22,11 @@ type Server struct {
 	artworkThumbnails *services.ArtworkThumbnailService
 	indexHTML         []byte
 	appLogoPNG        []byte
+	appVersion        string
 	mux               *http.ServeMux
 }
 
-func NewServer(coordinator *jobs.Coordinator, artworkThumbnails *services.ArtworkThumbnailService, baseDir string) (*Server, error) {
+func NewServer(coordinator *jobs.Coordinator, artworkThumbnails *services.ArtworkThumbnailService, baseDir string, appVersion string) (*Server, error) {
 	indexPath := filepath.Join(baseDir, "web", "index.html")
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
@@ -41,6 +42,7 @@ func NewServer(coordinator *jobs.Coordinator, artworkThumbnails *services.Artwor
 		artworkThumbnails: artworkThumbnails,
 		indexHTML:         data,
 		appLogoPNG:        logoPNG,
+		appVersion:        strings.TrimSpace(appVersion),
 		mux:               http.NewServeMux(),
 	}
 	s.registerRoutes()
@@ -139,7 +141,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
 		return
 	}
-	writeJSON(w, http.StatusOK, core.HealthResponseDTO{Status: "ok", Time: time.Now().UTC()})
+	writeJSON(w, http.StatusOK, core.HealthResponseDTO{Status: "ok", Time: time.Now().UTC(), Version: s.appVersion, PID: os.Getpid()})
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {

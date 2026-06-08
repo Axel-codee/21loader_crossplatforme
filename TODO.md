@@ -35,6 +35,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Sur macOS, une app lancee depuis Finder n'herite pas toujours du `PATH` du terminal; 21loader enrichit maintenant son `PATH` avec les dossiers Homebrew/Python utilisateur usuels pour detecter les dependances deja installees.
 - Comme le repo GitHub est prive, `21loader update` doit s'authentifier via `LOADER21_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` ou `gh auth token`.
 - Le launcher macOS doit resoudre les symlinks (`/usr/local/bin/21loader`, `~/.local/bin/21loader`) avant de chercher `Contents/Resources/app`.
+- Le launcher/updater doit eviter qu'un ancien `21loader-server` inactif continue a servir une ancienne UI apres `21loader update`.
 - Les jobs YouTube doivent resoudre `yt-dlp` via le resolver commun, pas l'executer en nom brut, pour couvrir Homebrew quand le `PATH` applicatif est incomplet.
 
 ## Zones de code probablement concernees par les prochains sujets
@@ -95,6 +96,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Faire de `icone.png` la source canonique des icones web/macOS/Windows
 - [x] Ajouter dans `AGENTS.md` le rappel de proposer une mise a jour GitHub apres chaque modification projet terminee
 - [x] Ajouter un reglage de format audio YouTube par defaut et convertir l'audio via `yt-dlp`
+- [x] Arreter l'ancien serveur inactif apres update/lancement pour charger la nouvelle UI
 
 ## Notes
 

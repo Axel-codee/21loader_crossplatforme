@@ -73,6 +73,8 @@ func windowsZipUpdateScript(updatePackagePath, installDir, launcherPath string) 
 		"$dirs = Get-ChildItem -Path $tmp -Directory | Sort-Object Name",
 		"$files = Get-ChildItem -Path $tmp -File",
 		"if ($files.Count -eq 0 -and $dirs.Count -eq 1) { $payload = $dirs[0].FullName } else { $payload = $tmp }",
+		"Get-Process -Name 21loader-server -ErrorAction SilentlyContinue | Stop-Process -Force",
+		"Start-Sleep -Milliseconds 500",
 		"Copy-Item -Path (Join-Path $payload '*') -Destination $install -Recurse -Force",
 		"Start-Process -FilePath $launcher",
 	}, "; ")

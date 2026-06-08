@@ -115,6 +115,7 @@ while [[ -L "$SOURCE" ]]; do
   fi
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$SCRIPT_DIR/../Info.plist" 2>/dev/null || true)"
 APP_PAYLOAD_DIR="$(cd "$SCRIPT_DIR/../Resources/app" && pwd)"
 SERVER_BIN="$SCRIPT_DIR/21loader-server"
 
@@ -125,6 +126,7 @@ fi
 
 HOST="${LOADER21_HOST:-127.0.0.1}"
 PORT="${LOADER21_PORT:-8080}"
+SERVER_URL="http://$HOST:$PORT"
 LOG_DIR="$HOME/Library/Logs/21loader"
 LOG_FILE="$LOG_DIR/server.log"
 USER_CLI_DIR="$HOME/.local/bin"
@@ -134,6 +136,47 @@ mkdir -p "$LOG_DIR"
 mkdir -p "$USER_CLI_DIR"
 ln -sf "$SCRIPT_DIR/21loader" "$USER_CLI" 2>/dev/null || true
 cd "$APP_PAYLOAD_DIR"
+
+existing_server_version() {
+  local payload version
+  payload="$(curl -fsS "$SERVER_URL/healthz" 2>/dev/null || true)"
+  version="${payload#*\"version\":\"}"
+  if [[ "$version" == "$payload" ]]; then
+    echo ""
+    return
+  fi
+  version="${version%%\"*}"
+  echo "$version"
+}
+
+stop_stale_idle_server() {
+  if ! curl -fsS "$SERVER_URL/healthz" >/dev/null 2>&1; then
+    return
+  fi
+
+  local running_version status_payload
+  running_version="$(existing_server_version)"
+  if [[ -n "$APP_VERSION" && "$running_version" == "$APP_VERSION" ]]; then
+    open "$SERVER_URL"
+    exit 0
+  fi
+
+  status_payload="$(curl -fsS "$SERVER_URL/api/status" 2>/dev/null || true)"
+  if [[ "$status_payload" != *'"jobs":[]'* || "$status_payload" == *'"activeJobID"'* ]]; then
+    open "$SERVER_URL"
+    exit 0
+  fi
+
+  pkill -f "21loader-server.*--port $PORT" 2>/dev/null || true
+  for _ in $(seq 1 30); do
+    if ! curl -fsS "$SERVER_URL/healthz" >/dev/null 2>&1; then
+      return
+    fi
+    sleep 0.1
+  done
+}
+
+stop_stale_idle_server
 
 "$SERVER_BIN" --host "$HOST" --port "$PORT" >>"$LOG_FILE" 2>&1 &
 SERVER_PID=$!
@@ -151,7 +194,7 @@ for _ in $(seq 1 100); do
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     break
   fi
-  if curl -fsS "http://$HOST:$PORT/healthz" >/dev/null 2>&1; then
+  if curl -fsS "$SERVER_URL/healthz" >/dev/null 2>&1; then
     READY=1
     break
   fi
@@ -164,7 +207,7 @@ if [[ "$READY" -eq 0 ]]; then
   exit 1
 fi
 
-open "http://$HOST:$PORT"
+open "$SERVER_URL"
 wait "$SERVER_PID"
 EOF
 chmod +x "$MACOS_DIR/$LAUNCHER_NAME"

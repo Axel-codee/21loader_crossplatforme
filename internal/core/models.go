@@ -514,8 +514,10 @@ type ActionResponseDTO struct {
 }
 
 type HealthResponseDTO struct {
-	Status string    `json:"status"`
-	Time   time.Time `json:"time"`
+	Status  string    `json:"status"`
+	Time    time.Time `json:"time"`
+	Version string    `json:"version,omitempty"`
+	PID     int       `json:"pid,omitempty"`
 }
 
 type ErrorResponseDTO struct {

@@ -19,6 +19,7 @@
 - Quand l'authentification est active, le telechargement de l'asset passe par l'URL API GitHub avec `Accept: application/octet-stream` au lieu de dependre de l'URL navigateur publique.
 - Windows privilegie les assets `*-setup.exe`, avec fallback zip.
 - macOS privilegie le DMG et lance une copie de `21loader.app` vers le bundle cible.
+- Les scripts d'application d'update stoppent l'ancien `21loader-server` avant de copier les nouveaux fichiers, afin d'eviter qu'une ancienne UI reste servie apres update.
 - Linux reste explicitement non supporte tant qu'aucun asset Linux n'est produit.
 
 ## Packaging
@@ -28,6 +29,7 @@
 - L'installateur Windows ajoute le dossier d'installation au `PATH` utilisateur.
 - `scripts/macos/build-dmg.sh` injecte la version, transmet `update` depuis le launcher `.app`, cree un lien utilisateur `~/.local/bin/21loader` au lancement et ajoute un script `Install Terminal Command.command` dans le DMG pour installer `/usr/local/bin/21loader`.
 - Le launcher macOS resout les symlinks avant de calculer `Contents/Resources/app`, afin que `/usr/local/bin/21loader update` et `~/.local/bin/21loader update` fonctionnent comme le lancement direct du bundle.
+- Le launcher macOS lit la version du serveur exposee par `/healthz`: il ouvre le serveur deja actif si c'est la meme version, ou arrete un serveur obsolet et inactif avant de lancer le nouveau binaire.
 
 ## Publication
 
@@ -37,6 +39,6 @@
 ## Limites connues
 
 - Les packages ne sont pas signes/notarises; macOS Gatekeeper et Windows SmartScreen peuvent encore afficher des avertissements.
-- Sur Windows, fermer l'ancienne instance avant `21loader update` evite les fichiers verrouilles.
+- Sur Windows, l'update zip tente d'arreter `21loader-server` avant copie; l'installateur `.exe` peut encore dependre de Windows Installer si des fichiers sont verrouilles.
 - Sur macOS, l'installation de la commande globale `/usr/local/bin/21loader` peut demander un mot de passe administrateur.
 - Si le repo reste prive et qu'aucun token/`gh` authentifie n'est disponible, `21loader update` ne peut pas lire la derniere release.

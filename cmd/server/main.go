@@ -87,7 +87,7 @@ func runServer(args []string) {
 		log.Fatalf("Erreur initialisation coordinator: %v", err)
 	}
 
-	server, err := httpapi.NewServer(coordinator, artwork, baseDir)
+	server, err := httpapi.NewServer(coordinator, artwork, baseDir, appVersion)
 	if err != nil {
 		log.Fatalf("Erreur initialisation serveur HTTP: %v", err)
 	}
