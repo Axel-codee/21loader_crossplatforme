@@ -6,6 +6,12 @@
 - Correction du cas ou `yt-dlp` installe via Homebrew est visible dans le terminal mais pas dans 21loader lance depuis Finder/Applications.
 - Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-16`.
 
+## [2026-06-08] fix | updater repo prive
+
+- Ajout d'une authentification optionnelle pour `21loader update` via `LOADER21_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` ou `gh auth token`.
+- Le telechargement authentifie utilise l'URL API de l'asset GitHub avec `Accept: application/octet-stream`.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-17`.
+
 ## [2026-06-08] feat | commande terminal et updater GitHub Releases
 
 - Ajout d'une CLI `21loader` avec sous-commande `21loader update`.

@@ -15,6 +15,8 @@
 
 - `cmd/server/main.go` route les sous-commandes `update`, `version` et `--version` avant le lancement serveur.
 - `internal/updater/` interroge l'API GitHub Releases, choisit l'asset compatible avec `runtime.GOOS/runtime.GOARCH`, le telecharge dans le dossier temporaire puis lance l'application du package.
+- Pour un repo prive, l'updater peut s'authentifier avec `LOADER21_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` ou, si disponible, `gh auth token`.
+- Quand l'authentification est active, le telechargement de l'asset passe par l'URL API GitHub avec `Accept: application/octet-stream` au lieu de dependre de l'URL navigateur publique.
 - Windows privilegie les assets `*-setup.exe`, avec fallback zip.
 - macOS privilegie le DMG et lance une copie de `21loader.app` vers le bundle cible.
 - Linux reste explicitement non supporte tant qu'aucun asset Linux n'est produit.
@@ -36,3 +38,4 @@
 - Les packages ne sont pas signes/notarises; macOS Gatekeeper et Windows SmartScreen peuvent encore afficher des avertissements.
 - Sur Windows, fermer l'ancienne instance avant `21loader update` evite les fichiers verrouilles.
 - Sur macOS, l'installation de la commande globale `/usr/local/bin/21loader` peut demander un mot de passe administrateur.
+- Si le repo reste prive et qu'aucun token/`gh` authentifie n'est disponible, `21loader update` ne peut pas lire la derniere release.

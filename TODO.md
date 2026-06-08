@@ -29,6 +29,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Le mode de collision `completer` doit comparer un job RSS a l'URL exacte de l'episode, pas seulement au podcast, sinon un episode peut etre reutilise a la place d'un autre.
 - La commande terminal `21loader` est exposee par les packages; `21loader update` consomme la derniere GitHub Release, pas le dernier commit brut de `main`.
 - Sur macOS, une app lancee depuis Finder n'herite pas toujours du `PATH` du terminal; 21loader enrichit maintenant son `PATH` avec les dossiers Homebrew/Python utilisateur usuels pour detecter les dependances deja installees.
+- Comme le repo GitHub est prive, `21loader update` doit s'authentifier via `LOADER21_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` ou `gh auth token`.
 
 ## Zones de code probablement concernees par les prochains sujets
 
@@ -81,6 +82,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Ajouter pyannote comme moteur de diarisation optionnel avec merge par segments Whisper, runtime Python dedie et UI guidee
 - [x] Ajouter la commande terminal `21loader` et `21loader update` base sur GitHub Releases
 - [x] Detecter les dependances Homebrew deja installees quand 21loader est lance depuis Applications/Finder
+- [x] Authentifier `21loader update` pour les GitHub Releases d'un repo prive
 
 ## Notes
 

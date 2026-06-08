@@ -35,6 +35,7 @@
 | `BACKLOG-14` | Ajouter pyannote comme moteur de diarisation optionnel | `done 2026-05-02` | services media / jobs-pipeline / frontend/ui | [../domains/media-services.md](../domains/media-services.md), [../domains/jobs-pipeline.md](../domains/jobs-pipeline.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 | `BACKLOG-15` | Ajouter la commande terminal `21loader` et `21loader update` | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 | `BACKLOG-16` | Detecter les dependances Homebrew deja installees depuis l'app macOS | `done 2026-06-08` | packaging / diagnostics / services media | [../solutions/macos-runtime-path-homebrew.md](../solutions/macos-runtime-path-homebrew.md), [../domains/media-services.md](../domains/media-services.md) |
+| `BACKLOG-17` | Authentifier l'updater pour un repo GitHub prive | `done 2026-06-08` | packaging / distribution | [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 
 ## Zones de code probablement concernees
 
@@ -63,6 +64,7 @@
 - `BACKLOG-14` a ete traite le `2026-05-02`; l'app expose maintenant un provider de diarisation generique avec `tinydiarize` et `pyannote`, un runtime Python dedie pour `pyannote`, un merge speaker-dominant par segment Whisper et des artefacts `.pyannote.json/.txt/.srt` separes.
 - `BACKLOG-15` a ete traite le `2026-06-08`; l'app expose `21loader` et `21loader update`, avec un updater qui consomme les GitHub Releases produites par GitHub Actions.
 - `BACKLOG-16` a ete traite le `2026-06-08`; l'app enrichit son `PATH` au demarrage pour trouver Homebrew et les binaires utilisateur meme lorsqu'elle est lancee depuis Finder/Applications.
+- `BACKLOG-17` a ete traite le `2026-06-08`; l'updater sait utiliser un token GitHub explicite ou `gh auth token` pour acceder aux releases d'un repo prive.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

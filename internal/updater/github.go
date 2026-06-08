@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -30,6 +31,7 @@ type releaseInfo struct {
 }
 
 type ReleaseAsset struct {
+	APIURL             string `json:"url"`
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
@@ -48,7 +50,8 @@ func Update(ctx context.Context, opts Options) error {
 		client = &http.Client{Timeout: 90 * time.Second}
 	}
 
-	release, err := fetchLatestRelease(ctx, client, repo)
+	token := githubAuthToken(ctx)
+	release, err := fetchLatestRelease(ctx, client, repo, token)
 	if err != nil {
 		return err
 	}
@@ -68,7 +71,7 @@ func Update(ctx context.Context, opts Options) error {
 	fmt.Fprintf(out, "Derniere release: %s\n", versionNote)
 	fmt.Fprintf(out, "Asset selectionne: %s\n", asset.Name)
 
-	packagePath, err := downloadAsset(ctx, client, *asset, out)
+	packagePath, err := downloadAsset(ctx, client, *asset, out, token)
 	if err != nil {
 		return err
 	}
@@ -84,7 +87,7 @@ func Update(ctx context.Context, opts Options) error {
 	return nil
 }
 
-func fetchLatestRelease(ctx context.Context, client *http.Client, repo string) (releaseInfo, error) {
+func fetchLatestRelease(ctx context.Context, client *http.Client, repo string, token string) (releaseInfo, error) {
 	url := "https://api.github.com/repos/" + strings.Trim(repo, "/") + "/releases/latest"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -92,6 +95,7 @@ func fetchLatestRelease(ctx context.Context, client *http.Client, repo string) (
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "21loader-updater")
+	setGitHubAuth(req, token)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -187,8 +191,11 @@ func archMatches(name, goarch string) bool {
 	}
 }
 
-func downloadAsset(ctx context.Context, client *http.Client, asset ReleaseAsset, out io.Writer) (string, error) {
+func downloadAsset(ctx context.Context, client *http.Client, asset ReleaseAsset, out io.Writer, token string) (string, error) {
 	url := strings.TrimSpace(asset.BrowserDownloadURL)
+	if strings.TrimSpace(token) != "" && strings.TrimSpace(asset.APIURL) != "" {
+		url = strings.TrimSpace(asset.APIURL)
+	}
 	if url == "" {
 		return "", fmt.Errorf("asset GitHub sans URL de telechargement: %s", asset.Name)
 	}
@@ -196,7 +203,9 @@ func downloadAsset(ctx context.Context, client *http.Client, asset ReleaseAsset,
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("Accept", "application/octet-stream")
 	req.Header.Set("User-Agent", "21loader-updater")
+	setGitHubAuth(req, token)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -230,4 +239,30 @@ func downloadAsset(ctx context.Context, client *http.Client, asset ReleaseAsset,
 		return "", closeErr
 	}
 	return target, nil
+}
+
+func githubAuthToken(ctx context.Context) string {
+	for _, name := range []string{"LOADER21_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"} {
+		if token := strings.TrimSpace(os.Getenv(name)); token != "" {
+			return token
+		}
+	}
+
+	if _, err := exec.LookPath("gh"); err != nil {
+		return ""
+	}
+	cmdCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(cmdCtx, "gh", "auth", "token")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func setGitHubAuth(req *http.Request, token string) {
+	if token = strings.TrimSpace(token); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 }
