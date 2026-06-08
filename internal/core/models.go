@@ -92,6 +92,8 @@ type WebSettings struct {
 	PyannoteOutputTXT            bool                 `json:"pyannoteOutputTXT"`
 	PyannoteOutputSRT            bool                 `json:"pyannoteOutputSRT"`
 	UseFirefoxCookies            bool                 `json:"useFirefoxCookies"`
+	YtDlpEmbedMetadata           bool                 `json:"ytDlpEmbedMetadata"`
+	YtDlpEmbedThumbnail          bool                 `json:"ytDlpEmbedThumbnail"`
 	YouTubeAudioFormat           string               `json:"youtubeAudioFormat"`
 	KeepTemporaryFilesOnFailure  bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   string               `json:"qobuzEmail"`
@@ -307,6 +309,8 @@ type UpdateSettingsAPIRequest struct {
 	PyannoteOutputTXT            *bool                 `json:"pyannoteOutputTXT"`
 	PyannoteOutputSRT            *bool                 `json:"pyannoteOutputSRT"`
 	UseFirefoxCookies            *bool                 `json:"useFirefoxCookies"`
+	YtDlpEmbedMetadata           *bool                 `json:"ytDlpEmbedMetadata"`
+	YtDlpEmbedThumbnail          *bool                 `json:"ytDlpEmbedThumbnail"`
 	YouTubeAudioFormat           *string               `json:"youtubeAudioFormat"`
 	KeepTemporaryFilesOnFailure  *bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   *string               `json:"qobuzEmail"`
@@ -803,6 +807,8 @@ type JobRequest struct {
 	PyannoteOutputTXT            bool
 	PyannoteOutputSRT            bool
 	YtDlpExtraArguments          string
+	YtDlpEmbedMetadata           bool
+	YtDlpEmbedThumbnail          bool
 	YouTubeAudioFormat           string
 	WhisperExtraArguments        string
 	FfmpegExtraArguments         string

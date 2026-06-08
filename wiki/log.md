@@ -1,5 +1,12 @@
 # Log du wiki
 
+## [2026-06-08] feat | metadonnees et miniature yt-dlp
+
+- Ajout de deux reglages globaux yt-dlp pour integrer les metadonnees (`--embed-metadata`) et la miniature (`--write-thumbnail --convert-thumbnails jpg --embed-thumbnail`) dans les fichiers telecharges.
+- Les deux options sont activees par defaut et les anciens fichiers de reglages migrent vers ce comportement si les champs sont absents.
+- La miniature est ignoree pour les formats audio `wav`/`aac`, avec avertissement dans l'UI, car le support conteneur/lecteur est limite.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-25`.
+
 ## [2026-06-08] feat | release affichee dans la Web UI
 
 - `/api/status` expose maintenant la version applicative renseignee depuis `appVersion`.

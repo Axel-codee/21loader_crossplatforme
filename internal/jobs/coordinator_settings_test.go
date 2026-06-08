@@ -130,6 +130,23 @@ func TestUpdateSettingsNormalizesYouTubeAudioFormat(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsPersistsYtDlpEmbeddingOptions(t *testing.T) {
+	c := &Coordinator{}
+	embedMetadata := false
+	embedThumbnail := false
+
+	saved, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
+		YtDlpEmbedMetadata:  &embedMetadata,
+		YtDlpEmbedThumbnail: &embedThumbnail,
+	})
+	if err != nil {
+		t.Fatalf("UpdateSettings failed: %v", err)
+	}
+	if saved.YtDlpEmbedMetadata || saved.YtDlpEmbedThumbnail {
+		t.Fatalf("expected embedding options disabled, got metadata=%v thumbnail=%v", saved.YtDlpEmbedMetadata, saved.YtDlpEmbedThumbnail)
+	}
+}
+
 func TestUpdateSettingsRejectsInvalidYouTubeAudioFormat(t *testing.T) {
 	c := &Coordinator{}
 	format := "webm"
@@ -163,5 +180,8 @@ func TestLoadSettingsMigratesLegacyTinydiarizeToProvider(t *testing.T) {
 	}
 	if loaded.YouTubeAudioFormat != "mp3" {
 		t.Fatalf("expected youtube audio format default mp3, got %q", loaded.YouTubeAudioFormat)
+	}
+	if !loaded.YtDlpEmbedMetadata || !loaded.YtDlpEmbedThumbnail {
+		t.Fatalf("expected yt-dlp embedding defaults enabled, got metadata=%v thumbnail=%v", loaded.YtDlpEmbedMetadata, loaded.YtDlpEmbedThumbnail)
 	}
 }

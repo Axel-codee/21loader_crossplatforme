@@ -2151,6 +2151,25 @@
               <section class="whisper-job-card whisper-job-card--wide">
                 <div class="whisper-job-card-head">
                   <div class="whisper-job-card-title-row">
+                    <h6 class="whisper-job-card-title">Métadonnées intégrées</h6>
+                    <span class="whisper-job-card-badge">yt-dlp</span>
+                  </div>
+                  <p class="whisper-job-card-copy">Demande à yt-dlp d'écrire les infos disponibles directement dans le fichier téléchargé.</p>
+                </div>
+                <div class="whisper-job-card-divider"></div>
+                <label class="checkbox">
+                  <input type="checkbox" id="ytDlpEmbedMetadata" />
+                  Intégrer les métadonnées
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="ytDlpEmbedThumbnail" />
+                  Intégrer la miniature / cover
+                </label>
+                <p class="hint">Activé par défaut. Les métadonnées viennent de YouTube/yt-dlp: titre, chaîne/uploader, date, URL et autres champs disponibles selon la source.</p>
+              </section>
+              <section class="whisper-job-card whisper-job-card--wide">
+                <div class="whisper-job-card-head">
+                  <div class="whisper-job-card-title-row">
                     <h6 class="whisper-job-card-title">Format audio YouTube</h6>
                     <span class="whisper-job-card-badge">music</span>
                   </div>
@@ -2169,6 +2188,7 @@
                   </select>
                 </div>
                 <p class="hint">Par défaut: MP3. La conversion utilise <code>ffmpeg</code> via <code>yt-dlp</code>.</p>
+                <p id="youtubeAudioFormatCompatibility" class="hint"></p>
               </section>
             </div>
           </section>
@@ -2893,6 +2913,17 @@
 
     function setChecked(id, value) {
       $(id).checked = Boolean(value);
+    }
+
+    function updateYouTubeAudioFormatCompatibility() {
+      const node = $("youtubeAudioFormatCompatibility");
+      if (!node) return;
+      const format = inputValue("youtubeAudioFormat").toLowerCase();
+      if (format === "wav" || format === "aac") {
+        node.textContent = "Attention: les métadonnées simples peuvent être écrites, mais l'intégration de miniature est ignorée pour ce format car le support lecteur/conteneur est limité.";
+        return;
+      }
+      node.textContent = "Métadonnées et miniature intégrées sont supportées pour ce format dans les cas usuels.";
     }
 
     function normalizeNumberOrNull(value) {
@@ -7499,7 +7530,10 @@
         state.qobuzTokenWorkaroundAvailable = Boolean(s.qobuzUseUserAuthToken || s.qobuzUserAuthToken);
         renderQobuzTokenWorkaround();
         setChecked("useFirefoxCookies", s.useFirefoxCookies);
+        setChecked("ytDlpEmbedMetadata", s.ytDlpEmbedMetadata ?? true);
+        setChecked("ytDlpEmbedThumbnail", s.ytDlpEmbedThumbnail ?? true);
         setInput("youtubeAudioFormat", s.youtubeAudioFormat || "mp3");
+        updateYouTubeAudioFormatCompatibility();
         setChecked("keepTemporaryFilesOnFailure", s.keepTemporaryFilesOnFailure);
         setFavoriteRSSPodcasts(s.favoriteRSSPodcasts || []);
 	        setChecked("jobWhisperVADEnabled", s.whisperVADEnabled);
@@ -8313,6 +8347,8 @@
         defaultOutputRoot: inputValue("defaultOutputRoot"),
         ...currentQobuzAuthPayload(),
         useFirefoxCookies: $("useFirefoxCookies").checked,
+        ytDlpEmbedMetadata: $("ytDlpEmbedMetadata").checked,
+        ytDlpEmbedThumbnail: $("ytDlpEmbedThumbnail").checked,
         youtubeAudioFormat: inputValue("youtubeAudioFormat") || "mp3",
         keepTemporaryFilesOnFailure: $("keepTemporaryFilesOnFailure").checked,
       };
@@ -9703,6 +9739,7 @@
 
     $("jobForm").addEventListener("submit", createJob);
     $("settingsForm").addEventListener("submit", saveSettings);
+    $("youtubeAudioFormat").addEventListener("change", updateYouTubeAudioFormatCompatibility);
     $("openJobsPageFromBuilder").addEventListener("click", () => {
       applyPage("jobs");
     });

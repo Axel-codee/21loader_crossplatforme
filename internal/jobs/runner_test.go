@@ -26,7 +26,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 const qobuzRunnerHelperFlag = "--qobuz-runner-helper"
 
 func TestBuildYtDlpBaseArgsExtractsAudioWithSelectedFormat(t *testing.T) {
-	args := buildYtDlpBaseArgs("/tmp/work", core.ContentMusic, "opus")
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentMusic, "opus", false, false)
 
 	if !containsString(args, "--extract-audio") {
 		t.Fatalf("expected --extract-audio in args: %v", args)
@@ -38,7 +38,7 @@ func TestBuildYtDlpBaseArgsExtractsAudioWithSelectedFormat(t *testing.T) {
 }
 
 func TestBuildYtDlpBaseArgsDefaultsAudioFormatToMP3(t *testing.T) {
-	args := buildYtDlpBaseArgs("/tmp/work", core.ContentAudio, "")
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentAudio, "", false, false)
 
 	formatIndex := indexOfString(args, "--audio-format")
 	if formatIndex < 0 || formatIndex+1 >= len(args) || args[formatIndex+1] != "mp3" {
@@ -47,13 +47,39 @@ func TestBuildYtDlpBaseArgsDefaultsAudioFormatToMP3(t *testing.T) {
 }
 
 func TestBuildYtDlpBaseArgsKeepsVideoMergeWithoutAudioExtraction(t *testing.T) {
-	args := buildYtDlpBaseArgs("/tmp/work", core.ContentVideo, "opus")
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentVideo, "opus", false, false)
 
 	if containsString(args, "--extract-audio") || containsString(args, "--audio-format") {
 		t.Fatalf("video args should not extract audio: %v", args)
 	}
 	if !containsString(args, "--merge-output-format") {
 		t.Fatalf("expected video merge args: %v", args)
+	}
+}
+
+func TestBuildYtDlpBaseArgsEmbedsMetadataWhenEnabled(t *testing.T) {
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentMusic, "mp3", true, false)
+
+	if !containsString(args, "--embed-metadata") {
+		t.Fatalf("expected --embed-metadata in args: %v", args)
+	}
+}
+
+func TestBuildYtDlpBaseArgsEmbedsThumbnailWhenSupported(t *testing.T) {
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentMusic, "mp3", false, true)
+
+	for _, expected := range []string{"--write-thumbnail", "--convert-thumbnails", "--embed-thumbnail"} {
+		if !containsString(args, expected) {
+			t.Fatalf("expected %s in args: %v", expected, args)
+		}
+	}
+}
+
+func TestBuildYtDlpBaseArgsSkipsThumbnailForUnsupportedAudioFormat(t *testing.T) {
+	args := buildYtDlpBaseArgs("/tmp/work", core.ContentMusic, "wav", false, true)
+
+	if containsString(args, "--embed-thumbnail") {
+		t.Fatalf("did not expect --embed-thumbnail for wav args: %v", args)
 	}
 }
 

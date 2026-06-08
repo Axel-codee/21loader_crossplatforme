@@ -487,7 +487,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 func (r *Runner) download(ctx context.Context, job core.JobRequest, outputRoot, workspace string, cb RunCallbacks) (downloadArtifact, error) {
 	switch job.SourceKind {
 	case core.SourceYouTube:
-		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YouTubeAudioFormat, "", "", nil, cb)
+		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, "", "", nil, cb)
 	case core.SourceRSS:
 		if job.SelectedRSSEpisode == nil {
 			return downloadArtifact{}, fmt.Errorf("aucun episode RSS selectionne")
@@ -540,7 +540,7 @@ func (r *Runner) downloadRSS(ctx context.Context, selection core.RSSEpisodeSelec
 		if cb.OnLog != nil {
 			cb.OnLog("[rss] URL non directe, fallback via yt-dlp\n")
 		}
-		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YouTubeAudioFormat, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
+		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
 		if err != nil {
 			return downloadArtifact{}, err
 		}
@@ -561,7 +561,7 @@ func (r *Runner) downloadRSS(ctx context.Context, selection core.RSSEpisodeSelec
 	return artifact, nil
 }
 
-func buildYtDlpBaseArgs(workspace string, mode core.JobContentType, audioFormat string) []string {
+func buildYtDlpBaseArgs(workspace string, mode core.JobContentType, audioFormat string, embedMetadata, embedThumbnail bool) []string {
 	baseArgs := []string{
 		"--no-playlist",
 		"--newline",
@@ -578,7 +578,25 @@ func buildYtDlpBaseArgs(workspace string, mode core.JobContentType, audioFormat 
 	} else {
 		baseArgs = append(baseArgs, "-f", "bestaudio/b", "--extract-audio", "--audio-format", resolvedAudioFormat)
 	}
+	if embedMetadata {
+		baseArgs = append(baseArgs, "--embed-metadata")
+	}
+	if embedThumbnail && ytDlpThumbnailEmbeddingSupported(mode, resolvedAudioFormat) {
+		baseArgs = append(baseArgs, "--write-thumbnail", "--convert-thumbnails", "jpg", "--embed-thumbnail")
+	}
 	return baseArgs
+}
+
+func ytDlpThumbnailEmbeddingSupported(mode core.JobContentType, audioFormat string) bool {
+	if mode == core.ContentVideo {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(audioFormat)) {
+	case "mp3", "m4a", "opus", "flac":
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *Runner) downloadWithYtDlp(
@@ -586,11 +604,13 @@ func (r *Runner) downloadWithYtDlp(
 	sourceURL, workspace string,
 	mode core.JobContentType,
 	useFirefoxCookies bool,
-	extraArguments, audioFormat, forcedSourceName, forcedTitle string,
+	extraArguments string,
+	embedMetadata, embedThumbnail bool,
+	audioFormat, forcedSourceName, forcedTitle string,
 	forcedDate *time.Time,
 	cb RunCallbacks,
 ) (downloadArtifact, error) {
-	baseArgs := buildYtDlpBaseArgs(workspace, mode, audioFormat)
+	baseArgs := buildYtDlpBaseArgs(workspace, mode, audioFormat, embedMetadata, embedThumbnail)
 	resolvedAudioFormat := strings.ToLower(strings.TrimSpace(audioFormat))
 	if resolvedAudioFormat == "" {
 		resolvedAudioFormat = "mp3"
@@ -607,6 +627,16 @@ func (r *Runner) downloadWithYtDlp(
 		cb.OnLog("[download] Demarrage du telechargement YouTube...\n")
 		if mode != core.ContentVideo {
 			cb.OnLog("[download] Format audio cible: " + resolvedAudioFormat + "\n")
+		}
+		if embedMetadata {
+			cb.OnLog("[download] Integration des metadonnees yt-dlp activee.\n")
+		}
+		if embedThumbnail {
+			if ytDlpThumbnailEmbeddingSupported(mode, resolvedAudioFormat) {
+				cb.OnLog("[download] Integration de la miniature yt-dlp activee.\n")
+			} else {
+				cb.OnLog("[download] Integration de la miniature ignoree pour le format " + resolvedAudioFormat + " (support lecteur/conteneur limite).\n")
+			}
 		}
 	}
 

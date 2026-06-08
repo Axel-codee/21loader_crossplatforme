@@ -411,6 +411,24 @@ func TestBuildJobUsesYouTubeAudioFormatFromSettingsAndPayload(t *testing.T) {
 	}
 }
 
+func TestBuildJobCopiesYtDlpEmbeddingOptionsFromSettings(t *testing.T) {
+	c := &Coordinator{
+		settings: core.WebSettings{YtDlpEmbedMetadata: true, YtDlpEmbedThumbnail: true},
+	}
+
+	built, err := c.buildJob(core.CreateJobAPIRequest{
+		InputURL:    "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:  "youtube",
+		ContentType: "audio",
+	})
+	if err != nil {
+		t.Fatalf("buildJob returned error: %v", err)
+	}
+	if !built.Request.YtDlpEmbedMetadata || !built.Request.YtDlpEmbedThumbnail {
+		t.Fatalf("expected yt-dlp embedding options copied, got metadata=%v thumbnail=%v", built.Request.YtDlpEmbedMetadata, built.Request.YtDlpEmbedThumbnail)
+	}
+}
+
 func TestBuildJobRejectsInvalidYouTubeAudioFormat(t *testing.T) {
 	c := &Coordinator{}
 

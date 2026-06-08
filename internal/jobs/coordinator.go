@@ -564,6 +564,12 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) (cor
 	if payload.UseFirefoxCookies != nil {
 		c.settings.UseFirefoxCookies = *payload.UseFirefoxCookies
 	}
+	if payload.YtDlpEmbedMetadata != nil {
+		c.settings.YtDlpEmbedMetadata = *payload.YtDlpEmbedMetadata
+	}
+	if payload.YtDlpEmbedThumbnail != nil {
+		c.settings.YtDlpEmbedThumbnail = *payload.YtDlpEmbedThumbnail
+	}
 	if payload.YouTubeAudioFormat != nil {
 		format, err := normalizeYouTubeAudioFormat(*payload.YouTubeAudioFormat)
 		if err != nil {
@@ -668,6 +674,8 @@ func sameJobConfiguration(left, right core.JobRequest) bool {
 		left.UseCustomLyricsSearch != right.UseCustomLyricsSearch ||
 		left.UseManualLyricsSelection != right.UseManualLyricsSelection ||
 		left.UseFirefoxCookies != right.UseFirefoxCookies ||
+		left.YtDlpEmbedMetadata != right.YtDlpEmbedMetadata ||
+		left.YtDlpEmbedThumbnail != right.YtDlpEmbedThumbnail ||
 		left.QobuzUseUserAuthToken != right.QobuzUseUserAuthToken {
 		return false
 	}
@@ -1846,6 +1854,8 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	if payload.UseFirefoxCookies != nil {
 		useFirefoxCookies = *payload.UseFirefoxCookies
 	}
+	ytDlpEmbedMetadata := settings.YtDlpEmbedMetadata
+	ytDlpEmbedThumbnail := settings.YtDlpEmbedThumbnail
 	youtubeAudioFormat, err := normalizeYouTubeAudioFormat(fallbackTrimmed(payload.YouTubeAudioFormat, settings.YouTubeAudioFormat))
 	if err != nil {
 		return builtJob{}, err
@@ -1960,6 +1970,8 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		PyannoteOutputTXT:            pyannoteOutputTXT,
 		PyannoteOutputSRT:            pyannoteOutputSRT,
 		YtDlpExtraArguments:          strings.TrimSpace(payload.YtDlpExtraArguments),
+		YtDlpEmbedMetadata:           ytDlpEmbedMetadata,
+		YtDlpEmbedThumbnail:          ytDlpEmbedThumbnail,
 		YouTubeAudioFormat:           youtubeAudioFormat,
 		WhisperExtraArguments:        strings.TrimSpace(payload.WhisperExtraArguments),
 		FfmpegExtraArguments:         strings.TrimSpace(payload.FfmpegExtraArguments),
@@ -2100,6 +2112,8 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 		PyannoteOutputTXT:            true,
 		PyannoteOutputSRT:            true,
 		UseFirefoxCookies:            false,
+		YtDlpEmbedMetadata:           true,
+		YtDlpEmbedThumbnail:          true,
 		YouTubeAudioFormat:           "mp3",
 		KeepTemporaryFilesOnFailure:  true,
 		QobuzEmail:                   "",
@@ -2139,6 +2153,12 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 			}
 			if !fieldPresentInJSON(data, "pyannoteOutputSRT") {
 				s.PyannoteOutputSRT = true
+			}
+			if !fieldPresentInJSON(data, "ytDlpEmbedMetadata") {
+				s.YtDlpEmbedMetadata = true
+			}
+			if !fieldPresentInJSON(data, "ytDlpEmbedThumbnail") {
+				s.YtDlpEmbedThumbnail = true
 			}
 			s.WhisperTinydiarizeEnabled = s.DiarizationProvider == core.DiarizationProviderTinydiarize
 			return s
