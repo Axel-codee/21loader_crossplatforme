@@ -54,6 +54,7 @@ type OrganizationPayload struct {
 	PyannoteSubtitleFile      string
 	ArtworkFile               string
 	CustomName                string
+	YouTubeNameParts          []string
 	OutputRoot                string
 	TranscriptionLanguage     string
 }
@@ -389,18 +390,43 @@ func folderName(payload OrganizationPayload) string {
 	case core.SourceRSS:
 		return util.SanitizePathComponent(payload.Title, 140)
 	case core.SourceYouTube:
-		uploader := util.SanitizePathComponent(payload.SourceName, 80)
-		date := "NA"
-		if payload.PublicationDate != nil {
-			date = payload.PublicationDate.UTC().Format("20060102")
-		}
-		title := util.SanitizePathComponent(payload.Title, 120)
-		return util.SanitizePathComponent(uploader+" - "+date+" - "+title, 180)
+		return youtubeFolderName(payload)
 	case core.SourceQobuz:
 		return util.SanitizePathComponent(payload.Title, 140)
 	default:
 		return util.SanitizePathComponent(payload.Title, 140)
 	}
+}
+
+func youtubeFolderName(payload OrganizationPayload) string {
+	parts := normalizedJobYouTubeNameParts(payload.YouTubeNameParts)
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		switch part {
+		case "source":
+			if source := util.SanitizePathComponent(payload.SourceName, 80); source != "" {
+				values = append(values, source)
+			}
+		case "date":
+			date := "NA"
+			if payload.PublicationDate != nil {
+				date = payload.PublicationDate.UTC().Format("20060102")
+			}
+			values = append(values, date)
+		case "title":
+			if title := util.SanitizePathComponent(payload.Title, 120); title != "" {
+				values = append(values, title)
+			}
+		}
+	}
+	if len(values) == 0 {
+		if title := util.SanitizePathComponent(payload.Title, 120); title != "" {
+			values = append(values, title)
+		} else {
+			values = append(values, "YouTube")
+		}
+	}
+	return util.SanitizePathComponent(strings.Join(values, " - "), 180)
 }
 
 func moveReplacing(src, dst string) error {

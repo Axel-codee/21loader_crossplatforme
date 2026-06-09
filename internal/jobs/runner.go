@@ -466,6 +466,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 		PyannoteSubtitleFile:      transcriptionOutput.PyannoteSubtitlePath,
 		ArtworkFile:               artifact.ArtworkPath,
 		CustomName:                job.CustomName,
+		YouTubeNameParts:          job.YouTubeNameParts,
 		OutputRoot:                outputRoot,
 		TranscriptionLanguage:     job.TranscriptionLanguage,
 	}, opt.StandardCollision)

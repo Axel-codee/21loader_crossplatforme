@@ -96,6 +96,7 @@ type WebSettings struct {
 	YtDlpEmbedThumbnail          bool                 `json:"ytDlpEmbedThumbnail"`
 	YouTubeAudioFormat           string               `json:"youtubeAudioFormat"`
 	YouTubeAudioPreferences      []string             `json:"youtubeAudioPreferences,omitempty"`
+	YouTubeNameParts             []string             `json:"youtubeNameParts,omitempty"`
 	KeepTemporaryFilesOnFailure  bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   string               `json:"qobuzEmail"`
 	QobuzPassword                string               `json:"qobuzPassword"`
@@ -315,6 +316,7 @@ type UpdateSettingsAPIRequest struct {
 	YtDlpEmbedThumbnail          *bool                 `json:"ytDlpEmbedThumbnail"`
 	YouTubeAudioFormat           *string               `json:"youtubeAudioFormat"`
 	YouTubeAudioPreferences      *[]string             `json:"youtubeAudioPreferences"`
+	YouTubeNameParts             *[]string             `json:"youtubeNameParts"`
 	KeepTemporaryFilesOnFailure  *bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   *string               `json:"qobuzEmail"`
 	QobuzPassword                *string               `json:"qobuzPassword"`
@@ -814,6 +816,7 @@ type JobRequest struct {
 	YtDlpEmbedThumbnail          bool
 	YouTubeAudioFormat           string
 	YouTubeAudioPreferences      []string
+	YouTubeNameParts             []string
 	WhisperExtraArguments        string
 	FfmpegExtraArguments         string
 	QobuzExtraArguments          string

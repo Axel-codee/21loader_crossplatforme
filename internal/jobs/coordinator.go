@@ -584,6 +584,13 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) (cor
 		}
 		c.settings.YouTubeAudioPreferences = preferences
 	}
+	if payload.YouTubeNameParts != nil {
+		parts, err := normalizeYouTubeNameParts(*payload.YouTubeNameParts)
+		if err != nil {
+			return core.WebSettings{}, err
+		}
+		c.settings.YouTubeNameParts = parts
+	}
 	if format, err := normalizeYouTubeAudioFormat(c.settings.YouTubeAudioFormat); err == nil {
 		c.settings.YouTubeAudioFormat = format
 	} else {
@@ -593,6 +600,11 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) (cor
 		c.settings.YouTubeAudioPreferences = preferences
 	} else {
 		c.settings.YouTubeAudioPreferences = []string{"convert:" + c.settings.YouTubeAudioFormat}
+	}
+	if parts, err := normalizeYouTubeNameParts(c.settings.YouTubeNameParts); err == nil {
+		c.settings.YouTubeNameParts = parts
+	} else {
+		c.settings.YouTubeNameParts = defaultYouTubeNameParts()
 	}
 	if payload.KeepTemporaryFilesOnFailure != nil {
 		c.settings.KeepTemporaryFilesOnFailure = *payload.KeepTemporaryFilesOnFailure
@@ -711,6 +723,9 @@ func sameJobConfiguration(left, right core.JobRequest) bool {
 		return false
 	}
 	if left.SourceKind != core.SourceQobuz && strings.Join(normalizedJobYouTubeAudioPreferences(left.YouTubeAudioPreferences, left.YouTubeAudioFormat), "\x00") != strings.Join(normalizedJobYouTubeAudioPreferences(right.YouTubeAudioPreferences, right.YouTubeAudioFormat), "\x00") {
+		return false
+	}
+	if left.SourceKind == core.SourceYouTube && strings.Join(normalizedJobYouTubeNameParts(left.YouTubeNameParts), "\x00") != strings.Join(normalizedJobYouTubeNameParts(right.YouTubeNameParts), "\x00") {
 		return false
 	}
 	if normalizeLanguageCode(left.TranscriptionLanguage, "auto") != normalizeLanguageCode(right.TranscriptionLanguage, "auto") ||
@@ -1899,6 +1914,10 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	if err != nil {
 		return builtJob{}, err
 	}
+	youtubeNameParts, err := normalizeYouTubeNameParts(settings.YouTubeNameParts)
+	if err != nil {
+		youtubeNameParts = defaultYouTubeNameParts()
+	}
 	qobuzEmail, qobuzPassword, qobuzUserAuthToken, qobuzUseUserAuthToken := resolveQobuzAuth(
 		payload.QobuzEmail,
 		payload.QobuzPassword,
@@ -2013,6 +2032,7 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		YtDlpEmbedThumbnail:          ytDlpEmbedThumbnail,
 		YouTubeAudioFormat:           youtubeAudioFormat,
 		YouTubeAudioPreferences:      youtubeAudioPreferences,
+		YouTubeNameParts:             youtubeNameParts,
 		WhisperExtraArguments:        strings.TrimSpace(payload.WhisperExtraArguments),
 		FfmpegExtraArguments:         strings.TrimSpace(payload.FfmpegExtraArguments),
 		QobuzExtraArguments:          strings.TrimSpace(payload.QobuzExtraArguments),
@@ -2156,6 +2176,7 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 		YtDlpEmbedThumbnail:          true,
 		YouTubeAudioFormat:           "mp3",
 		YouTubeAudioPreferences:      []string{"convert:mp3"},
+		YouTubeNameParts:             defaultYouTubeNameParts(),
 		KeepTemporaryFilesOnFailure:  true,
 		QobuzEmail:                   "",
 		QobuzPassword:                "",
@@ -2180,6 +2201,11 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 				s.YouTubeAudioPreferences = preferences
 			} else {
 				s.YouTubeAudioPreferences = []string{"convert:" + s.YouTubeAudioFormat}
+			}
+			if parts, err := normalizeYouTubeNameParts(s.YouTubeNameParts); err == nil {
+				s.YouTubeNameParts = parts
+			} else {
+				s.YouTubeNameParts = defaultYouTubeNameParts()
 			}
 			s.FavoriteRSSPodcasts = normalizeFavoriteRSSPodcasts(s.FavoriteRSSPodcasts)
 			if !s.WhisperTinydiarizeOutputTXT {
@@ -2309,6 +2335,43 @@ func normalizedJobYouTubeAudioPreferences(raw []string, fallbackFormat string) [
 		return []string{}
 	}
 	return preferences
+}
+
+func defaultYouTubeNameParts() []string {
+	return []string{"source", "date", "title"}
+}
+
+func normalizeYouTubeNameParts(raw []string) ([]string, error) {
+	if len(raw) == 0 {
+		return defaultYouTubeNameParts(), nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		part := strings.ToLower(strings.TrimSpace(item))
+		if part == "" || seen[part] {
+			continue
+		}
+		switch part {
+		case "source", "date", "title":
+			seen[part] = true
+			out = append(out, part)
+		default:
+			return nil, fmt.Errorf("youtubeNameParts invalide. Valeurs: source, date, title")
+		}
+	}
+	if len(out) == 0 {
+		return defaultYouTubeNameParts(), nil
+	}
+	return out, nil
+}
+
+func normalizedJobYouTubeNameParts(raw []string) []string {
+	parts, err := normalizeYouTubeNameParts(raw)
+	if err != nil {
+		return defaultYouTubeNameParts()
+	}
+	return parts
 }
 
 func resolveDiarizationProviderFromLegacy(enabled bool) core.DiarizationProvider {

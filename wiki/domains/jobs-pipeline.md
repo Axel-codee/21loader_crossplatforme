@@ -28,6 +28,7 @@ Selon `internal/core/models.go` et `internal/jobs/runner.go`:
 - le pipeline remonte maintenant explicitement les etapes `reutilisees` en mode `completer`, au-dela des seuls logs texte
 - l'UI des jobs affiche maintenant le vrai `currentStepProgress` pendant `transcription`, ce qui evite un pourcentage global fige autour de `43%`
 - un doublon logique exact est refuse a l'enqueue quand la collision est en mode `completer`; si l'ancien job termine pointe vers un `Result.MediaPath` supprime du disque, il est ignore et le re-telechargement est autorise
+- les jobs YouTube utilisent une convention de nommage reglable (`source`, `date`, `title`) pour le dossier d'item et le fichier final; le defaut reste `source - YYYYMMDD - title` et `CustomName` garde la priorite
 - la transcription continue de convertir le media en WAV mono 16 kHz temporaire avant l'appel a `whisper-cli`; dans ce lot, cela justifie l'usage de `tinydiarize` mais pas de `--diarize`
 - les options Whisper avancees vivent maintenant dans le pipeline backend: VAD (`--vad` + modele Silero), segmentation SRT (`-ml`, `-sow`), prompt initial (`--prompt`, `--carry-initial-prompt`), JSON complet (`-ojf`) et `tinydiarize` (`-tdrz`)
 - quand `tinydiarize` est active, le pipeline garde les sorties standard `.txt` / `.srt` comme artefacts principaux et lance un second passage dedie pour produire le JSON diarise, puis optionnellement des variantes `.whisper-tdrz.txt` et `.whisper-tdrz.srt`

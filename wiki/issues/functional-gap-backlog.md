@@ -45,6 +45,7 @@
 | `BACKLOG-24` | Afficher la release courante dans la Web UI | `done 2026-06-08` | frontend-ui / distribution | [../domains/frontend-ui.md](../domains/frontend-ui.md), [../solutions/terminal-cli-github-release-updater.md](../solutions/terminal-cli-github-release-updater.md) |
 | `BACKLOG-25` | Integrer metadonnees et miniature dans les fichiers telecharges par yt-dlp | `done 2026-06-08` | services media / frontend-ui | [../domains/media-services.md](../domains/media-services.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 | `BACKLOG-26` | Classer les preferences audio YouTube entre formats natifs et conversions fallback | `done 2026-06-08` | services media / frontend-ui | [../domains/media-services.md](../domains/media-services.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
+| `BACKLOG-27` | Configurer la convention de nommage des telechargements YouTube | `done 2026-06-09` | jobs/pipeline / frontend-ui | [../domains/jobs-pipeline.md](../domains/jobs-pipeline.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 
 ## Zones de code probablement concernees
 
@@ -85,6 +86,7 @@
 - `BACKLOG-24` a ete traite le `2026-06-08`; `/api/status` expose maintenant la version applicative et l'en-tete de la Web UI l'affiche sous forme de badge `Release ...`.
 - `BACKLOG-25` a ete traite le `2026-06-08`; les reglages yt-dlp exposent l'integration des metadonnees et de la miniature, activees par defaut, avec un avertissement pour les formats audio dont le support miniature est limite.
 - `BACKLOG-26` a ete traite le `2026-06-08`; les reglages YouTube Audio acceptent maintenant un classement mixte de priorites natives (`native:m4a`, `native:webm`, `native:best`) et de conversions fallback (`convert:<format>`), sans bloquer plusieurs conversions successives.
+- `BACKLOG-27` a ete traite le `2026-06-09`; les reglages exposent une convention de nommage YouTube ordonnable entre `source`, `date` et `title`, appliquee au dossier d'item et au fichier final.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

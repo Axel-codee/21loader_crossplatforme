@@ -2231,6 +2231,22 @@
                 <p class="hint">Les priorités natives ne ré-encodent pas l'audio. Les priorités converties utilisent <code>ffmpeg</code> via <code>yt-dlp</code> et servent de secours.</p>
                 <p id="youtubeAudioFormatCompatibility" class="hint"></p>
               </section>
+              <section class="whisper-job-card whisper-job-card--wide">
+                <div class="whisper-job-card-head">
+                  <div class="whisper-job-card-title-row">
+                    <h6 class="whisper-job-card-title">Nommage YouTube</h6>
+                    <span class="whisper-job-card-badge">fichiers</span>
+                  </div>
+                  <p class="whisper-job-card-copy">Choisis les éléments utilisés dans le dossier du média et dans le nom du fichier final.</p>
+                </div>
+                <div class="whisper-job-card-divider"></div>
+                <div class="field">
+                  <label>Convention automatique</label>
+                  <div id="youtubeNameParts" class="stack-mini"></div>
+                  <button type="button" id="addYouTubeNamePart" class="btn-ghost btn-small">Ajouter un élément</button>
+                </div>
+                <p class="hint">Par défaut: chaîne / auteur, date de publication, titre vidéo. Le champ <code>Nom personnalisé</code> d'un job reste prioritaire.</p>
+              </section>
             </div>
           </section>
 
@@ -2943,6 +2959,13 @@
       { value: "convert:aac", label: "AAC converti" },
     ];
     const YOUTUBE_AUDIO_PREFERENCE_VALUES = new Set(YOUTUBE_AUDIO_PREFERENCE_OPTIONS.map((option) => option.value));
+    const YOUTUBE_NAME_PART_OPTIONS = [
+      { value: "source", label: "Chaîne / auteur" },
+      { value: "date", label: "Date de publication" },
+      { value: "title", label: "Titre vidéo" },
+    ];
+    const YOUTUBE_NAME_PART_VALUES = new Set(YOUTUBE_NAME_PART_OPTIONS.map((option) => option.value));
+    const DEFAULT_YOUTUBE_NAME_PARTS = ["source", "date", "title"];
 
     function escapeHtml(value) {
       return String(value || "")
@@ -3033,6 +3056,69 @@
       const current = getYouTubeAudioPreferences();
       current.push(normalizeYouTubeAudioPreferenceValue(`convert:${inputValue("youtubeAudioFormat") || "m4a"}`));
       renderYouTubeAudioPreferences(current);
+    }
+
+    function normalizeYouTubeNameParts(values = []) {
+      const out = [];
+      const seen = new Set();
+      const source = Array.isArray(values) ? values : [];
+      for (const value of source) {
+        const part = String(value || "").trim().toLowerCase();
+        if (!YOUTUBE_NAME_PART_VALUES.has(part) || seen.has(part)) continue;
+        seen.add(part);
+        out.push(part);
+      }
+      return out.length ? out : [...DEFAULT_YOUTUBE_NAME_PARTS];
+    }
+
+    function getYouTubeNameParts() {
+      return normalizeYouTubeNameParts(Array.from(document.querySelectorAll("[data-youtube-name-part]")).map((select) => select.value));
+    }
+
+    function renderYouTubeNameParts(values = []) {
+      const node = $("youtubeNameParts");
+      if (!node) return;
+      const normalized = normalizeYouTubeNameParts(values);
+      node.innerHTML = normalized.map((value, index) => {
+        const options = YOUTUBE_NAME_PART_OPTIONS.map((option) => {
+          const selected = option.value === value ? " selected" : "";
+          return `<option value="${escapeHtml(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+        }).join("");
+        return `
+          <div class="audio-priority-row" data-youtube-name-part-row="${index}">
+            <span class="audio-priority-index">${index + 1}.</span>
+            <select data-youtube-name-part>${options}</select>
+            <button type="button" class="btn-ghost btn-small" data-youtube-name-part-action="up" data-index="${index}" ${index === 0 ? "disabled" : ""}>Monter</button>
+            <button type="button" class="btn-ghost btn-small" data-youtube-name-part-action="down" data-index="${index}" ${index === normalized.length - 1 ? "disabled" : ""}>Descendre</button>
+            <button type="button" class="btn-danger btn-small" data-youtube-name-part-action="remove" data-index="${index}" ${normalized.length === 1 ? "disabled" : ""}>Retirer</button>
+          </div>`;
+      }).join("");
+      node.querySelectorAll("[data-youtube-name-part]").forEach((select) => {
+        select.addEventListener("change", () => renderYouTubeNameParts(getYouTubeNameParts()));
+      });
+      node.querySelectorAll("[data-youtube-name-part-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const action = button.getAttribute("data-youtube-name-part-action");
+          const index = Number(button.getAttribute("data-index"));
+          const current = getYouTubeNameParts();
+          if (action === "up" && index > 0) {
+            [current[index - 1], current[index]] = [current[index], current[index - 1]];
+          } else if (action === "down" && index + 1 < current.length) {
+            [current[index], current[index + 1]] = [current[index + 1], current[index]];
+          } else if (action === "remove" && current.length > 1) {
+            current.splice(index, 1);
+          }
+          renderYouTubeNameParts(current);
+        });
+      });
+    }
+
+    function addYouTubeNamePart() {
+      const current = getYouTubeNameParts();
+      const missing = DEFAULT_YOUTUBE_NAME_PARTS.find((part) => !current.includes(part));
+      if (!missing) return;
+      current.push(missing);
+      renderYouTubeNameParts(current);
     }
 
     function updateYouTubeAudioFormatCompatibility() {
@@ -7655,6 +7741,7 @@
         setChecked("ytDlpEmbedThumbnail", s.ytDlpEmbedThumbnail ?? true);
         setInput("youtubeAudioFormat", s.youtubeAudioFormat || "mp3");
         renderYouTubeAudioPreferences(s.youtubeAudioPreferences || [`convert:${s.youtubeAudioFormat || "mp3"}`]);
+        renderYouTubeNameParts(s.youtubeNameParts || DEFAULT_YOUTUBE_NAME_PARTS);
         updateYouTubeAudioFormatCompatibility();
         setChecked("keepTemporaryFilesOnFailure", s.keepTemporaryFilesOnFailure);
         setFavoriteRSSPodcasts(s.favoriteRSSPodcasts || []);
@@ -8473,6 +8560,7 @@
         ytDlpEmbedThumbnail: $("ytDlpEmbedThumbnail").checked,
         youtubeAudioFormat: getYouTubeAudioFallbackFormat(),
         youtubeAudioPreferences: getYouTubeAudioPreferences(),
+        youtubeNameParts: getYouTubeNameParts(),
         keepTemporaryFilesOnFailure: $("keepTemporaryFilesOnFailure").checked,
       };
 
@@ -9864,6 +9952,7 @@
     $("settingsForm").addEventListener("submit", saveSettings);
     $("youtubeAudioFormat").addEventListener("change", updateYouTubeAudioFormatCompatibility);
     $("addYouTubeAudioPreference").addEventListener("click", addYouTubeAudioPreference);
+    $("addYouTubeNamePart").addEventListener("click", addYouTubeNamePart);
     $("openJobsPageFromBuilder").addEventListener("click", () => {
       applyPage("jobs");
     });

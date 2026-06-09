@@ -1,5 +1,11 @@
 # Log du wiki
 
+## [2026-06-09] feat | convention de nommage YouTube configurable
+
+- Ajout du reglage persistant `youtubeNameParts` pour choisir et ordonner les composants du nom automatique YouTube.
+- Les composants supportes sont `source`, `date` et `title`; le defaut conserve l'ancien format `source - YYYYMMDD - title`.
+- La convention s'applique au dossier d'item et au fichier final, tandis que le champ `Nom personnalise` d'un job reste prioritaire.
+
 ## [2026-06-09] fix | redownload apres suppression du fichier final
 
 - La deduplication des jobs en mode `completer` ignore maintenant un job termine si son `Result.MediaPath` existe dans l'historique mais n'existe plus sur le disque.

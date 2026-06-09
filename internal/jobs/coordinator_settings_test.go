@@ -158,6 +158,34 @@ func TestUpdateSettingsRejectsInvalidYouTubeAudioPreference(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsNormalizesYouTubeNameParts(t *testing.T) {
+	c := &Coordinator{}
+	parts := []string{" title ", "source", "title", "DATE"}
+
+	saved, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
+		YouTubeNameParts: &parts,
+	})
+	if err != nil {
+		t.Fatalf("UpdateSettings failed: %v", err)
+	}
+	expected := []string{"title", "source", "date"}
+	if strings.Join(saved.YouTubeNameParts, ",") != strings.Join(expected, ",") {
+		t.Fatalf("expected normalized parts %v, got %v", expected, saved.YouTubeNameParts)
+	}
+}
+
+func TestUpdateSettingsRejectsInvalidYouTubeNamePart(t *testing.T) {
+	c := &Coordinator{}
+	parts := []string{"title", "duration"}
+
+	_, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
+		YouTubeNameParts: &parts,
+	})
+	if err == nil || !strings.Contains(err.Error(), "youtubeNameParts invalide") {
+		t.Fatalf("expected invalid name parts error, got %v", err)
+	}
+}
+
 func TestUpdateSettingsPersistsYtDlpEmbeddingOptions(t *testing.T) {
 	c := &Coordinator{}
 	embedMetadata := false

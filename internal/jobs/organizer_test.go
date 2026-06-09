@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"21loader-cross/internal/core"
 )
@@ -131,6 +132,65 @@ func TestOrganizeDirectoryCompleteMergesMissingFiles(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(targetDir, "album.json")); statErr != nil {
 		t.Fatalf("album metadata was not written: %v", statErr)
+	}
+}
+
+func TestYouTubeFolderNameKeepsDefaultConvention(t *testing.T) {
+	pub := time.Date(2023, 11, 7, 0, 0, 0, 0, time.UTC)
+	got := folderName(OrganizationPayload{
+		SourceKind:      core.SourceYouTube,
+		SourceName:      "Aryan Classic",
+		Title:           "boom - how do you do (sped up) Aryan Classic",
+		PublicationDate: &pub,
+	})
+	want := "Aryan Classic - 20231107 - boom - how do you do (sped up) Aryan Classic"
+	if got != want {
+		t.Fatalf("unexpected folder name: got %q want %q", got, want)
+	}
+}
+
+func TestYouTubeFolderNameUsesConfiguredOrderAndParts(t *testing.T) {
+	pub := time.Date(2023, 11, 7, 0, 0, 0, 0, time.UTC)
+	got := folderName(OrganizationPayload{
+		SourceKind:       core.SourceYouTube,
+		SourceName:       "Aryan Classic",
+		Title:            "boom - how do you do",
+		PublicationDate:  &pub,
+		YouTubeNameParts: []string{"title", "source"},
+	})
+	want := "boom - how do you do - Aryan Classic"
+	if got != want {
+		t.Fatalf("unexpected folder name: got %q want %q", got, want)
+	}
+}
+
+func TestOrganizeFileUsesYouTubeNamePartsForDirectoryAndFile(t *testing.T) {
+	outputRoot := t.TempDir()
+	workspace := t.TempDir()
+	mediaPath := filepath.Join(workspace, "download.mp3")
+	if err := os.WriteFile(mediaPath, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write media failed: %v", err)
+	}
+
+	organizer := NewOrganizer()
+	result, err := organizer.Organize(OrganizationPayload{
+		SourceKind:       core.SourceYouTube,
+		SourceName:       "Aryan Classic",
+		Title:            "boom - how do you do",
+		MediaPath:        mediaPath,
+		YouTubeNameParts: []string{"title", "source"},
+		OutputRoot:       outputRoot,
+	}, core.CollisionRename)
+	if err != nil {
+		t.Fatalf("organize failed: %v", err)
+	}
+
+	wantMedia := filepath.Join(outputRoot, "YouTube", "Aryan Classic", "boom - how do you do - Aryan Classic", "boom - how do you do - Aryan Classic.mp3")
+	if !samePath(result.MediaPath, wantMedia) {
+		t.Fatalf("unexpected media path: got %q want %q", result.MediaPath, wantMedia)
+	}
+	if _, err := os.Stat(wantMedia); err != nil {
+		t.Fatalf("expected organized media: %v", err)
 	}
 }
 
