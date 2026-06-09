@@ -94,6 +94,7 @@ type WebSettings struct {
 	UseFirefoxCookies            bool                 `json:"useFirefoxCookies"`
 	YtDlpEmbedMetadata           bool                 `json:"ytDlpEmbedMetadata"`
 	YtDlpEmbedThumbnail          bool                 `json:"ytDlpEmbedThumbnail"`
+	YtDlpCropThumbnail500        bool                 `json:"ytDlpCropThumbnail500"`
 	YouTubeAudioFormat           string               `json:"youtubeAudioFormat"`
 	YouTubeAudioPreferences      []string             `json:"youtubeAudioPreferences,omitempty"`
 	YouTubeNameParts             []string             `json:"youtubeNameParts,omitempty"`
@@ -314,6 +315,7 @@ type UpdateSettingsAPIRequest struct {
 	UseFirefoxCookies            *bool                 `json:"useFirefoxCookies"`
 	YtDlpEmbedMetadata           *bool                 `json:"ytDlpEmbedMetadata"`
 	YtDlpEmbedThumbnail          *bool                 `json:"ytDlpEmbedThumbnail"`
+	YtDlpCropThumbnail500        *bool                 `json:"ytDlpCropThumbnail500"`
 	YouTubeAudioFormat           *string               `json:"youtubeAudioFormat"`
 	YouTubeAudioPreferences      *[]string             `json:"youtubeAudioPreferences"`
 	YouTubeNameParts             *[]string             `json:"youtubeNameParts"`
@@ -814,6 +816,7 @@ type JobRequest struct {
 	YtDlpExtraArguments          string
 	YtDlpEmbedMetadata           bool
 	YtDlpEmbedThumbnail          bool
+	YtDlpCropThumbnail500        bool
 	YouTubeAudioFormat           string
 	YouTubeAudioPreferences      []string
 	YouTubeNameParts             []string

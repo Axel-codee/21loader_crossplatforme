@@ -488,7 +488,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 func (r *Runner) download(ctx context.Context, job core.JobRequest, outputRoot, workspace string, cb RunCallbacks) (downloadArtifact, error) {
 	switch job.SourceKind {
 	case core.SourceYouTube:
-		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, job.YouTubeAudioPreferences, "", "", nil, cb)
+		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YtDlpCropThumbnail500, job.YouTubeAudioFormat, job.YouTubeAudioPreferences, "", "", nil, cb)
 	case core.SourceRSS:
 		if job.SelectedRSSEpisode == nil {
 			return downloadArtifact{}, fmt.Errorf("aucun episode RSS selectionne")
@@ -541,7 +541,7 @@ func (r *Runner) downloadRSS(ctx context.Context, selection core.RSSEpisodeSelec
 		if cb.OnLog != nil {
 			cb.OnLog("[rss] URL non directe, fallback via yt-dlp\n")
 		}
-		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, job.YouTubeAudioPreferences, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
+		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, false, job.YouTubeAudioFormat, job.YouTubeAudioPreferences, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
 		if err != nil {
 			return downloadArtifact{}, err
 		}
@@ -702,7 +702,7 @@ func (r *Runner) downloadWithYtDlp(
 	mode core.JobContentType,
 	useFirefoxCookies bool,
 	extraArguments string,
-	embedMetadata, embedThumbnail bool,
+	embedMetadata, embedThumbnail, cropThumbnail500 bool,
 	audioFormat string,
 	audioPreferences []string,
 	forcedSourceName, forcedTitle string,
@@ -726,6 +726,9 @@ func (r *Runner) downloadWithYtDlp(
 		}
 		if embedMetadata {
 			cb.OnLog("[download] Integration des metadonnees yt-dlp activee.\n")
+		}
+		if embedThumbnail && cropThumbnail500 && mode != core.ContentVideo {
+			cb.OnLog("[download] Recadrage miniature 500x500 active si la cover yt-dlp est disponible.\n")
 		}
 	}
 
@@ -786,6 +789,9 @@ func (r *Runner) downloadWithYtDlp(
 	}
 	if media == "" {
 		return downloadArtifact{}, fmt.Errorf("telechargement termine mais fichier media introuvable")
+	}
+	if embedThumbnail && cropThumbnail500 && mode != core.ContentVideo {
+		media = r.cropAndReplaceYtDlpThumbnail(ctx, media, workspace, cb)
 	}
 
 	infoPath := discoverInfoJSON(workspace)
@@ -3126,6 +3132,85 @@ func discoverInfoJSON(workspace string) string {
 	return entries[0]
 }
 
+func discoverYtDlpThumbnail(workspace string) string {
+	entries, _ := os.ReadDir(workspace)
+	candidates := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(strings.ToLower(name), ".part") {
+			continue
+		}
+		switch strings.ToLower(filepath.Ext(name)) {
+		case ".jpg", ".jpeg", ".png", ".webp":
+			candidates = append(candidates, filepath.Join(workspace, name))
+		}
+	}
+	if len(candidates) == 0 {
+		return ""
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		li, _ := os.Stat(candidates[i])
+		lj, _ := os.Stat(candidates[j])
+		if li == nil || lj == nil {
+			return candidates[i] < candidates[j]
+		}
+		return li.ModTime().After(lj.ModTime())
+	})
+	return candidates[0]
+}
+
+func (r *Runner) cropAndReplaceYtDlpThumbnail(ctx context.Context, mediaPath, workspace string, cb RunCallbacks) string {
+	thumbnail := discoverYtDlpThumbnail(workspace)
+	if thumbnail == "" {
+		if cb.OnLog != nil {
+			cb.OnLog("[download] Miniature non recadree: fichier thumbnail yt-dlp introuvable, cover originale conservee.\n")
+		}
+		return mediaPath
+	}
+	cropped := filepath.Join(workspace, "yt-dlp-cover-500x500.jpg")
+	if err := r.cropThumbnailTo500(ctx, thumbnail, cropped, workspace, cb); err != nil {
+		if cb.OnLog != nil {
+			cb.OnLog("[download] Miniature non recadree: " + err.Error() + ". Cover originale conservee.\n")
+		}
+		return mediaPath
+	}
+	replaced, err := r.replaceAudioArtwork(ctx, mediaPath, cropped, workspace, cb)
+	if err != nil {
+		if cb.OnLog != nil {
+			cb.OnLog("[download] Miniature 500x500 non reintegree: " + err.Error() + ". Cover originale conservee.\n")
+		}
+		return mediaPath
+	}
+	if cb.OnLog != nil {
+		cb.OnLog("[download] Miniature recadree en 500x500 et reintegree.\n")
+	}
+	return replaced
+}
+
+func (r *Runner) cropThumbnailTo500(ctx context.Context, thumbnailPath, outputPath, workspace string, cb RunCallbacks) error {
+	ffmpegExec, _, err := util.ResolveToolExecutable("ffmpeg")
+	if err != nil {
+		return err
+	}
+	args := buildCropThumbnail500Args(thumbnailPath, outputPath)
+	_, err = r.processRunner.Run(ctx, sys.RunOptions{Executable: ffmpegExec, Args: args, WorkingDir: workspace, CaptureOutput: false, OnOutput: cb.OnLog})
+	return err
+}
+
+func buildCropThumbnail500Args(thumbnailPath, outputPath string) []string {
+	return []string{
+		"-y", "-nostdin",
+		"-i", thumbnailPath,
+		"-vf", "scale=500:500:force_original_aspect_ratio=increase,crop=500:500:(in_w-500)/2:(in_h-500)/2",
+		"-frames:v", "1",
+		"-q:v", "2",
+		outputPath,
+	}
+}
+
 type ytInfoParsed struct {
 	title      string
 	sourceName string
@@ -3621,6 +3706,39 @@ func (r *Runner) embedArtwork(ctx context.Context, mediaPath, artworkPath, works
 		return mediaPath, nil
 	}
 	return out, nil
+}
+
+func (r *Runner) replaceAudioArtwork(ctx context.Context, mediaPath, artworkPath, workspace string, cb RunCallbacks) (string, error) {
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(mediaPath), "."))
+	if ext != "mp3" && ext != "m4a" && ext != "aac" && ext != "flac" && ext != "opus" && ext != "ogg" {
+		return "", fmt.Errorf("format non compatible: %s", defaultIfEmpty(ext, "inconnu"))
+	}
+	ffmpegExec, _, err := util.ResolveToolExecutable("ffmpeg")
+	if err != nil {
+		return "", err
+	}
+	out := filepath.Join(workspace, "audio_with_500_cover."+ext)
+	args := buildReplaceAudioArtworkArgs(mediaPath, artworkPath, out)
+	_, err = r.processRunner.Run(ctx, sys.RunOptions{Executable: ffmpegExec, Args: args, WorkingDir: workspace, CaptureOutput: false, OnOutput: cb.OnLog})
+	if err != nil {
+		return "", err
+	}
+	return out, nil
+}
+
+func buildReplaceAudioArtworkArgs(mediaPath, artworkPath, outputPath string) []string {
+	return []string{
+		"-y", "-nostdin",
+		"-i", mediaPath,
+		"-i", artworkPath,
+		"-map", "0:a?",
+		"-map", "0:s?",
+		"-map", "1:v:0",
+		"-map_metadata", "0",
+		"-c", "copy",
+		"-disposition:v:0", "attached_pic",
+		outputPath,
+	}
 }
 
 func (r *Runner) findExistingQobuzAlbumDirectory(inputURL, outputRoot string) string {

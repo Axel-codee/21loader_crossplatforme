@@ -106,6 +106,62 @@ func TestBuildYtDlpBaseArgsSkipsThumbnailForUnsupportedAudioFormat(t *testing.T)
 	}
 }
 
+func TestBuildCropThumbnail500ArgsUsesCenteredSquareFilter(t *testing.T) {
+	args := buildCropThumbnail500Args("/tmp/input.jpg", "/tmp/output.jpg")
+
+	filterIndex := indexOfString(args, "-vf")
+	if filterIndex < 0 || filterIndex+1 >= len(args) {
+		t.Fatalf("expected -vf filter in args: %v", args)
+	}
+	filter := args[filterIndex+1]
+	if !strings.Contains(filter, "scale=500:500:force_original_aspect_ratio=increase") || !strings.Contains(filter, "crop=500:500") {
+		t.Fatalf("expected centered 500x500 crop filter, got %q", filter)
+	}
+	if args[len(args)-1] != "/tmp/output.jpg" {
+		t.Fatalf("expected output path as last arg, got %v", args)
+	}
+}
+
+func TestBuildReplaceAudioArtworkArgsMapsNewArtworkOnly(t *testing.T) {
+	args := buildReplaceAudioArtworkArgs("/tmp/audio.mp3", "/tmp/cover.jpg", "/tmp/out.mp3")
+
+	for _, expected := range []string{"0:a?", "0:s?", "1:v:0", "attached_pic"} {
+		if !containsString(args, expected) {
+			t.Fatalf("expected %s in args: %v", expected, args)
+		}
+	}
+	if args[len(args)-1] != "/tmp/out.mp3" {
+		t.Fatalf("expected output path as last arg, got %v", args)
+	}
+}
+
+func TestDiscoverYtDlpThumbnailReturnsNewestImage(t *testing.T) {
+	workspace := t.TempDir()
+	oldPath := filepath.Join(workspace, "old.jpg")
+	newPath := filepath.Join(workspace, "new.webp")
+	if err := os.WriteFile(oldPath, []byte("old"), 0o644); err != nil {
+		t.Fatalf("write old thumbnail failed: %v", err)
+	}
+	if err := os.WriteFile(newPath, []byte("new"), 0o644); err != nil {
+		t.Fatalf("write new thumbnail failed: %v", err)
+	}
+	oldTime := time.Now().Add(-time.Hour)
+	newTime := time.Now()
+	if err := os.Chtimes(oldPath, oldTime, oldTime); err != nil {
+		t.Fatalf("chtimes old thumbnail failed: %v", err)
+	}
+	if err := os.Chtimes(newPath, newTime, newTime); err != nil {
+		t.Fatalf("chtimes new thumbnail failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "ignored.mp3"), []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write ignored media failed: %v", err)
+	}
+
+	if got := discoverYtDlpThumbnail(workspace); got != newPath {
+		t.Fatalf("expected newest thumbnail %q, got %q", newPath, got)
+	}
+}
+
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }

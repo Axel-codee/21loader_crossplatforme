@@ -190,16 +190,21 @@ func TestUpdateSettingsPersistsYtDlpEmbeddingOptions(t *testing.T) {
 	c := &Coordinator{}
 	embedMetadata := false
 	embedThumbnail := false
+	cropThumbnail := true
 
 	saved, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
-		YtDlpEmbedMetadata:  &embedMetadata,
-		YtDlpEmbedThumbnail: &embedThumbnail,
+		YtDlpEmbedMetadata:    &embedMetadata,
+		YtDlpEmbedThumbnail:   &embedThumbnail,
+		YtDlpCropThumbnail500: &cropThumbnail,
 	})
 	if err != nil {
 		t.Fatalf("UpdateSettings failed: %v", err)
 	}
 	if saved.YtDlpEmbedMetadata || saved.YtDlpEmbedThumbnail {
 		t.Fatalf("expected embedding options disabled, got metadata=%v thumbnail=%v", saved.YtDlpEmbedMetadata, saved.YtDlpEmbedThumbnail)
+	}
+	if !saved.YtDlpCropThumbnail500 {
+		t.Fatalf("expected thumbnail crop option enabled")
 	}
 }
 

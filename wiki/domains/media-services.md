@@ -41,6 +41,7 @@ Routes notables relevees dans `internal/httpapi/router.go`:
 - reglage global du format audio YouTube pour les jobs Music/Audio (`mp3` par defaut, puis `m4a`, `opus`, `flac`, `wav`, `aac` disponibles)
 - classement global de preferences audio YouTube pour les jobs Music/Audio, melangeant formats natifs sans conversion et conversions fallback
 - reglages globaux yt-dlp pour integrer les metadonnees et la miniature dans les fichiers telecharges, actives par defaut
+- option globale de recadrage `500x500` des miniatures YouTube audio/music, appliquee apres le telechargement via `ffmpeg`
 
 ## Connaissance durable
 
@@ -53,6 +54,7 @@ Routes notables relevees dans `internal/httpapi/router.go`:
 - les jobs YouTube Music/Audio doivent demander a `yt-dlp` une extraction audio explicite (`--extract-audio --audio-format <format>`) pour eviter de livrer un `.webm` quand l'utilisateur attend un fichier audio standard
 - le classement audio YouTube permet maintenant de preferer un natif sans conversion (`native:m4a`, `native:webm`, `native:best`) avant de tomber sur une conversion (`convert:m4a`, `convert:mp3`, etc.); une conversion n'est pas consideree terminale cote UI/backend pour permettre un fallback si un post-traitement echoue
 - l'integration de miniature via `yt-dlp` est appliquee aux formats usuels compatibles (`mp3`, `m4a`, `opus`, `flac` et video); elle est ignoree pour `wav`/`aac` avec avertissement UI car le support conteneur/lecteur est limite
+- le recadrage `500x500` des miniatures YouTube audio/music est volontairement non bloquant: en cas d'echec `ffmpeg` ou de thumbnail introuvable, le job garde le fichier audio avec la cover originale et consigne l'avertissement dans ses logs
 
 ## Limites / sujets ouverts
 

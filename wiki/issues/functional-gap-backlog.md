@@ -46,6 +46,7 @@
 | `BACKLOG-25` | Integrer metadonnees et miniature dans les fichiers telecharges par yt-dlp | `done 2026-06-08` | services media / frontend-ui | [../domains/media-services.md](../domains/media-services.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 | `BACKLOG-26` | Classer les preferences audio YouTube entre formats natifs et conversions fallback | `done 2026-06-08` | services media / frontend-ui | [../domains/media-services.md](../domains/media-services.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 | `BACKLOG-27` | Configurer la convention de nommage des telechargements YouTube | `done 2026-06-09` | jobs/pipeline / frontend-ui | [../domains/jobs-pipeline.md](../domains/jobs-pipeline.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
+| `BACKLOG-28` | Recadrer les miniatures YouTube audio en 500x500 sans bloquer le job en cas d'echec | `done 2026-06-09` | services media / frontend-ui | [../domains/media-services.md](../domains/media-services.md), [../domains/frontend-ui.md](../domains/frontend-ui.md) |
 
 ## Zones de code probablement concernees
 
@@ -87,6 +88,7 @@
 - `BACKLOG-25` a ete traite le `2026-06-08`; les reglages yt-dlp exposent l'integration des metadonnees et de la miniature, activees par defaut, avec un avertissement pour les formats audio dont le support miniature est limite.
 - `BACKLOG-26` a ete traite le `2026-06-08`; les reglages YouTube Audio acceptent maintenant un classement mixte de priorites natives (`native:m4a`, `native:webm`, `native:best`) et de conversions fallback (`convert:<format>`), sans bloquer plusieurs conversions successives.
 - `BACKLOG-27` a ete traite le `2026-06-09`; les reglages exposent une convention de nommage YouTube ordonnable entre `source`, `date` et `title`, appliquee au dossier d'item et au fichier final.
+- `BACKLOG-28` a ete traite le `2026-06-09`; les reglages yt-dlp exposent une option de recadrage des covers YouTube audio/music en `500x500`. Le runner garde le fichier audio avec la cover originale si le recadrage ou la reintegration `ffmpeg` echoue, et journalise l'avertissement dans les logs du job.
 - Les identifiants `BACKLOG-xx` servent de points d'ancrage stables pour relier plus tard une solution, une issue detaillee ou une investigation a un item de backlog precis.
 
 ## Pages liees

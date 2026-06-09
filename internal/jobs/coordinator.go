@@ -570,6 +570,9 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) (cor
 	if payload.YtDlpEmbedThumbnail != nil {
 		c.settings.YtDlpEmbedThumbnail = *payload.YtDlpEmbedThumbnail
 	}
+	if payload.YtDlpCropThumbnail500 != nil {
+		c.settings.YtDlpCropThumbnail500 = *payload.YtDlpCropThumbnail500
+	}
 	if payload.YouTubeAudioFormat != nil {
 		format, err := normalizeYouTubeAudioFormat(*payload.YouTubeAudioFormat)
 		if err != nil {
@@ -719,6 +722,7 @@ func sameJobConfiguration(left, right core.JobRequest) bool {
 		left.UseFirefoxCookies != right.UseFirefoxCookies ||
 		left.YtDlpEmbedMetadata != right.YtDlpEmbedMetadata ||
 		left.YtDlpEmbedThumbnail != right.YtDlpEmbedThumbnail ||
+		left.YtDlpCropThumbnail500 != right.YtDlpCropThumbnail500 ||
 		left.QobuzUseUserAuthToken != right.QobuzUseUserAuthToken {
 		return false
 	}
@@ -1902,6 +1906,7 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	}
 	ytDlpEmbedMetadata := settings.YtDlpEmbedMetadata
 	ytDlpEmbedThumbnail := settings.YtDlpEmbedThumbnail
+	ytDlpCropThumbnail500 := settings.YtDlpCropThumbnail500
 	youtubeAudioFormat, err := normalizeYouTubeAudioFormat(fallbackTrimmed(payload.YouTubeAudioFormat, settings.YouTubeAudioFormat))
 	if err != nil {
 		return builtJob{}, err
@@ -2030,6 +2035,7 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		YtDlpExtraArguments:          strings.TrimSpace(payload.YtDlpExtraArguments),
 		YtDlpEmbedMetadata:           ytDlpEmbedMetadata,
 		YtDlpEmbedThumbnail:          ytDlpEmbedThumbnail,
+		YtDlpCropThumbnail500:        ytDlpCropThumbnail500,
 		YouTubeAudioFormat:           youtubeAudioFormat,
 		YouTubeAudioPreferences:      youtubeAudioPreferences,
 		YouTubeNameParts:             youtubeNameParts,

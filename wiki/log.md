@@ -1,5 +1,12 @@
 # Log du wiki
 
+## [2026-06-09] feat | covers YouTube audio 500x500
+
+- Ajout du reglage persistant `ytDlpCropThumbnail500` pour les jobs YouTube audio/music.
+- Quand l'option est activee avec l'integration de miniature, le runner tente de recadrer la thumbnail `yt-dlp` en `500x500` via `ffmpeg`, puis de la reintegrer comme cover.
+- Si le recadrage ou la reintegration echoue, le job conserve le fichier audio avec la cover originale et ajoute un avertissement dans les logs.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-28`.
+
 ## [2026-06-09] fix | stabilisation test streaming process
 
 - Le workflow Release `v2026.06.09.2` a echoue dans le job Windows sur `TestRunnerRunStreamsChunkProgressWithoutSeparators` avec une sortie capturee tronquee a `10%50%`.

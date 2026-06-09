@@ -2201,7 +2201,12 @@
                   <input type="checkbox" id="ytDlpEmbedThumbnail" />
                   Intégrer la miniature / cover
                 </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="ytDlpCropThumbnail500" />
+                  Recadrer les covers YouTube audio en 500x500
+                </label>
                 <p class="hint">Activé par défaut. Les métadonnées viennent de YouTube/yt-dlp: titre, chaîne/uploader, date, URL et autres champs disponibles selon la source.</p>
+                <p class="hint">Si le recadrage échoue, le job conserve le fichier audio avec la cover originale et le signale dans les logs.</p>
               </section>
               <section class="whisper-job-card whisper-job-card--wide">
                 <div class="whisper-job-card-head">
@@ -7739,6 +7744,7 @@
         setChecked("useFirefoxCookies", s.useFirefoxCookies);
         setChecked("ytDlpEmbedMetadata", s.ytDlpEmbedMetadata ?? true);
         setChecked("ytDlpEmbedThumbnail", s.ytDlpEmbedThumbnail ?? true);
+        setChecked("ytDlpCropThumbnail500", s.ytDlpCropThumbnail500 ?? false);
         setInput("youtubeAudioFormat", s.youtubeAudioFormat || "mp3");
         renderYouTubeAudioPreferences(s.youtubeAudioPreferences || [`convert:${s.youtubeAudioFormat || "mp3"}`]);
         renderYouTubeNameParts(s.youtubeNameParts || DEFAULT_YOUTUBE_NAME_PARTS);
@@ -8558,6 +8564,7 @@
         useFirefoxCookies: $("useFirefoxCookies").checked,
         ytDlpEmbedMetadata: $("ytDlpEmbedMetadata").checked,
         ytDlpEmbedThumbnail: $("ytDlpEmbedThumbnail").checked,
+        ytDlpCropThumbnail500: $("ytDlpCropThumbnail500").checked,
         youtubeAudioFormat: getYouTubeAudioFallbackFormat(),
         youtubeAudioPreferences: getYouTubeAudioPreferences(),
         youtubeNameParts: getYouTubeNameParts(),

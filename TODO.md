@@ -41,6 +41,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Les jobs YouTube doivent resoudre `yt-dlp` via le resolver commun, pas l'executer en nom brut, pour couvrir Homebrew quand le `PATH` applicatif est incomplet.
 - La deduplication des jobs en mode `completer` doit autoriser un nouveau job si l'ancien job termine pointe vers un fichier final supprime.
 - La convention automatique de nommage YouTube est reglable depuis les reglages: source, date et titre peuvent etre actives et ordonnes; elle s'applique au dossier d'item et au fichier final.
+- Les jobs YouTube audio/music peuvent recadrer la miniature en 500x500 via `ffmpeg`; si le post-traitement echoue, le fichier audio et la cover originale sont conserves et l'echec est journalise dans les logs du job.
 
 ## Zones de code probablement concernees par les prochains sujets
 
@@ -106,6 +107,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Ajouter un classement de preferences audio YouTube natif puis conversion fallback
 - [x] Autoriser le re-telechargement d'un job termine quand son fichier final a ete supprime
 - [x] Pouvoir configurer la convention de nommage des telechargements YouTube
+- [x] Ajouter une option pour recadrer les miniatures YouTube audio en 500x500 sans faire echouer le job si le recadrage echoue
 
 ## Notes
 

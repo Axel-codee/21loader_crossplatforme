@@ -444,7 +444,7 @@ func TestBuildJobUsesYouTubeAudioPreferencesFromSettingsAndPayload(t *testing.T)
 
 func TestBuildJobCopiesYtDlpEmbeddingOptionsFromSettings(t *testing.T) {
 	c := &Coordinator{
-		settings: core.WebSettings{YtDlpEmbedMetadata: true, YtDlpEmbedThumbnail: true},
+		settings: core.WebSettings{YtDlpEmbedMetadata: true, YtDlpEmbedThumbnail: true, YtDlpCropThumbnail500: true},
 	}
 
 	built, err := c.buildJob(core.CreateJobAPIRequest{
@@ -457,6 +457,9 @@ func TestBuildJobCopiesYtDlpEmbeddingOptionsFromSettings(t *testing.T) {
 	}
 	if !built.Request.YtDlpEmbedMetadata || !built.Request.YtDlpEmbedThumbnail {
 		t.Fatalf("expected yt-dlp embedding options copied, got metadata=%v thumbnail=%v", built.Request.YtDlpEmbedMetadata, built.Request.YtDlpEmbedThumbnail)
+	}
+	if !built.Request.YtDlpCropThumbnail500 {
+		t.Fatalf("expected yt-dlp thumbnail crop option copied")
 	}
 }
 

@@ -64,6 +64,7 @@ Une conversation archivee a etabli un mode de collaboration utile pour une futur
 - `Reglages` ajoute une sous-carte `Pyannote` avec statut runtime, bouton d'installation du venv dedie, champ token Hugging Face masque, verification d'acces et mini assistant pas a pas
 - `Reglages > yt-dlp` expose maintenant une liste ordonnee de priorites audio YouTube, avec actions monter/descendre/retrait/ajout, pour choisir entre formats natifs sans conversion et conversions de secours
 - `Reglages > yt-dlp` expose aussi la convention de nommage YouTube, avec une liste ordonnable entre chaine/auteur, date de publication et titre video
+- `Reglages > yt-dlp` expose une option de recadrage des covers YouTube audio en `500x500`; l'UI signale que l'echec du recadrage ne bloque pas le job et que le detail apparait dans les logs
 
 ## Sujets recurrents a suivre
 
