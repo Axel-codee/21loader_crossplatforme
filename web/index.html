@@ -80,6 +80,36 @@
       white-space: nowrap;
     }
 
+    .app-version-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .app-update-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .btn-update {
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 999px;
+      white-space: nowrap;
+      min-height: 28px;
+    }
+
+    .app-update-status {
+      font-size: 11px;
+      color: #5072b3;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
     .view-nav {
       display: flex;
       flex-wrap: wrap;
@@ -1557,7 +1587,13 @@
       <div class="brand" aria-label="21loader">
         <img class="brand-logo" src="/app-logo.png" alt="Logo 21loader" loading="eager" decoding="async" />
       </div>
-      <span id="appVersion" class="app-version" aria-live="polite">Release ...</span>
+      <div class="app-version-col">
+        <div id="appUpdateBar" class="app-update-bar" hidden>
+          <span id="appUpdateStatus" class="app-update-status"></span>
+          <button id="checkAppUpdate" class="btn-primary btn-update" type="button">Rechercher une mise à jour</button>
+        </div>
+        <span id="appVersion" class="app-version" aria-live="polite">Release ...</span>
+      </div>
       <nav class="view-nav" aria-label="Navigation principale">
         <button type="button" data-page-target="add-job">Ajouter un job</button>
         <button type="button" data-page-target="jobs">Jobs en cours</button>
@@ -2930,6 +2966,9 @@
       isLoadingRSSCatalog: false,
       rssArtworkRetryTimer: null,
       rssArtworkRetryInProgress: false,
+      isCheckingAppUpdate: false,
+      lastAppUpdateCheckResult: null,
+      isApplyingLatestAppUpdate: false,
     };
 
     const DEPENDENCY_TOOLS = ["yt-dlp", "ffmpeg", "qobuz-dl", "whisper-cli", "argostranslate", "pyannote"];
@@ -7701,6 +7740,87 @@
       if (!badge) return;
       const normalized = String(version || "").trim();
       badge.textContent = normalized ? `Release ${normalized}` : "Release non disponible";
+      renderAppUpdateBar();
+    }
+
+    function renderAppUpdateBar() {
+      const bar = $("appUpdateBar");
+      const button = $("checkAppUpdate");
+      const status = $("appUpdateStatus");
+      if (!bar || !button || !status) return;
+
+      bar.hidden = false;
+
+      if (state.isApplyingLatestAppUpdate) {
+        button.textContent = "Mise à jour...";
+        button.disabled = true;
+        status.textContent = "Mise à jour en cours...";
+        return;
+      }
+
+      const result = state.lastAppUpdateCheckResult;
+
+      if (state.isCheckingAppUpdate) {
+        button.textContent = "Recherche...";
+        button.disabled = true;
+        status.textContent = "";
+        return;
+      }
+
+      if (!result) {
+        button.textContent = "Rechercher une mise à jour";
+        button.disabled = false;
+        status.textContent = "";
+        return;
+      }
+
+      if (result.updateAvailable) {
+        button.textContent = "Mettre à jour";
+        button.disabled = false;
+        status.textContent = "Mise à jour détectée";
+      } else {
+        button.textContent = "Rechercher une mise à jour";
+        button.disabled = false;
+        status.textContent = "Aucune mise à jour disponible";
+      }
+    }
+
+    async function checkAppUpdate() {
+      if (state.isCheckingAppUpdate || state.isApplyingLatestAppUpdate) return;
+
+      state.isCheckingAppUpdate = true;
+      state.lastAppUpdateCheckResult = null;
+      renderAppUpdateBar();
+      try {
+        const result = await api("/api/app/update/check");
+        state.lastAppUpdateCheckResult = result;
+      } catch (error) {
+        setFlash(`Erreur verification mise à jour: ${error.message}`, true);
+      } finally {
+        state.isCheckingAppUpdate = false;
+        renderAppUpdateBar();
+      }
+    }
+
+    async function applyLatestAppUpdate() {
+      if (!state.lastAppUpdateCheckResult?.updateAvailable) return;
+      if (state.isApplyingLatestAppUpdate) return;
+
+      const confirmed = window.confirm(
+        "Appliquer la mise à jour va fermer 21loader pour installer la nouvelle version. Continuer ?"
+      );
+      if (!confirmed) return;
+
+      state.isApplyingLatestAppUpdate = true;
+      renderAppUpdateBar();
+      try {
+        const response = await api("/api/app/update/latest", { method: "POST" });
+        setFlash(response?.message || "Mise à jour lancée.");
+      } catch (error) {
+        setFlash(error.message, true);
+        state.isApplyingLatestAppUpdate = false;
+        renderAppUpdateBar();
+      }
     }
 
     function renderStatus(status) {
@@ -9997,6 +10117,13 @@
     });
     $("applyAppUpdate").addEventListener("click", () => {
       applyLocalAppUpdate();
+    });
+    $("checkAppUpdate").addEventListener("click", () => {
+      if (state.lastAppUpdateCheckResult?.updateAvailable) {
+        applyLatestAppUpdate();
+      } else {
+        checkAppUpdate();
+      }
     });
     $("appUpdateFilePath").addEventListener("input", () => {
       renderAppUpdateControls();

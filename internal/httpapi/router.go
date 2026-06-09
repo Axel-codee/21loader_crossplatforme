@@ -14,6 +14,7 @@ import (
 	"21loader-cross/internal/core"
 	"21loader-cross/internal/jobs"
 	"21loader-cross/internal/services"
+	"21loader-cross/internal/updater"
 	"21loader-cross/internal/xuuid"
 )
 
@@ -73,6 +74,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/dependencies/install", s.handleInstallDependencies)
 	s.mux.HandleFunc("/api/dependencies/install-progress", s.handleDependencyInstallProgress)
 	s.mux.HandleFunc("/api/app/update", s.handleApplyAppUpdate)
+	s.mux.HandleFunc("/api/app/update/check", s.handleCheckAppUpdate)
+	s.mux.HandleFunc("/api/app/update/latest", s.handleApplyLatestAppUpdate)
 	s.mux.HandleFunc("/api/translation/languages", s.handleTranslationLanguages)
 	s.mux.HandleFunc("/api/translation/languages/install", s.handleInstallTranslationLanguage)
 	s.mux.HandleFunc("/api/system/select-directory", s.handleSelectDirectory)
@@ -226,6 +229,42 @@ func (s *Server) handleApplyAppUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleCheckAppUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+
+	result, err := updater.CheckLatest(r.Context(), updater.Options{CurrentVersion: s.appVersion})
+	if err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, core.AppUpdateCheckResponse{
+		UpdateAvailable: result.UpdateAvailable,
+		CurrentVersion:  result.CurrentVersion,
+		LatestVersion:   result.LatestVersion,
+		AssetName:       result.AssetName,
+		Message:         result.Message,
+	})
+}
+
+func (s *Server) handleApplyLatestAppUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, http.StatusMethodNotAllowed, "Methode non autorisee")
+		return
+	}
+
+	if err := updater.Update(r.Context(), updater.Options{CurrentVersion: s.appVersion}); err != nil {
+		errorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, core.AppUpdateLatestResponse{
+		OK:      true,
+		Message: "Mise a jour lancee. L'application va se fermer puis se relancer.",
+	})
 }
 
 func (s *Server) handleTranslationLanguages(w http.ResponseWriter, r *http.Request) {

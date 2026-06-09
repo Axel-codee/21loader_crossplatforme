@@ -11,11 +11,20 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const DefaultRepo = "Axel-codee/21loader_crossplatforme"
+
+type CheckLatestResult struct {
+	UpdateAvailable bool   `json:"updateAvailable"`
+	CurrentVersion  string `json:"currentVersion"`
+	LatestVersion   string `json:"latestVersion"`
+	AssetName       string `json:"assetName,omitempty"`
+	Message         string `json:"message,omitempty"`
+}
 
 type Options struct {
 	Repo           string
@@ -265,4 +274,94 @@ func setGitHubAuth(req *http.Request, token string) {
 	if token = strings.TrimSpace(token); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+}
+
+func CheckLatest(ctx context.Context, opts Options) (CheckLatestResult, error) {
+	repo := strings.TrimSpace(opts.Repo)
+	if repo == "" {
+		repo = DefaultRepo
+	}
+	client := opts.HTTPClient
+	if client == nil {
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+
+	token := githubAuthToken(ctx)
+	release, err := fetchLatestRelease(ctx, client, repo, token)
+	if err != nil {
+		return CheckLatestResult{}, err
+	}
+
+	asset, err := SelectReleaseAsset(release.Assets, runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return CheckLatestResult{UpdateAvailable: false, CurrentVersion: opts.CurrentVersion, LatestVersion: release.TagName, Message: fmt.Sprintf("Aucun asset compatible: %v", err)}, nil
+	}
+
+	versionNote := strings.TrimSpace(release.TagName)
+	if versionNote == "" {
+		versionNote = strings.TrimSpace(release.Name)
+	}
+	if versionNote == "" {
+		versionNote = "latest"
+	}
+
+	current := strings.TrimSpace(opts.CurrentVersion)
+	updateAvailable := CompareVersions(current, versionNote)
+
+	result := CheckLatestResult{
+		UpdateAvailable: updateAvailable,
+		CurrentVersion:  current,
+		LatestVersion:   versionNote,
+		AssetName:       asset.Name,
+	}
+	if updateAvailable {
+		result.Message = fmt.Sprintf("Mise a jour disponible: %s -> %s", current, versionNote)
+	} else {
+		result.Message = "Aucune mise a jour disponible."
+	}
+	return result, nil
+}
+
+func CompareVersions(current, latest string) bool {
+	current = strings.TrimSpace(current)
+	latest = strings.TrimSpace(latest)
+	if current == "" || latest == "" || latest == "latest" {
+		return false
+	}
+	current = strings.TrimPrefix(strings.TrimPrefix(current, "v"), "V")
+	latest = strings.TrimPrefix(strings.TrimPrefix(latest, "v"), "V")
+	if current == latest {
+		return false
+	}
+
+	currentParts := strings.Split(current, ".")
+	latestParts := strings.Split(latest, ".")
+
+	maxLen := len(currentParts)
+	if len(latestParts) > maxLen {
+		maxLen = len(latestParts)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		cNum := partToNum(currentParts, i)
+		lNum := partToNum(latestParts, i)
+		if lNum > cNum {
+			return true
+		}
+		if lNum < cNum {
+			return false
+		}
+	}
+	return false
+}
+
+func partToNum(parts []string, index int) int {
+	if index >= len(parts) {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(parts[index]))
+	if err != nil {
+		return 0
+	}
+	return n
 }

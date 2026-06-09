@@ -604,6 +604,19 @@ type AppUpdateResponse struct {
 	RestartScheduled bool   `json:"restartScheduled,omitempty"`
 }
 
+type AppUpdateCheckResponse struct {
+	UpdateAvailable bool   `json:"updateAvailable"`
+	CurrentVersion  string `json:"currentVersion"`
+	LatestVersion   string `json:"latestVersion"`
+	AssetName       string `json:"assetName,omitempty"`
+	Message         string `json:"message,omitempty"`
+}
+
+type AppUpdateLatestResponse struct {
+	OK      bool   `json:"ok"`
+	Message string `json:"message"`
+}
+
 type TranslationLanguageInfoDTO struct {
 	Code      string `json:"code"`
 	Name      string `json:"name"`

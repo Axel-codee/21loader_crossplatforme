@@ -108,8 +108,10 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Autoriser le re-telechargement d'un job termine quand son fichier final a ete supprime
 - [x] Pouvoir configurer la convention de nommage des telechargements YouTube
 - [x] Ajouter une option pour recadrer les miniatures YouTube audio en 500x500 sans faire echouer le job si le recadrage echoue
+- [x] Ajouter un bouton de mise a jour dans l'en-tete web qui detecte la derniere GitHub Release, affiche <Mise a jour detectee> et permet de lancer <21loader update> depuis l'UI
 
 ## Notes
 
 - Le point `Recuperation des paroles dans la description des videos YouTube` semble deja prepare cote UI, mais pas encore execute cote moteur.
 - Le point `Reelle barre de progression` est partiellement entame techniquement: il y a deja des compteurs et pourcentages, mais pas encore une restitution complete et homogene dans l'interface.
+- Le bouton de mise a jour web utilise `GET /api/app/update/check` pour interroger la derniere release GitHub et comparer les versions, puis `POST /api/app/update/latest` pour declencher le meme flux que `21loader update`.
