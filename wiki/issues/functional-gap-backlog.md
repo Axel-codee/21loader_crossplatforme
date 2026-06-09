@@ -70,7 +70,7 @@
 - Le statut exact de chaque ligne devra etre reevalue au fil des conversations et des changements de code.
 - `BACKLOG-05` a ete traite le `2026-04-09`; la ligne reste ici comme point de traceabilite pour le branding web.
 - `BACKLOG-04` a ete traite le `2026-04-12`; l'UI affiche maintenant le pourcentage reel de l'etape `transcription` au lieu du pourcentage global du pipeline.
-- `BACKLOG-11` a ete traite le `2026-04-12`; un doublon logique exact est maintenant refuse a l'enqueue quand la collision est en mode `completer`.
+- `BACKLOG-11` a ete traite le `2026-04-12` puis affine le `2026-06-09`; un doublon logique exact est refuse a l'enqueue en mode `completer`, sauf si l'ancien job termine pointe vers un fichier final supprime.
 - `BACKLOG-12` a ete traite le `2026-04-17`; les flux RSS favoris sont maintenant persistables dans les reglages web et reutilisables depuis la vue `Ajouter un job`.
 - `BACKLOG-14` a ete traite le `2026-05-02`; l'app expose maintenant un provider de diarisation generique avec `tinydiarize` et `pyannote`, un runtime Python dedie pour `pyannote`, un merge speaker-dominant par segment Whisper et des artefacts `.pyannote.json/.txt/.srt` separes.
 - `BACKLOG-15` a ete traite le `2026-06-08`; l'app expose `21loader` et `21loader update`, avec un updater qui consomme les GitHub Releases produites par GitHub Actions.

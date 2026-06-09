@@ -39,6 +39,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - Le launcher macOS doit resoudre les symlinks (`/usr/local/bin/21loader`, `~/.local/bin/21loader`) avant de chercher `Contents/Resources/app`.
 - Le launcher/updater doit eviter qu'un ancien `21loader-server` inactif continue a servir une ancienne UI apres `21loader update`.
 - Les jobs YouTube doivent resoudre `yt-dlp` via le resolver commun, pas l'executer en nom brut, pour couvrir Homebrew quand le `PATH` applicatif est incomplet.
+- La deduplication des jobs en mode `completer` doit autoriser un nouveau job si l'ancien job termine pointe vers un fichier final supprime.
 
 ## Zones de code probablement concernees par les prochains sujets
 
@@ -102,6 +103,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Afficher la release courante dans l'en-tete de la Web UI
 - [x] Ajouter des reglages yt-dlp pour integrer les metadonnees et la miniature dans les fichiers telecharges
 - [x] Ajouter un classement de preferences audio YouTube natif puis conversion fallback
+- [x] Autoriser le re-telechargement d'un job termine quand son fichier final a ete supprime
 
 ## Notes
 

@@ -1,5 +1,11 @@
 # Log du wiki
 
+## [2026-06-09] fix | redownload apres suppression du fichier final
+
+- La deduplication des jobs en mode `completer` ignore maintenant un job termine si son `Result.MediaPath` existe dans l'historique mais n'existe plus sur le disque.
+- Le cas vise est le re-telechargement d'une musique YouTube deja presente dans la liste des jobs apres suppression manuelle du fichier final.
+- Ajout d'un test backend dans `internal/jobs/coordinator_enqueue_test.go`.
+
 ## [2026-06-08] feat | preferences audio YouTube natives et fallback
 
 - Ajout d'un classement `youtubeAudioPreferences` pour les jobs YouTube Music/Audio.

@@ -660,11 +660,30 @@ func (c *Coordinator) findEquivalentJobLocked(built builtJob) *core.JobRecord {
 		if rec.Status == core.StatusFailed || rec.Status == core.StatusCancelled {
 			continue
 		}
+		if rec.Status == core.StatusCompleted && completedJobMediaMissing(rec) {
+			continue
+		}
 		if sameJobConfiguration(rec.Request, built.Request) {
 			return rec
 		}
 	}
 	return nil
+}
+
+func completedJobMediaMissing(rec *core.JobRecord) bool {
+	if rec == nil || rec.Result == nil {
+		return false
+	}
+	mediaPath := strings.TrimSpace(rec.Result.MediaPath)
+	if mediaPath == "" {
+		return false
+	}
+	if _, err := os.Stat(mediaPath); err == nil {
+		return false
+	} else if os.IsNotExist(err) {
+		return true
+	}
+	return false
 }
 
 func sameJobConfiguration(left, right core.JobRequest) bool {
