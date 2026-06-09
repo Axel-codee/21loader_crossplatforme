@@ -9,8 +9,9 @@ Ce projet fournit une application locale complete pour telecharger et organiser 
 - Vue d'ensemble
 - Stack et architecture
 - Prerequis
-- Installation detaillee (toutes plateformes)
-- Lancement rapide
+- Installation utilisateur (releases)
+- Installation developpeur (depuis les sources)
+- Lancement rapide (utilisateur)
 - Guide d'utilisation de l'UI
 - Fonctionnalites detaillees (liste exhaustive)
 - Organisation des sorties media
@@ -63,25 +64,70 @@ L'application expose:
 
 ## Prerequis
 
-### Minimum pour lancer
+### En tant qu'utilisateur (releases pre-compilees)
+
+Aucun prerequis. Telecharger l'installateur ou l'archive depuis [GitHub Releases](https://github.com/Axel-codee/21loader_crossplatforme/releases/latest) et lancer l'application.
+
+Les CLI externes (`yt-dlp`, `ffmpeg`, `qobuz-dl`, `whisper-cli`, `argostranslate`) peuvent etre installees automatiquement depuis l'interface (page `Systeme` > `Diagnostics`).
+
+### En tant que developpeur (compilation depuis les sources)
 
 - Go 1.22+.
 
-### Selon features utilisees
+## Installation utilisateur (releases)
 
-- YouTube/RSS fallback: `yt-dlp`.
-- Extraction audio, mux, embed artwork: `ffmpeg`.
-- Qobuz: `qobuz-dl` (et config qobuz-dl valide).
-- Transcription: `whisper-cli` + modele GGML.
-- Traduction: Python + `argostranslate`.
+Telecharger la derniere version sur [GitHub Releases](https://github.com/Axel-codee/21loader_crossplatforme/releases/latest).
 
-## Installation detaillee (toutes plateformes)
+### macOS
 
-Cette section decrit un setup complet "pret a produire des jobs" sur chaque OS.
+Ouvrir le `.dmg`, glisser `21loader.app` dans `Applications`, puis lancer l'application.
 
-### 0) Installer Go (obligatoire)
+### Windows
 
-L'application se lance avec `go run` et se build avec `go build`, donc Go doit etre installe en premier.
+Lancer le `-setup.exe` (installation complete avec raccourci menu Demarrer) ou extraire le `.zip` (version portable) et lancer `21loader.cmd`.
+
+### Premier lancement
+
+1. Aller sur `Systeme`.
+2. Cliquer `Rafraichir` dans `Diagnostics et dependances`.
+3. Utiliser les boutons `Installer` / `Mettre a jour` proposes pour chaque outil manquant.
+4. Aller sur `Gestionnaire de modeles Whisper` et installer au moins un modele.
+5. Si vous voulez la traduction:
+   - activer la traduction dans un job
+   - installer la paire de langues via le bouton `+` (Argos) dans la section langues.
+6. Aller sur `Reglages`:
+   - definir le dossier de sortie par defaut
+   - saisir email/mot de passe Qobuz si utilise
+   - activer cookies Firefox si necessaire pour YouTube
+
+### Mise a jour
+
+Depuis un terminal:
+
+```bash
+21loader update
+```
+
+L'application interroge GitHub Releases, telecharge l'asset compatible avec l'OS, puis lance l'installation.
+
+### Verification rapide
+
+Lancer un job simple depuis `Telechargements`:
+
+- une URL YouTube video publique,
+- sans options avancees,
+- avec un dossier de sortie valide.
+
+Puis verifier dans le tableau jobs:
+
+- progression des etapes,
+- statut final (`completed` attendu),
+- presence des fichiers de sortie.
+
+## Installation developpeur (depuis les sources)
+
+### 0) Installer Go
+
 Version minimale recommandee: `go 1.22`.
 
 #### macOS
@@ -126,14 +172,13 @@ Si la version fournie par la distribution est inferieure a `1.22`, installer une
 ### 1) Recuperer le projet
 
 ```bash
-git clone <url-du-repo>
+git clone https://github.com/Axel-codee/21loader_crossplatforme.git
 cd 21loader_crossplatforme
 ```
 
-### 2) Premier lancement (sans installer manuellement les outils)
+### 2) Premier lancement
 
 ```bash
-cd 21loader_crossplatforme
 go run ./cmd/server --host 0.0.0.0 --port 8080
 ```
 
@@ -141,33 +186,9 @@ Puis ouvrir `http://localhost:8080`.
 
 ### 3) Installer les dependances depuis l'application (recommande)
 
-1. Aller sur `Systeme`.
-2. Cliquer `Rafraichir` dans `Diagnostics et dependances`.
-3. Utiliser les boutons `Installer` / `Mettre a jour` proposes pour chaque outil manquant.
-4. Aller sur `Gestionnaire de modeles Whisper` et installer au moins un modele.
-5. Si vous voulez la traduction:
-   - activer la traduction dans un job
-   - installer la paire de langues via le bouton `+` (Argos) dans la section langues.
-6. Aller sur `Reglages`:
-   - definir le dossier de sortie par defaut
-   - saisir email/mot de passe Qobuz si utilise
-   - activer cookies Firefox si necessaire pour YouTube
+Identique a la section utilisateur ci-dessus.
 
-### 4) Verification rapide apres installation auto
-
-Lancer un job simple depuis `Telechargements`:
-
-- une URL YouTube video publique,
-- sans options avancees,
-- avec un dossier de sortie valide.
-
-Puis verifier dans le tableau jobs:
-
-- progression des etapes,
-- statut final (`completed` attendu),
-- presence des fichiers de sortie.
-
-### 5) Si l'installation automatique ne fonctionne pas (fallback manuel)
+### 4) Si l'installation automatique ne fonctionne pas (fallback manuel)
 
 N'utiliser cette section que si l'installation via `Systeme > Diagnostics` echoue.
 
@@ -245,24 +266,21 @@ qobuz-dl --help
 whisper-cli --version || whisper-cpp --version
 ```
 
-## Lancement rapide
-
-```bash
-cd 21loader_crossplatforme
-go run ./cmd/server --host 0.0.0.0 --port 8080
-```
-
-Puis ouvrir:
-
-- `http://localhost:8080`
-- ou `http://<IP_MACHINE>:8080` depuis un autre appareil du LAN.
-
 ### Build
 
 ```bash
 cd 21loader_crossplatforme
 go build -o 21loader ./cmd/server
 ```
+
+## Lancement rapide (utilisateur)
+
+Lancer l'application installee:
+
+- **macOS**: ouvrir `21loader.app` depuis le dossier `Applications`.
+- **Windows**: ouvrir `21loader` depuis le menu Demarrer, ou lancer `21loader.cmd` (version portable).
+
+L'UI s'ouvre dans le navigateur a `http://localhost:8080`, accessible aussi depuis un autre appareil du LAN via `http://<IP_MACHINE>:8080`.
 
 ### Commande terminal
 
@@ -274,13 +292,13 @@ Une installation packagee expose la commande:
 
 Elle lance le serveur local et ouvre l'UI dans le navigateur.
 
-Pour installer la derniere version publiee sur GitHub Releases:
+Mise a jour depuis GitHub Releases:
 
 ```bash
 21loader update
 ```
 
-L'updater interroge `https://api.github.com/repos/Axel-codee/21loader_crossplatforme/releases/latest`, telecharge l'asset compatible avec l'OS courant, puis lance l'installation. Les builds officiels sont produits par GitHub Actions quand un tag `v*` est pousse. Si le repo est prive, l'updater utilise `LOADER21_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` ou le token retourne par `gh auth token`.
+L'updater interroge `https://api.github.com/repos/Axel-codee/21loader_crossplatforme/releases/latest`, telecharge l'asset compatible avec l'OS courant, puis lance l'installation. Les builds officiels sont produits par GitHub Actions quand un tag `v*` est pousse.
 
 Sur macOS, l'application enrichit automatiquement son `PATH` au demarrage avec les emplacements usuels Homebrew et Python utilisateur (`/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, etc.). Les dependances deja installees via Homebrew, comme `yt-dlp` ou `ffmpeg`, sont donc detectees meme si 21loader est lance depuis Finder ou Applications.
 
