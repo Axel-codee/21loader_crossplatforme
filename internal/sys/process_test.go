@@ -42,6 +42,7 @@ func TestRunnerHelperProcess(t *testing.T) {
 				time.Sleep(120 * time.Millisecond)
 			}
 		}
+		time.Sleep(120 * time.Millisecond)
 		os.Exit(0)
 	case "print-env":
 		_, _ = os.Stdout.WriteString(os.Getenv("RUNNER_TEST_ENV"))

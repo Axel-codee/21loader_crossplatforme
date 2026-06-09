@@ -1,5 +1,11 @@
 # Log du wiki
 
+## [2026-06-09] fix | stabilisation test streaming process
+
+- Le workflow Release `v2026.06.09.2` a echoue dans le job Windows sur `TestRunnerRunStreamsChunkProgressWithoutSeparators` avec une sortie capturee tronquee a `10%50%`.
+- Le helper de test garde maintenant le process vivant brievement apres la derniere ecriture sans separateur pour rendre la capture finale stable en CI.
+- Validation locale: `go test ./internal/sys -count=20` et `go test ./...`.
+
 ## [2026-06-09] feat | convention de nommage YouTube configurable
 
 - Ajout du reglage persistant `youtubeNameParts` pour choisir et ordonner les composants du nom automatique YouTube.
