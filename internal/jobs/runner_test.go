@@ -46,6 +46,29 @@ func TestBuildYtDlpBaseArgsDefaultsAudioFormatToMP3(t *testing.T) {
 	}
 }
 
+func TestBuildYtDlpBaseArgsForNativeM4ADoesNotExtractAudio(t *testing.T) {
+	args := buildYtDlpBaseArgsForAudioPreference("/tmp/work", core.ContentAudio, ytDlpAudioPreference{Mode: "native", Format: "m4a"}, false, false)
+
+	if containsString(args, "--extract-audio") || containsString(args, "--audio-format") {
+		t.Fatalf("native m4a args should not extract audio: %v", args)
+	}
+	formatIndex := indexOfString(args, "-f")
+	if formatIndex < 0 || formatIndex+1 >= len(args) || args[formatIndex+1] != "bestaudio[ext=m4a]" {
+		t.Fatalf("expected native m4a selector in args: %v", args)
+	}
+}
+
+func TestResolveYtDlpAudioPreferencesKeepsMultipleConversions(t *testing.T) {
+	preferences := resolveYtDlpAudioPreferences("mp3", []string{"native:m4a", "convert:m4a", "convert:mp3"})
+
+	if len(preferences) != 3 {
+		t.Fatalf("expected three preferences, got %#v", preferences)
+	}
+	if preferences[0] != (ytDlpAudioPreference{Mode: "native", Format: "m4a"}) || preferences[1] != (ytDlpAudioPreference{Mode: "convert", Format: "m4a"}) || preferences[2] != (ytDlpAudioPreference{Mode: "convert", Format: "mp3"}) {
+		t.Fatalf("unexpected preferences: %#v", preferences)
+	}
+}
+
 func TestBuildYtDlpBaseArgsKeepsVideoMergeWithoutAudioExtraction(t *testing.T) {
 	args := buildYtDlpBaseArgs("/tmp/work", core.ContentVideo, "opus", false, false)
 

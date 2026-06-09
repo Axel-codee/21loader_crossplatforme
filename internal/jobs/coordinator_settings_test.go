@@ -130,6 +130,34 @@ func TestUpdateSettingsNormalizesYouTubeAudioFormat(t *testing.T) {
 	}
 }
 
+func TestUpdateSettingsNormalizesYouTubeAudioPreferences(t *testing.T) {
+	c := &Coordinator{}
+	preferences := []string{" native:M4A ", "convert:M4A", "convert:MP3", "convert:MP3"}
+
+	saved, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
+		YouTubeAudioPreferences: &preferences,
+	})
+	if err != nil {
+		t.Fatalf("UpdateSettings failed: %v", err)
+	}
+	expected := []string{"native:m4a", "convert:m4a", "convert:mp3"}
+	if strings.Join(saved.YouTubeAudioPreferences, ",") != strings.Join(expected, ",") {
+		t.Fatalf("expected normalized preferences %v, got %v", expected, saved.YouTubeAudioPreferences)
+	}
+}
+
+func TestUpdateSettingsRejectsInvalidYouTubeAudioPreference(t *testing.T) {
+	c := &Coordinator{}
+	preferences := []string{"native:mp3"}
+
+	_, err := c.UpdateSettings(core.UpdateSettingsAPIRequest{
+		YouTubeAudioPreferences: &preferences,
+	})
+	if err == nil || !strings.Contains(err.Error(), "youtubeAudioPreferences invalide") {
+		t.Fatalf("expected invalid preference error, got %v", err)
+	}
+}
+
 func TestUpdateSettingsPersistsYtDlpEmbeddingOptions(t *testing.T) {
 	c := &Coordinator{}
 	embedMetadata := false
@@ -180,6 +208,9 @@ func TestLoadSettingsMigratesLegacyTinydiarizeToProvider(t *testing.T) {
 	}
 	if loaded.YouTubeAudioFormat != "mp3" {
 		t.Fatalf("expected youtube audio format default mp3, got %q", loaded.YouTubeAudioFormat)
+	}
+	if strings.Join(loaded.YouTubeAudioPreferences, ",") != "convert:mp3" {
+		t.Fatalf("expected migrated youtube audio preferences convert:mp3, got %v", loaded.YouTubeAudioPreferences)
 	}
 	if !loaded.YtDlpEmbedMetadata || !loaded.YtDlpEmbedThumbnail {
 		t.Fatalf("expected yt-dlp embedding defaults enabled, got metadata=%v thumbnail=%v", loaded.YtDlpEmbedMetadata, loaded.YtDlpEmbedThumbnail)

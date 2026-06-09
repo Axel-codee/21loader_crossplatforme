@@ -62,6 +62,7 @@ Une conversation archivee a etabli un mode de collaboration utile pour une futur
 - le bloc `Tinydiarize` a ete remplace par un bloc `Diarisation` generique dans `Ajouter un job` et dans `Reglages`, avec un selecteur `Aucun / Tinydiarize / Pyannote`
 - `Pyannote` reste visible mais grise dans le selecteur de diarisation tant que le diagnostic ne confirme pas un runtime local pret et un acces valide au modele `community-1`
 - `Reglages` ajoute une sous-carte `Pyannote` avec statut runtime, bouton d'installation du venv dedie, champ token Hugging Face masque, verification d'acces et mini assistant pas a pas
+- `Reglages > yt-dlp` expose maintenant une liste ordonnee de priorites audio YouTube, avec actions monter/descendre/retrait/ajout, pour choisir entre formats natifs sans conversion et conversions de secours
 
 ## Sujets recurrents a suivre
 

@@ -411,6 +411,37 @@ func TestBuildJobUsesYouTubeAudioFormatFromSettingsAndPayload(t *testing.T) {
 	}
 }
 
+func TestBuildJobUsesYouTubeAudioPreferencesFromSettingsAndPayload(t *testing.T) {
+	c := &Coordinator{
+		settings: core.WebSettings{YouTubeAudioFormat: "m4a", YouTubeAudioPreferences: []string{"native:m4a", "convert:m4a"}},
+	}
+
+	built, err := c.buildJob(core.CreateJobAPIRequest{
+		InputURL:    "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:  "youtube",
+		ContentType: "audio",
+	})
+	if err != nil {
+		t.Fatalf("buildJob returned error: %v", err)
+	}
+	if strings.Join(built.Request.YouTubeAudioPreferences, ",") != "native:m4a,convert:m4a" {
+		t.Fatalf("expected settings preferences, got %v", built.Request.YouTubeAudioPreferences)
+	}
+
+	built, err = c.buildJob(core.CreateJobAPIRequest{
+		InputURL:                "https://www.youtube.com/watch?v=86aHZNYEUjw",
+		SourceKind:              "youtube",
+		ContentType:             "audio",
+		YouTubeAudioPreferences: []string{"native:webm", "convert:mp3"},
+	})
+	if err != nil {
+		t.Fatalf("buildJob returned error: %v", err)
+	}
+	if strings.Join(built.Request.YouTubeAudioPreferences, ",") != "native:webm,convert:mp3" {
+		t.Fatalf("expected payload preferences, got %v", built.Request.YouTubeAudioPreferences)
+	}
+}
+
 func TestBuildJobCopiesYtDlpEmbeddingOptionsFromSettings(t *testing.T) {
 	c := &Coordinator{
 		settings: core.WebSettings{YtDlpEmbedMetadata: true, YtDlpEmbedThumbnail: true},

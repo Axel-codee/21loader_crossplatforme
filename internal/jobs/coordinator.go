@@ -577,10 +577,22 @@ func (c *Coordinator) UpdateSettings(payload core.UpdateSettingsAPIRequest) (cor
 		}
 		c.settings.YouTubeAudioFormat = format
 	}
+	if payload.YouTubeAudioPreferences != nil {
+		preferences, err := normalizeYouTubeAudioPreferences(*payload.YouTubeAudioPreferences, c.settings.YouTubeAudioFormat)
+		if err != nil {
+			return core.WebSettings{}, err
+		}
+		c.settings.YouTubeAudioPreferences = preferences
+	}
 	if format, err := normalizeYouTubeAudioFormat(c.settings.YouTubeAudioFormat); err == nil {
 		c.settings.YouTubeAudioFormat = format
 	} else {
 		c.settings.YouTubeAudioFormat = "mp3"
+	}
+	if preferences, err := normalizeYouTubeAudioPreferences(c.settings.YouTubeAudioPreferences, c.settings.YouTubeAudioFormat); err == nil {
+		c.settings.YouTubeAudioPreferences = preferences
+	} else {
+		c.settings.YouTubeAudioPreferences = []string{"convert:" + c.settings.YouTubeAudioFormat}
 	}
 	if payload.KeepTemporaryFilesOnFailure != nil {
 		c.settings.KeepTemporaryFilesOnFailure = *payload.KeepTemporaryFilesOnFailure
@@ -679,7 +691,7 @@ func sameJobConfiguration(left, right core.JobRequest) bool {
 		left.QobuzUseUserAuthToken != right.QobuzUseUserAuthToken {
 		return false
 	}
-	if left.SourceKind != core.SourceQobuz && normalizedJobYouTubeAudioFormat(left.YouTubeAudioFormat) != normalizedJobYouTubeAudioFormat(right.YouTubeAudioFormat) {
+	if left.SourceKind != core.SourceQobuz && strings.Join(normalizedJobYouTubeAudioPreferences(left.YouTubeAudioPreferences, left.YouTubeAudioFormat), "\x00") != strings.Join(normalizedJobYouTubeAudioPreferences(right.YouTubeAudioPreferences, right.YouTubeAudioFormat), "\x00") {
 		return false
 	}
 	if normalizeLanguageCode(left.TranscriptionLanguage, "auto") != normalizeLanguageCode(right.TranscriptionLanguage, "auto") ||
@@ -1860,6 +1872,14 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 	if err != nil {
 		return builtJob{}, err
 	}
+	youtubeAudioPreferences := settings.YouTubeAudioPreferences
+	if len(payload.YouTubeAudioPreferences) > 0 {
+		youtubeAudioPreferences = payload.YouTubeAudioPreferences
+	}
+	youtubeAudioPreferences, err = normalizeYouTubeAudioPreferences(youtubeAudioPreferences, youtubeAudioFormat)
+	if err != nil {
+		return builtJob{}, err
+	}
 	qobuzEmail, qobuzPassword, qobuzUserAuthToken, qobuzUseUserAuthToken := resolveQobuzAuth(
 		payload.QobuzEmail,
 		payload.QobuzPassword,
@@ -1973,6 +1993,7 @@ func (c *Coordinator) buildJob(payload core.CreateJobAPIRequest) (builtJob, erro
 		YtDlpEmbedMetadata:           ytDlpEmbedMetadata,
 		YtDlpEmbedThumbnail:          ytDlpEmbedThumbnail,
 		YouTubeAudioFormat:           youtubeAudioFormat,
+		YouTubeAudioPreferences:      youtubeAudioPreferences,
 		WhisperExtraArguments:        strings.TrimSpace(payload.WhisperExtraArguments),
 		FfmpegExtraArguments:         strings.TrimSpace(payload.FfmpegExtraArguments),
 		QobuzExtraArguments:          strings.TrimSpace(payload.QobuzExtraArguments),
@@ -2115,6 +2136,7 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 		YtDlpEmbedMetadata:           true,
 		YtDlpEmbedThumbnail:          true,
 		YouTubeAudioFormat:           "mp3",
+		YouTubeAudioPreferences:      []string{"convert:mp3"},
 		KeepTemporaryFilesOnFailure:  true,
 		QobuzEmail:                   "",
 		QobuzPassword:                "",
@@ -2134,6 +2156,11 @@ func (c *Coordinator) loadSettings() core.WebSettings {
 				s.YouTubeAudioFormat = format
 			} else {
 				s.YouTubeAudioFormat = "mp3"
+			}
+			if preferences, err := normalizeYouTubeAudioPreferences(s.YouTubeAudioPreferences, s.YouTubeAudioFormat); err == nil {
+				s.YouTubeAudioPreferences = preferences
+			} else {
+				s.YouTubeAudioPreferences = []string{"convert:" + s.YouTubeAudioFormat}
 			}
 			s.FavoriteRSSPodcasts = normalizeFavoriteRSSPodcasts(s.FavoriteRSSPodcasts)
 			if !s.WhisperTinydiarizeOutputTXT {
@@ -2205,12 +2232,64 @@ func normalizeYouTubeAudioFormat(raw string) (string, error) {
 	}
 }
 
-func normalizedJobYouTubeAudioFormat(raw string) string {
-	format, err := normalizeYouTubeAudioFormat(raw)
-	if err != nil {
-		return strings.ToLower(strings.TrimSpace(raw))
+func normalizeYouTubeAudioPreference(raw string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" || value == "default" {
+		return "", nil
 	}
-	return format
+	if format, err := normalizeYouTubeAudioFormat(value); err == nil {
+		return "convert:" + format, nil
+	}
+	parts := strings.SplitN(value, ":", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("youtubeAudioPreferences invalide. Valeurs: native:m4a, native:webm, native:best, convert:mp3, convert:m4a, convert:opus, convert:flac, convert:wav, convert:aac")
+	}
+	mode := strings.TrimSpace(parts[0])
+	format := strings.TrimSpace(parts[1])
+	switch mode {
+	case "native":
+		switch format {
+		case "m4a", "webm", "best":
+			return mode + ":" + format, nil
+		}
+	case "convert":
+		if normalized, err := normalizeYouTubeAudioFormat(format); err == nil {
+			return mode + ":" + normalized, nil
+		}
+	}
+	return "", fmt.Errorf("youtubeAudioPreferences invalide. Valeurs: native:m4a, native:webm, native:best, convert:mp3, convert:m4a, convert:opus, convert:flac, convert:wav, convert:aac")
+}
+
+func normalizeYouTubeAudioPreferences(raw []string, fallbackFormat string) ([]string, error) {
+	format, err := normalizeYouTubeAudioFormat(fallbackFormat)
+	if err != nil {
+		format = "mp3"
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		normalized, err := normalizeYouTubeAudioPreference(item)
+		if err != nil {
+			return nil, err
+		}
+		if normalized == "" || seen[normalized] {
+			continue
+		}
+		seen[normalized] = true
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		out = append(out, "convert:"+format)
+	}
+	return out, nil
+}
+
+func normalizedJobYouTubeAudioPreferences(raw []string, fallbackFormat string) []string {
+	preferences, err := normalizeYouTubeAudioPreferences(raw, fallbackFormat)
+	if err != nil {
+		return []string{}
+	}
+	return preferences
 }
 
 func resolveDiarizationProviderFromLegacy(enabled bool) core.DiarizationProvider {

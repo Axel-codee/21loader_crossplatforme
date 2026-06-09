@@ -39,6 +39,7 @@ Routes notables relevees dans `internal/httpapi/router.go`:
 - runtime Python dedie pour `pyannote.audio`, verification d'acces au pipeline `community-1` et installation automatique du venv applicatif associe
 - diagnostics et installation de dependances
 - reglage global du format audio YouTube pour les jobs Music/Audio (`mp3` par defaut, puis `m4a`, `opus`, `flac`, `wav`, `aac` disponibles)
+- classement global de preferences audio YouTube pour les jobs Music/Audio, melangeant formats natifs sans conversion et conversions fallback
 - reglages globaux yt-dlp pour integrer les metadonnees et la miniature dans les fichiers telecharges, actives par defaut
 
 ## Connaissance durable
@@ -50,6 +51,7 @@ Routes notables relevees dans `internal/httpapi/router.go`:
 - `pyannote` est maintenant un troisieme etat de diarisation, additif par rapport a `tinydiarize`: il s'appuie sur un venv Python dedie, charge localement `pyannote/speaker-diarization-community-1`, garde la telemetrie desactivee et ne pousse pas l'audio vers un service cloud
 - le diagnostic `pyannote` distingue runtime Python absent, module `pyannote.audio` absent, token/acces modele manquant, et runtime completement pret; l'installation auto ne couvre que le runtime local, pas l'acceptation manuelle du modele Hugging Face
 - les jobs YouTube Music/Audio doivent demander a `yt-dlp` une extraction audio explicite (`--extract-audio --audio-format <format>`) pour eviter de livrer un `.webm` quand l'utilisateur attend un fichier audio standard
+- le classement audio YouTube permet maintenant de preferer un natif sans conversion (`native:m4a`, `native:webm`, `native:best`) avant de tomber sur une conversion (`convert:m4a`, `convert:mp3`, etc.); une conversion n'est pas consideree terminale cote UI/backend pour permettre un fallback si un post-traitement echoue
 - l'integration de miniature via `yt-dlp` est appliquee aux formats usuels compatibles (`mp3`, `m4a`, `opus`, `flac` et video); elle est ignoree pour `wav`/`aac` avec avertissement UI car le support conteneur/lecteur est limite
 
 ## Limites / sujets ouverts

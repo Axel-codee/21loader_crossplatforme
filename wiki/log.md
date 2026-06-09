@@ -1,5 +1,12 @@
 # Log du wiki
 
+## [2026-06-08] feat | preferences audio YouTube natives et fallback
+
+- Ajout d'un classement `youtubeAudioPreferences` pour les jobs YouTube Music/Audio.
+- Les priorites natives (`native:m4a`, `native:webm`, `native:best`) telechargent sans `--extract-audio`; les priorites converties (`convert:<format>`) utilisent le comportement `yt-dlp --extract-audio --audio-format <format>`.
+- Plusieurs conversions peuvent rester dans le classement afin de permettre un fallback si un post-traitement echoue.
+- Synchronisation de `TODO.md` et du backlog wiki avec `BACKLOG-26`.
+
 ## [2026-06-08] feat | metadonnees et miniature yt-dlp
 
 - Ajout de deux reglages globaux yt-dlp pour integrer les metadonnees (`--embed-metadata`) et la miniature (`--write-thumbnail --convert-thumbnails jpg --embed-thumbnail`) dans les fichiers telecharges.

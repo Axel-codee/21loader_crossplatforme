@@ -574,6 +574,42 @@
       border: 1px solid #fecaca;
     }
 
+    .btn-small {
+      padding: 6px 9px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .stack-mini {
+      display: grid;
+      gap: 8px;
+    }
+
+    .audio-priority-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .audio-priority-index {
+      min-width: 22px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    @media (max-width: 620px) {
+      .audio-priority-row {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .audio-priority-row button {
+        grid-column: span 1;
+      }
+    }
+
     .jobs-wrap {
       display: grid;
       grid-template-rows: min-content min-content minmax(180px, 1fr) minmax(160px, 230px);
@@ -2173,11 +2209,16 @@
                     <h6 class="whisper-job-card-title">Format audio YouTube</h6>
                     <span class="whisper-job-card-badge">music</span>
                   </div>
-                  <p class="whisper-job-card-copy">Format utilisé par défaut pour les prochains jobs YouTube Music/Audio.</p>
+                  <p class="whisper-job-card-copy">Classe les formats natifs à tenter sans conversion, puis les formats convertis de secours.</p>
                 </div>
                 <div class="whisper-job-card-divider"></div>
                 <div class="field">
-                  <label for="youtubeAudioFormat">Format audio par défaut</label>
+                  <label>Priorités audio</label>
+                  <div id="youtubeAudioPreferences" class="stack-mini"></div>
+                  <button type="button" id="addYouTubeAudioPreference" class="btn-ghost btn-small">Ajouter une priorité</button>
+                </div>
+                <div class="field">
+                  <label for="youtubeAudioFormat">Format converti par défaut si la liste est vide</label>
                   <select id="youtubeAudioFormat">
                     <option value="mp3">MP3 - compatible partout</option>
                     <option value="m4a">M4A - Apple / bonne qualité</option>
@@ -2187,7 +2228,7 @@
                     <option value="aac">AAC</option>
                   </select>
                 </div>
-                <p class="hint">Par défaut: MP3. La conversion utilise <code>ffmpeg</code> via <code>yt-dlp</code>.</p>
+                <p class="hint">Les priorités natives ne ré-encodent pas l'audio. Les priorités converties utilisent <code>ffmpeg</code> via <code>yt-dlp</code> et servent de secours.</p>
                 <p id="youtubeAudioFormatCompatibility" class="hint"></p>
               </section>
             </div>
@@ -2890,6 +2931,18 @@
     const RSS_ARTWORK_LOAD_TIMEOUT_MS = 9000;
     const DEFAULT_QOBUZ_CREDENTIALS_CHECK_HINT = "Teste la connexion Qobuz utilisée par qobuz-dl. Un échec peut venir des identifiants, de la configuration locale ou d'un changement côté Qobuz.";
     const DEFAULT_PYANNOTE_ACCESS_HINT = "Installe le runtime dédié, accepte le modèle community-1 sur Hugging Face, puis colle un token ou un chemin de pipeline local.";
+    const YOUTUBE_AUDIO_PREFERENCE_OPTIONS = [
+      { value: "native:m4a", label: "M4A natif - sans conversion" },
+      { value: "native:webm", label: "WEBM/Opus natif - sans conversion" },
+      { value: "native:best", label: "Meilleur audio natif - sans conversion" },
+      { value: "convert:m4a", label: "M4A converti" },
+      { value: "convert:mp3", label: "MP3 converti" },
+      { value: "convert:opus", label: "Opus converti" },
+      { value: "convert:flac", label: "FLAC converti" },
+      { value: "convert:wav", label: "WAV converti" },
+      { value: "convert:aac", label: "AAC converti" },
+    ];
+    const YOUTUBE_AUDIO_PREFERENCE_VALUES = new Set(YOUTUBE_AUDIO_PREFERENCE_OPTIONS.map((option) => option.value));
 
     function escapeHtml(value) {
       return String(value || "")
@@ -2915,15 +2968,83 @@
       $(id).checked = Boolean(value);
     }
 
+    function normalizeYouTubeAudioPreferenceValue(value, fallbackFormat = "mp3") {
+      const raw = String(value || "").trim().toLowerCase();
+      if (YOUTUBE_AUDIO_PREFERENCE_VALUES.has(raw)) return raw;
+      if (["mp3", "m4a", "opus", "flac", "wav", "aac"].includes(raw)) return `convert:${raw}`;
+      const fallback = String(fallbackFormat || "mp3").trim().toLowerCase();
+      return `convert:${["mp3", "m4a", "opus", "flac", "wav", "aac"].includes(fallback) ? fallback : "mp3"}`;
+    }
+
+    function getYouTubeAudioPreferences() {
+      const values = Array.from(document.querySelectorAll("[data-youtube-audio-preference]"))
+        .map((select) => normalizeYouTubeAudioPreferenceValue(select.value, inputValue("youtubeAudioFormat") || "mp3"));
+      return values.length ? values : [normalizeYouTubeAudioPreferenceValue(`convert:${inputValue("youtubeAudioFormat") || "mp3"}`)];
+    }
+
+    function getYouTubeAudioFallbackFormat() {
+      const converted = getYouTubeAudioPreferences().find((value) => value.startsWith("convert:"));
+      return converted ? converted.slice("convert:".length) : (inputValue("youtubeAudioFormat") || "mp3");
+    }
+
+    function renderYouTubeAudioPreferences(values = []) {
+      const node = $("youtubeAudioPreferences");
+      if (!node) return;
+      const fallbackFormat = inputValue("youtubeAudioFormat") || "mp3";
+      const normalized = (Array.isArray(values) && values.length ? values : [`convert:${fallbackFormat}`])
+        .map((value) => normalizeYouTubeAudioPreferenceValue(value, fallbackFormat));
+      node.innerHTML = normalized.map((value, index) => {
+        const options = YOUTUBE_AUDIO_PREFERENCE_OPTIONS.map((option) => {
+          const selected = option.value === value ? " selected" : "";
+          return `<option value="${escapeHtml(option.value)}"${selected}>${escapeHtml(option.label)}</option>`;
+        }).join("");
+        return `
+          <div class="audio-priority-row" data-youtube-audio-preference-row="${index}">
+            <span class="audio-priority-index">${index + 1}.</span>
+            <select data-youtube-audio-preference>${options}</select>
+            <button type="button" class="btn-ghost btn-small" data-youtube-audio-preference-action="up" data-index="${index}" ${index === 0 ? "disabled" : ""}>Monter</button>
+            <button type="button" class="btn-ghost btn-small" data-youtube-audio-preference-action="down" data-index="${index}" ${index === normalized.length - 1 ? "disabled" : ""}>Descendre</button>
+            <button type="button" class="btn-danger btn-small" data-youtube-audio-preference-action="remove" data-index="${index}" ${normalized.length === 1 ? "disabled" : ""}>Retirer</button>
+          </div>`;
+      }).join("");
+      node.querySelectorAll("[data-youtube-audio-preference]").forEach((select) => {
+        select.addEventListener("change", updateYouTubeAudioFormatCompatibility);
+      });
+      node.querySelectorAll("[data-youtube-audio-preference-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const action = button.getAttribute("data-youtube-audio-preference-action");
+          const index = Number(button.getAttribute("data-index"));
+          const current = getYouTubeAudioPreferences();
+          if (action === "up" && index > 0) {
+            [current[index - 1], current[index]] = [current[index], current[index - 1]];
+          } else if (action === "down" && index + 1 < current.length) {
+            [current[index], current[index + 1]] = [current[index + 1], current[index]];
+          } else if (action === "remove" && current.length > 1) {
+            current.splice(index, 1);
+          }
+          renderYouTubeAudioPreferences(current);
+          updateYouTubeAudioFormatCompatibility();
+        });
+      });
+      updateYouTubeAudioFormatCompatibility();
+    }
+
+    function addYouTubeAudioPreference() {
+      const current = getYouTubeAudioPreferences();
+      current.push(normalizeYouTubeAudioPreferenceValue(`convert:${inputValue("youtubeAudioFormat") || "m4a"}`));
+      renderYouTubeAudioPreferences(current);
+    }
+
     function updateYouTubeAudioFormatCompatibility() {
       const node = $("youtubeAudioFormatCompatibility");
       if (!node) return;
-      const format = inputValue("youtubeAudioFormat").toLowerCase();
-      if (format === "wav" || format === "aac") {
-        node.textContent = "Attention: les métadonnées simples peuvent être écrites, mais l'intégration de miniature est ignorée pour ce format car le support lecteur/conteneur est limité.";
+      const preferences = getYouTubeAudioPreferences();
+      const limited = preferences.some((value) => value === "native:webm" || value === "convert:wav" || value === "convert:aac");
+      if (limited) {
+        node.textContent = "Attention: les métadonnées simples peuvent être écrites, mais l'intégration de miniature est ignorée pour WEBM natif, WAV et AAC car le support lecteur/conteneur est limité.";
         return;
       }
-      node.textContent = "Métadonnées et miniature intégrées sont supportées pour ce format dans les cas usuels.";
+      node.textContent = "Les formats natifs sélectionnés seront téléchargés sans conversion. Métadonnées et miniature intégrées sont supportées pour les formats usuels comme M4A, MP3, Opus et FLAC.";
     }
 
     function normalizeNumberOrNull(value) {
@@ -7533,6 +7654,7 @@
         setChecked("ytDlpEmbedMetadata", s.ytDlpEmbedMetadata ?? true);
         setChecked("ytDlpEmbedThumbnail", s.ytDlpEmbedThumbnail ?? true);
         setInput("youtubeAudioFormat", s.youtubeAudioFormat || "mp3");
+        renderYouTubeAudioPreferences(s.youtubeAudioPreferences || [`convert:${s.youtubeAudioFormat || "mp3"}`]);
         updateYouTubeAudioFormatCompatibility();
         setChecked("keepTemporaryFilesOnFailure", s.keepTemporaryFilesOnFailure);
         setFavoriteRSSPodcasts(s.favoriteRSSPodcasts || []);
@@ -8349,7 +8471,8 @@
         useFirefoxCookies: $("useFirefoxCookies").checked,
         ytDlpEmbedMetadata: $("ytDlpEmbedMetadata").checked,
         ytDlpEmbedThumbnail: $("ytDlpEmbedThumbnail").checked,
-        youtubeAudioFormat: inputValue("youtubeAudioFormat") || "mp3",
+        youtubeAudioFormat: getYouTubeAudioFallbackFormat(),
+        youtubeAudioPreferences: getYouTubeAudioPreferences(),
         keepTemporaryFilesOnFailure: $("keepTemporaryFilesOnFailure").checked,
       };
 
@@ -9740,6 +9863,7 @@
     $("jobForm").addEventListener("submit", createJob);
     $("settingsForm").addEventListener("submit", saveSettings);
     $("youtubeAudioFormat").addEventListener("change", updateYouTubeAudioFormatCompatibility);
+    $("addYouTubeAudioPreference").addEventListener("click", addYouTubeAudioPreference);
     $("openJobsPageFromBuilder").addEventListener("click", () => {
       applyPage("jobs");
     });

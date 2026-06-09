@@ -27,6 +27,7 @@
 - [sources/source-2026-04-07-session-qobuz-hardening-implementation.md](./sources/source-2026-04-07-session-qobuz-hardening-implementation.md): implementation observee du durcissement Qobuz
 - [sources/source-2026-04-07-session-ui-briefing.md](./sources/source-2026-04-07-session-ui-briefing.md): consignes utiles pour une future refonte UI
 - [sources/source-2026-04-09-session-logo-web.md](./sources/source-2026-04-09-session-logo-web.md): integration du logo dans l'en-tete web et dans le favicon navigateur
+- [sources/source-2026-06-08-session-youtube-audio-preferences.md](./sources/source-2026-06-08-session-youtube-audio-preferences.md): decision sur le classement audio YouTube natif puis conversion fallback
 
 ## Issues
 

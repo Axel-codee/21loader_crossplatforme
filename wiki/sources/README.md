@@ -20,3 +20,4 @@ Sources actuellement indexees:
 - [source-2026-04-07-session-qobuz-incompleteread.md](./source-2026-04-07-session-qobuz-incompleteread.md)
 - [source-2026-04-07-session-qobuz-hardening-implementation.md](./source-2026-04-07-session-qobuz-hardening-implementation.md)
 - [source-2026-04-07-session-ui-briefing.md](./source-2026-04-07-session-ui-briefing.md)
+- [source-2026-06-08-session-youtube-audio-preferences.md](./source-2026-06-08-session-youtube-audio-preferences.md)

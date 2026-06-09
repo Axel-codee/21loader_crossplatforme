@@ -487,7 +487,7 @@ func (r *Runner) Run(ctx context.Context, job core.JobRequest, opt RunOptions, c
 func (r *Runner) download(ctx context.Context, job core.JobRequest, outputRoot, workspace string, cb RunCallbacks) (downloadArtifact, error) {
 	switch job.SourceKind {
 	case core.SourceYouTube:
-		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, "", "", nil, cb)
+		return r.downloadWithYtDlp(ctx, job.InputURL, workspace, job.ContentType, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, job.YouTubeAudioPreferences, "", "", nil, cb)
 	case core.SourceRSS:
 		if job.SelectedRSSEpisode == nil {
 			return downloadArtifact{}, fmt.Errorf("aucun episode RSS selectionne")
@@ -540,7 +540,7 @@ func (r *Runner) downloadRSS(ctx context.Context, selection core.RSSEpisodeSelec
 		if cb.OnLog != nil {
 			cb.OnLog("[rss] URL non directe, fallback via yt-dlp\n")
 		}
-		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
+		artifact, err = r.downloadWithYtDlp(ctx, selection.MediaURL, workspace, core.ContentAudio, job.UseFirefoxCookies, job.YtDlpExtraArguments, job.YtDlpEmbedMetadata, job.YtDlpEmbedThumbnail, job.YouTubeAudioFormat, job.YouTubeAudioPreferences, selection.PodcastTitle, selection.Title, selection.PublicationDate, cb)
 		if err != nil {
 			return downloadArtifact{}, err
 		}
@@ -562,6 +562,15 @@ func (r *Runner) downloadRSS(ctx context.Context, selection core.RSSEpisodeSelec
 }
 
 func buildYtDlpBaseArgs(workspace string, mode core.JobContentType, audioFormat string, embedMetadata, embedThumbnail bool) []string {
+	return buildYtDlpBaseArgsForAudioPreference(workspace, mode, ytDlpAudioPreference{Mode: "convert", Format: resolvedYtDlpConversionFormat(audioFormat)}, embedMetadata, embedThumbnail)
+}
+
+type ytDlpAudioPreference struct {
+	Mode   string
+	Format string
+}
+
+func buildYtDlpBaseArgsForAudioPreference(workspace string, mode core.JobContentType, preference ytDlpAudioPreference, embedMetadata, embedThumbnail bool) []string {
 	baseArgs := []string{
 		"--no-playlist",
 		"--newline",
@@ -569,22 +578,109 @@ func buildYtDlpBaseArgs(workspace string, mode core.JobContentType, audioFormat 
 		"--print", "after_move:filepath",
 		"-o", filepath.Join(workspace, "%(title)s [%(id)s].%(ext)s"),
 	}
-	resolvedAudioFormat := strings.ToLower(strings.TrimSpace(audioFormat))
-	if resolvedAudioFormat == "" {
-		resolvedAudioFormat = "mp3"
-	}
 	if mode == core.ContentVideo {
 		baseArgs = append(baseArgs, "-f", "bv*+ba/b", "--merge-output-format", "mkv")
 	} else {
-		baseArgs = append(baseArgs, "-f", "bestaudio/b", "--extract-audio", "--audio-format", resolvedAudioFormat)
+		switch preference.Mode {
+		case "native":
+			baseArgs = append(baseArgs, "-f", ytDlpNativeFormatSelector(preference.Format))
+		default:
+			baseArgs = append(baseArgs, "-f", "bestaudio/b", "--extract-audio", "--audio-format", resolvedYtDlpConversionFormat(preference.Format))
+		}
 	}
 	if embedMetadata {
 		baseArgs = append(baseArgs, "--embed-metadata")
 	}
-	if embedThumbnail && ytDlpThumbnailEmbeddingSupported(mode, resolvedAudioFormat) {
+	if embedThumbnail && ytDlpThumbnailEmbeddingSupported(mode, ytDlpAudioPreferenceOutputFormat(preference)) {
 		baseArgs = append(baseArgs, "--write-thumbnail", "--convert-thumbnails", "jpg", "--embed-thumbnail")
 	}
 	return baseArgs
+}
+
+func resolvedYtDlpConversionFormat(audioFormat string) string {
+	switch strings.ToLower(strings.TrimSpace(audioFormat)) {
+	case "m4a", "opus", "flac", "wav", "aac":
+		return strings.ToLower(strings.TrimSpace(audioFormat))
+	default:
+		return "mp3"
+	}
+}
+
+func ytDlpNativeFormatSelector(format string) string {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "m4a":
+		return "bestaudio[ext=m4a]"
+	case "webm":
+		return "bestaudio[ext=webm]"
+	default:
+		return "bestaudio/b"
+	}
+}
+
+func ytDlpAudioPreferenceOutputFormat(preference ytDlpAudioPreference) string {
+	if preference.Mode == "native" {
+		return strings.ToLower(strings.TrimSpace(preference.Format))
+	}
+	return resolvedYtDlpConversionFormat(preference.Format)
+}
+
+func resolveYtDlpAudioPreferences(audioFormat string, raw []string) []ytDlpAudioPreference {
+	fallback := resolvedYtDlpConversionFormat(audioFormat)
+	if len(raw) == 0 {
+		return []ytDlpAudioPreference{{Mode: "convert", Format: fallback}}
+	}
+	seen := map[string]bool{}
+	out := make([]ytDlpAudioPreference, 0, len(raw))
+	for _, item := range raw {
+		preference, ok := parseYtDlpAudioPreference(item, fallback)
+		if !ok {
+			continue
+		}
+		key := preference.Mode + ":" + preference.Format
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, preference)
+	}
+	if len(out) == 0 {
+		out = append(out, ytDlpAudioPreference{Mode: "convert", Format: fallback})
+	}
+	return out
+}
+
+func parseYtDlpAudioPreference(raw, fallbackFormat string) (ytDlpAudioPreference, bool) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" || value == "default" {
+		return ytDlpAudioPreference{Mode: "convert", Format: fallbackFormat}, true
+	}
+	if strings.Contains(value, ":") {
+		parts := strings.SplitN(value, ":", 2)
+		mode := strings.TrimSpace(parts[0])
+		format := strings.TrimSpace(parts[1])
+		switch mode {
+		case "native":
+			switch format {
+			case "m4a", "webm", "best":
+				return ytDlpAudioPreference{Mode: mode, Format: format}, true
+			}
+		case "convert":
+			return ytDlpAudioPreference{Mode: mode, Format: resolvedYtDlpConversionFormat(format)}, true
+		}
+		return ytDlpAudioPreference{}, false
+	}
+	return ytDlpAudioPreference{Mode: "convert", Format: resolvedYtDlpConversionFormat(value)}, true
+}
+
+func ytDlpAudioPreferenceLabel(preference ytDlpAudioPreference) string {
+	format := strings.ToUpper(strings.TrimSpace(preference.Format))
+	if preference.Mode == "native" {
+		if preference.Format == "best" {
+			return "meilleur audio natif"
+		}
+		return format + " natif"
+	}
+	return format + " converti"
 }
 
 func ytDlpThumbnailEmbeddingSupported(mode core.JobContentType, audioFormat string) bool {
@@ -606,98 +702,58 @@ func (r *Runner) downloadWithYtDlp(
 	useFirefoxCookies bool,
 	extraArguments string,
 	embedMetadata, embedThumbnail bool,
-	audioFormat, forcedSourceName, forcedTitle string,
+	audioFormat string,
+	audioPreferences []string,
+	forcedSourceName, forcedTitle string,
 	forcedDate *time.Time,
 	cb RunCallbacks,
 ) (downloadArtifact, error) {
-	baseArgs := buildYtDlpBaseArgs(workspace, mode, audioFormat, embedMetadata, embedThumbnail)
-	resolvedAudioFormat := strings.ToLower(strings.TrimSpace(audioFormat))
-	if resolvedAudioFormat == "" {
-		resolvedAudioFormat = "mp3"
-	}
 	extraArgsList := util.ParseArgumentString(extraArguments)
 	cookiesConfiguredInArgs := hasYtDlpCookieArgs(extraArgsList)
-	args := append([]string{}, baseArgs...)
-	if useFirefoxCookies {
-		args = append(args, "--cookies-from-browser", "firefox")
+	preferences := []ytDlpAudioPreference{{Mode: "convert", Format: resolvedYtDlpConversionFormat(audioFormat)}}
+	if mode != core.ContentVideo {
+		preferences = resolveYtDlpAudioPreferences(audioFormat, audioPreferences)
 	}
-	args = append(args, extraArgsList...)
-	args = append(args, "--no-quiet", "--progress", "--newline", sourceURL)
 	if cb.OnLog != nil {
 		cb.OnLog("[download] Demarrage du telechargement YouTube...\n")
 		if mode != core.ContentVideo {
-			cb.OnLog("[download] Format audio cible: " + resolvedAudioFormat + "\n")
+			labels := make([]string, 0, len(preferences))
+			for _, preference := range preferences {
+				labels = append(labels, ytDlpAudioPreferenceLabel(preference))
+			}
+			cb.OnLog("[download] Priorites audio: " + strings.Join(labels, " > ") + "\n")
 		}
 		if embedMetadata {
 			cb.OnLog("[download] Integration des metadonnees yt-dlp activee.\n")
 		}
-		if embedThumbnail {
-			if ytDlpThumbnailEmbeddingSupported(mode, resolvedAudioFormat) {
-				cb.OnLog("[download] Integration de la miniature yt-dlp activee.\n")
-			} else {
-				cb.OnLog("[download] Integration de la miniature ignoree pour le format " + resolvedAudioFormat + " (support lecteur/conteneur limite).\n")
-			}
-		}
 	}
 
-	output, err := r.runYtDlpDownload(ctx, workspace, args, cb)
-	lastYouTubeBotErr := error(nil)
-	if looksLikeYouTubeBotCheckError(err, output) {
-		lastYouTubeBotErr = err
-	}
-	if shouldRetryWithBrowserCookies(err, output, useFirefoxCookies, cookiesConfiguredInArgs) {
-		if cb.OnLog != nil {
-			cb.OnLog("[download] Verification anti-bot detectee. Tentatives automatiques avec cookies navigateur...\n")
-		}
-		hadExtractedCookies := false
-		triedCookieSpecs := []string{}
-	retryLoop:
-		for _, browser := range preferredYtDlpCookieBrowsers() {
-			if browser != "firefox" && !browserCookieStoreLikelyAvailable(browser) {
-				if cb.OnLog != nil {
-					cb.OnLog("[download] Navigateur " + browser + " ignore (profil/cookies introuvables).\n")
-				}
-				continue
-			}
-			for _, cookieSpec := range ytDlpCookieSpecsForBrowser(browser) {
-				triedCookieSpecs = append(triedCookieSpecs, cookieSpec)
-				if cb.OnLog != nil {
-					cb.OnLog("[download] Nouvelle tentative avec --cookies-from-browser " + cookieSpec + "\n")
-				}
-				retryArgs := append([]string{}, baseArgs...)
-				retryArgs = append(retryArgs, "--cookies-from-browser", cookieSpec)
-				retryArgs = append(retryArgs, extraArgsList...)
-				retryArgs = append(retryArgs, "--no-quiet", "--progress", "--newline", sourceURL)
-				retryOutput, retryErr := r.runYtDlpDownload(ctx, workspace, retryArgs, cb)
-				output = retryOutput
-				err = retryErr
-				if looksLikeCookiesWereExtracted(output) {
-					hadExtractedCookies = true
-				}
-				if looksLikeYouTubeBotCheckError(err, output) {
-					lastYouTubeBotErr = err
-				}
-				if err == nil {
-					break retryLoop
-				}
-				if !looksLikeYouTubeBotCheckError(err, output) && !looksLikeYtDlpCookieSetupError(err, output) {
-					break retryLoop
+	output := ""
+	var err error
+	for idx, preference := range preferences {
+		baseArgs := buildYtDlpBaseArgsForAudioPreference(workspace, mode, preference, embedMetadata, embedThumbnail)
+		if cb.OnLog != nil && mode != core.ContentVideo {
+			label := ytDlpAudioPreferenceLabel(preference)
+			cb.OnLog("[download] Essai audio " + strconv.Itoa(idx+1) + "/" + strconv.Itoa(len(preferences)) + ": " + label + "\n")
+			outputFormat := ytDlpAudioPreferenceOutputFormat(preference)
+			if embedThumbnail {
+				if ytDlpThumbnailEmbeddingSupported(mode, outputFormat) {
+					cb.OnLog("[download] Integration de la miniature yt-dlp activee pour " + label + ".\n")
+				} else {
+					cb.OnLog("[download] Integration de la miniature ignoree pour " + label + " (support lecteur/conteneur limite).\n")
 				}
 			}
 		}
-		if err != nil && lastYouTubeBotErr != nil && (looksLikeYouTubeBotCheckError(err, output) || looksLikeYtDlpCookieSetupError(err, output)) {
-			attemptDetails := ""
-			if len(triedCookieSpecs) > 0 {
-				attemptDetails = " Tentatives cookies: " + strings.Join(triedCookieSpecs, ", ") + "."
-			}
-			adapted := buildYouTubeBotCheckError(lastYouTubeBotErr, output, useFirefoxCookies || hadExtractedCookies, cookiesConfiguredInArgs || hadExtractedCookies)
-			if attemptDetails != "" {
-				return downloadArtifact{}, fmt.Errorf("%w.%s", adapted, attemptDetails)
-			}
-			return downloadArtifact{}, adapted
+		output, err = r.runYtDlpDownloadWithCookieRetry(ctx, workspace, baseArgs, extraArgsList, sourceURL, useFirefoxCookies, cookiesConfiguredInArgs, cb)
+		if err == nil {
+			break
 		}
-	}
-	if err != nil {
+		if idx+1 < len(preferences) && shouldTryNextYtDlpAudioPreference(err, output, preference) {
+			if cb.OnLog != nil {
+				cb.OnLog("[download] Priorite audio indisponible ou conversion echouee, essai de la priorite suivante.\n")
+			}
+			continue
+		}
 		if looksLikeYouTubeBotCheckError(err, output) {
 			return downloadArtifact{}, buildYouTubeBotCheckError(err, output, useFirefoxCookies, cookiesConfiguredInArgs)
 		}
@@ -776,6 +832,114 @@ func (r *Runner) runYtDlpDownload(ctx context.Context, workspace string, args []
 		},
 		CaptureOutput: true,
 	})
+}
+
+func (r *Runner) runYtDlpDownloadWithCookieRetry(
+	ctx context.Context,
+	workspace string,
+	baseArgs []string,
+	extraArgsList []string,
+	sourceURL string,
+	useFirefoxCookies bool,
+	cookiesConfiguredInArgs bool,
+	cb RunCallbacks,
+) (string, error) {
+	args := append([]string{}, baseArgs...)
+	if useFirefoxCookies {
+		args = append(args, "--cookies-from-browser", "firefox")
+	}
+	args = append(args, extraArgsList...)
+	args = append(args, "--no-quiet", "--progress", "--newline", sourceURL)
+	output, err := r.runYtDlpDownload(ctx, workspace, args, cb)
+	lastYouTubeBotErr := error(nil)
+	if looksLikeYouTubeBotCheckError(err, output) {
+		lastYouTubeBotErr = err
+	}
+	if shouldRetryWithBrowserCookies(err, output, useFirefoxCookies, cookiesConfiguredInArgs) {
+		if cb.OnLog != nil {
+			cb.OnLog("[download] Verification anti-bot detectee. Tentatives automatiques avec cookies navigateur...\n")
+		}
+		hadExtractedCookies := false
+		triedCookieSpecs := []string{}
+	retryLoop:
+		for _, browser := range preferredYtDlpCookieBrowsers() {
+			if browser != "firefox" && !browserCookieStoreLikelyAvailable(browser) {
+				if cb.OnLog != nil {
+					cb.OnLog("[download] Navigateur " + browser + " ignore (profil/cookies introuvables).\n")
+				}
+				continue
+			}
+			for _, cookieSpec := range ytDlpCookieSpecsForBrowser(browser) {
+				triedCookieSpecs = append(triedCookieSpecs, cookieSpec)
+				if cb.OnLog != nil {
+					cb.OnLog("[download] Nouvelle tentative avec --cookies-from-browser " + cookieSpec + "\n")
+				}
+				retryArgs := append([]string{}, baseArgs...)
+				retryArgs = append(retryArgs, "--cookies-from-browser", cookieSpec)
+				retryArgs = append(retryArgs, extraArgsList...)
+				retryArgs = append(retryArgs, "--no-quiet", "--progress", "--newline", sourceURL)
+				retryOutput, retryErr := r.runYtDlpDownload(ctx, workspace, retryArgs, cb)
+				output = retryOutput
+				err = retryErr
+				if looksLikeCookiesWereExtracted(output) {
+					hadExtractedCookies = true
+				}
+				if looksLikeYouTubeBotCheckError(err, output) {
+					lastYouTubeBotErr = err
+				}
+				if err == nil {
+					break retryLoop
+				}
+				if !looksLikeYouTubeBotCheckError(err, output) && !looksLikeYtDlpCookieSetupError(err, output) {
+					break retryLoop
+				}
+			}
+		}
+		if err != nil && lastYouTubeBotErr != nil && (looksLikeYouTubeBotCheckError(err, output) || looksLikeYtDlpCookieSetupError(err, output)) {
+			attemptDetails := ""
+			if len(triedCookieSpecs) > 0 {
+				attemptDetails = " Tentatives cookies: " + strings.Join(triedCookieSpecs, ", ") + "."
+			}
+			adapted := buildYouTubeBotCheckError(lastYouTubeBotErr, output, useFirefoxCookies || hadExtractedCookies, cookiesConfiguredInArgs || hadExtractedCookies)
+			if attemptDetails != "" {
+				return output, fmt.Errorf("%w.%s", adapted, attemptDetails)
+			}
+			return output, adapted
+		}
+	}
+	return output, err
+}
+
+func shouldTryNextYtDlpAudioPreference(err error, output string, preference ytDlpAudioPreference) bool {
+	if err == nil || looksLikeYouTubeBotCheckError(err, output) {
+		return false
+	}
+	if looksLikeYtDlpFormatUnavailable(err, output) {
+		return true
+	}
+	return preference.Mode == "convert" && looksLikeYtDlpPostprocessingError(err, output)
+}
+
+func looksLikeYtDlpFormatUnavailable(err error, output string) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(strings.TrimSpace(output + "\n" + err.Error()))
+	return strings.Contains(text, "requested format is not available") ||
+		strings.Contains(text, "no video formats found") ||
+		strings.Contains(text, "no such format")
+}
+
+func looksLikeYtDlpPostprocessingError(err error, output string) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(strings.TrimSpace(output + "\n" + err.Error()))
+	return strings.Contains(text, "postprocess") ||
+		strings.Contains(text, "post-process") ||
+		strings.Contains(text, "ffmpeg") ||
+		strings.Contains(text, "conversion failed") ||
+		strings.Contains(text, "failed to convert")
 }
 
 func shouldRetryWithBrowserCookies(err error, output string, useFirefoxCookies bool, cookiesConfiguredInArgs bool) bool {

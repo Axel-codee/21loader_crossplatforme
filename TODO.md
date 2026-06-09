@@ -29,6 +29,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - L'interface telechargement est maintenant separee entre une vue `Ajouter un job` et une vue `Jobs en cours`, avec suivi de file et logs isoles du formulaire.
 - Le choix explicite `mp3/mp4/les deux` pour YouTube ne ressort pas dans l'UI actuelle; le backend choisit surtout selon le type de contenu (`audio` ou `video`).
 - Les jobs YouTube Music/Audio peuvent maintenant utiliser un format audio par defaut reglable (`mp3`, `m4a`, `opus`, `flac`, `wav`, `aac`) et extraient l'audio via `yt-dlp` au lieu de garder le conteneur natif `.webm`.
+- Les jobs YouTube Music/Audio peuvent maintenant suivre un classement mixte de priorites audio (`native:m4a`, `native:webm`, `native:best`, puis `convert:<format>`), pour preferer un format natif sans conversion avant de convertir si necessaire.
 - Les jobs traites par `yt-dlp` peuvent integrer les metadonnees et la miniature dans le fichier final via deux reglages actives par defaut; la miniature est ignoree pour `wav`/`aac` car le support conteneur/lecteur est limite.
 - Je n'ai pas repere de mode dedie pour `telecharger uniquement les sous-titres`; aujourd'hui les sous-titres sont produits via la transcription.
 - Le mode de collision `completer` doit comparer un job RSS a l'URL exacte de l'episode, pas seulement au podcast, sinon un episode peut etre reutilise a la place d'un autre.
@@ -100,6 +101,7 @@ Pour le contexte durable, les liens avec problemes et solutions, voir aussi `wik
 - [x] Arreter l'ancien serveur inactif apres update/lancement pour charger la nouvelle UI
 - [x] Afficher la release courante dans l'en-tete de la Web UI
 - [x] Ajouter des reglages yt-dlp pour integrer les metadonnees et la miniature dans les fichiers telecharges
+- [x] Ajouter un classement de preferences audio YouTube natif puis conversion fallback
 
 ## Notes
 

@@ -95,6 +95,7 @@ type WebSettings struct {
 	YtDlpEmbedMetadata           bool                 `json:"ytDlpEmbedMetadata"`
 	YtDlpEmbedThumbnail          bool                 `json:"ytDlpEmbedThumbnail"`
 	YouTubeAudioFormat           string               `json:"youtubeAudioFormat"`
+	YouTubeAudioPreferences      []string             `json:"youtubeAudioPreferences,omitempty"`
 	KeepTemporaryFilesOnFailure  bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   string               `json:"qobuzEmail"`
 	QobuzPassword                string               `json:"qobuzPassword"`
@@ -271,6 +272,7 @@ type CreateJobAPIRequest struct {
 	PyannoteOutputSRT            *bool                        `json:"pyannoteOutputSRT"`
 	YtDlpExtraArguments          string                       `json:"ytDlpExtraArguments"`
 	YouTubeAudioFormat           string                       `json:"youtubeAudioFormat"`
+	YouTubeAudioPreferences      []string                     `json:"youtubeAudioPreferences,omitempty"`
 	WhisperExtraArguments        string                       `json:"whisperExtraArguments"`
 	FfmpegExtraArguments         string                       `json:"ffmpegExtraArguments"`
 	QobuzExtraArguments          string                       `json:"qobuzExtraArguments"`
@@ -312,6 +314,7 @@ type UpdateSettingsAPIRequest struct {
 	YtDlpEmbedMetadata           *bool                 `json:"ytDlpEmbedMetadata"`
 	YtDlpEmbedThumbnail          *bool                 `json:"ytDlpEmbedThumbnail"`
 	YouTubeAudioFormat           *string               `json:"youtubeAudioFormat"`
+	YouTubeAudioPreferences      *[]string             `json:"youtubeAudioPreferences"`
 	KeepTemporaryFilesOnFailure  *bool                 `json:"keepTemporaryFilesOnFailure"`
 	QobuzEmail                   *string               `json:"qobuzEmail"`
 	QobuzPassword                *string               `json:"qobuzPassword"`
@@ -810,6 +813,7 @@ type JobRequest struct {
 	YtDlpEmbedMetadata           bool
 	YtDlpEmbedThumbnail          bool
 	YouTubeAudioFormat           string
+	YouTubeAudioPreferences      []string
 	WhisperExtraArguments        string
 	FfmpegExtraArguments         string
 	QobuzExtraArguments          string
