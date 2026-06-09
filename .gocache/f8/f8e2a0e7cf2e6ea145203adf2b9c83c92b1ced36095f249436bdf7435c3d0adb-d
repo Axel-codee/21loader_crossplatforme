@@ -1,6 +1,0 @@
-./argostranslate.go
-./args.go
-./binresolve.go
-./paths.go
-./strings.go
-./whisper_models.go
